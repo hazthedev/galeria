@@ -1,0 +1,323 @@
+# ============================================
+# MOMENTIQUE - Semgrep Security Configuration
+# ============================================
+# Static application security testing (SAST) rules
+
+rules:
+  # ============================================
+  # SQL INJECTION PREVENTION
+  # ============================================
+  - id: momentique-no-raw-sql
+    patterns:
+      - pattern: db.query($QUERY, ...)
+        metavariable: $QUERY:
+          patterns:
+            - pattern-regex: "SELECT|INSERT|UPDATE|DELETE"
+              metavariable-pattern: $QUERY
+    message: Avoid raw SQL queries - use parameterized methods (findOne, findMany, insert, update)
+    languages: [typescript, javascript]
+    severity: ERROR
+    paths:
+      include:
+        - lib/**/*.ts
+        - app/**/*.ts
+      exclude:
+        - lib/db.ts  # Database file has legitimate SQL
+    metadata:
+      category: security
+      technology:
+        - postgresql
+        - database
+      cwe: "CWE-89: SQL Injection"
+      owasp: "A1: Injection"
+
+  # ============================================
+  # HARDCODED SECRETS DETECTION
+  # ============================================
+  - id: momentique-hardcoded-jwt-secret
+    patterns:
+      - pattern-either:
+          - pattern: JWT_ACCESS_SECRET = "..."
+          - pattern: JWT_REFRESH_SECRET = "..."
+          - pattern: JWT_SECRET = "..."
+    message: Hardcoded JWT secret detected - use environment variables
+    languages: [typescript, javascript]
+    severity: ERROR
+    paths:
+      include:
+        - lib/**/*.ts
+        - app/**/*.ts
+    metadata:
+      category: security
+      technology:
+        - jwt
+        - authentication
+      cwe: "CWE-798: Use of Hard-coded Credentials"
+      owasp: "A07: Identification and Authentication Failures"
+
+  - id: momentique-hardcoded-api-key
+    patterns:
+      - pattern-regex: "(api_key|apikey|API_KEY|APIKEY)\\s*=\\s*['\"][^'\"]{10,}['\"]"
+    message: Hardcoded API key detected - use environment variables
+    languages: [typescript, javascript]
+    severity: ERROR
+    paths:
+      include:
+        - lib/**/*.ts
+        - app/**/*.ts
+    metadata:
+      category: security
+      cwe: "CWE-798: Use of Hard-coded Credentials"
+      owasp: "A07: Identification and Authentication Failures"
+
+  - id: momentique-hardcoded-database-url
+    patterns:
+      - pattern-regex: "(database_url|DATABASE_URL)\\s*=\\s*['\"]postgresql://"
+    message: Hardcoded database URL detected - use environment variables
+    languages: [typescript, javascript]
+    severity: ERROR
+    paths:
+      include:
+        - lib/**/*.ts
+        - app/**/*.ts
+    metadata:
+      category: security
+      cwe: "CWE-798: Use of Hard-coded Credentials"
+      owasp: "A07: Identification and Authentication Failures"
+
+  # ============================================
+  # INSECURE RANDOM NUMBER GENERATION
+  # ============================================
+  - id: momentique-insecure-random
+    patterns:
+      - pattern: Math.random()
+    message: Math.random() is not cryptographically secure - use crypto.randomBytes()
+    languages: [typescript, javascript]
+    severity: WARNING
+    paths:
+      include:
+        - lib/**/*.ts
+        - app/**/*.ts
+    metadata:
+      category: security
+      technology:
+        - cryptography
+      cwe: "CWE-338: Use of Cryptographically Weak PRNG"
+      owasp: "A02: Cryptographic Failures"
+
+  # ============================================
+  # XSS PREVENTION
+  # ============================================
+  - id: momentique-dangerously-set-inner-html
+    patterns:
+      - pattern: dangerouslySetInnerHTML
+    message: Avoid dangerouslySetInnerHTML - use safe HTML sanitization
+    languages: [typescript, javascript]
+    severity: WARNING
+    paths:
+      include:
+        - app/**/*.tsx
+        - components/**/*.tsx
+    metadata:
+      category: security
+      technology:
+        - react
+      cwe: "CWE-79: Cross-site Scripting (XSS)"
+      owasp: "A03: Injection"
+
+  # ============================================
+  # AUTHENTICATION SECURITY
+  # ============================================
+  - id: momentique-missing-token-verification
+    patterns:
+      - pattern: function $FUNC($REQ, $RES) {...}
+        metavariable: $FUNC:
+          patterns:
+            - pattern: headers.get("authorization")
+        metavariable: $REQ:
+          patterns:
+            - pattern: NextRequest
+    message: Authorization header extracted but token not verified
+    languages: [typescript]
+    severity: WARNING
+    paths:
+      include:
+        - app/api/**/*.ts
+    metadata:
+      category: security
+      technology:
+        - authentication
+        - jwt
+      owasp: "A07: Identification and Authentication Failures"
+
+  # ============================================
+  # RATE LIMITING
+  # ============================================
+  - id: momentique-api-route-no-rate-limit
+    patterns:
+      - pattern: async function $FUNC($REQ, $RES) {...}
+        metavariable: $FUNC:
+          patterns:
+            - pattern: verifyAccessToken($TOKEN)
+        metavariable: $REQ:
+          patterns:
+            - pattern: NextRequest
+        not:
+          - pattern: rateLimit
+    message: API route with authentication but no rate limiting
+    languages: [typescript]
+    severity: WARNING
+    paths:
+      include:
+        - app/api/**/*.ts
+      exclude:
+        - app/api/events/[id]/route.ts  # Individual events have different rate limiting
+    metadata:
+      category: security
+      technology:
+        - api
+        - rate-limiting
+      owasp: "A04: Insecure Design"
+
+  # ============================================
+  # DATA EXPOSURE
+  # ============================================
+  - id: momentique-expose-stack-trace
+    patterns:
+      - pattern: console.error($ERR)
+        metavariable: $ERR:
+          patterns:
+            - pattern: Error
+    message: Potential stack trace exposure in production - use proper logging
+    languages: [typescript, javascript]
+    severity: INFO
+    paths:
+      include:
+        - lib/**/*.ts
+        - app/**/*.ts
+    metadata:
+      category: security
+      owasp: "A05: Security Misconfiguration"
+
+  - id: momentique-expose-error-details
+    patterns:
+      - pattern: res.json({ error: err.message })
+    message: Exposing detailed error messages to client - sanitize error responses
+    languages: [typescript, javascript]
+    severity: WARNING
+    paths:
+      include:
+        - app/api/**/*.ts
+    metadata:
+      category: security
+      cwe: "CWE-209: Information Exposure Through an Error Message"
+      owasp: "A05: Security Misconfiguration"
+
+  # ============================================
+  # MULTI-TENANT SECURITY
+  # ============================================
+  - id: momentique-missing-tenant-check
+    patterns:
+      - pattern: async function $FUNC($REQ, $RES) {...}
+        metavariable: $FUNC:
+          patterns:
+            - pattern: $DB.findOne(...)
+        metavariable: $REQ:
+          patterns:
+            - pattern: NextRequest
+        not:
+          - pattern: getTenantId(...)
+    message: Database query without tenant context check - potential data leakage
+    languages: [typescript]
+    severity: ERROR
+    paths:
+      include:
+        - app/api/**/*.ts
+    metadata:
+      category: security
+      technology:
+        - multi-tenant
+      owasp: "A01: Broken Access Control"
+
+  # ============================================
+  # FILE UPLOAD SECURITY
+  # ============================================
+  - id: momentique-unsafe-file-upload
+    patterns:
+      - pattern: fs.writeFile($PATH, $DATA)
+        metavariable: $PATH:
+          patterns:
+            - pattern-regex: "(filename|file\\.name)"
+    message: File upload using user-provided filename - use generated UUID
+    languages: [typescript, javascript]
+    severity: ERROR
+    paths:
+      include:
+        - lib/**/*.ts
+        - app/api/**/*.ts
+    metadata:
+      category: security
+      cwe: "CWE-434: Unrestricted Upload of File with Dangerous Type"
+      owasp: "A03: Injection"
+
+  # ============================================
+  # REDIRECT SECURITY
+  # ============================================
+  - id: momentique-open-redirect
+    patterns:
+      - pattern: redirect($URL)
+        metavariable: $URL:
+          patterns:
+            - pattern: req.query
+    message: Open redirect vulnerability - validate redirect URLs
+    languages: [typescript, javascript]
+    severity: ERROR
+    paths:
+      include:
+        - app/**/*.ts
+    metadata:
+      category: security
+      cwe: "CWE-601: URL Redirection to Untrusted Site"
+      owasp: "A01: Broken Access Control"
+
+# ============================================
+# TEST CONFIGURATION
+# ============================================
+tests:
+  - id: momentique-test-security-headers
+    patterns:
+      - pattern: response.headers.set("x-tenant-id", ...)
+    message: Good: Tenant ID is being set for multi-tenant isolation
+    languages: [typescript]
+    severity: INFO
+
+# ============================================
+# CONFIGURATION
+# ============================================
+configuration:
+  # Ignore certain paths
+  ignore:
+    - node_modules
+    - .next
+    - dist
+    - build
+    - "*.test.ts"
+    - "*.spec.ts"
+    - "*.config.ts"
+    - "*/migrations/*"
+    - "*/seed/*"
+
+  # File extensions to scan
+  extensions:
+    - ts
+    - tsx
+    - js
+    - jsx
+
+  # Max line length for context in findings
+  max_line_length: 150
+
+  # Timeout for regex matching (prevent ReDoS)
+  timeout:
+    regex: 10
+    overall: 60

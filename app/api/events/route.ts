@@ -1,0 +1,436 @@
+// ============================================
+// MOMENTIQUE - Events API Routes
+// ============================================
+
+import { NextRequest, NextResponse } from 'next/server';
+import { getTenantId, getTenantContextFromHeaders } from '@/lib/tenant';
+import { getTenantDb } from '@/lib/db';
+import { verifyAccessToken } from '@/lib/auth';
+import { generateSlug, generateEventId, generateEventUrl } from '@/lib/utils';
+import type { IEvent, IEventCreate } from '@/lib/types';
+
+// ============================================
+// GET /api/events - List events
+// ============================================
+
+export async function GET(request: NextRequest) {
+  try {
+    // Get tenant from headers (injected by middleware)
+    const headers = request.headers;
+    const tenantId = getTenantId(headers);
+
+    if (!tenantId) {
+      return NextResponse.json(
+        { error: 'Tenant not found', code: 'TENANT_NOT_FOUND' },
+        { status: 404 }
+      );
+    }
+
+    // Parse query parameters
+    const { searchParams } = new URL(request.url);
+    const status = searchParams.get('status');
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const limit = parseInt(searchParams.get('limit') || '20', 10);
+    const offset = (page - 1) * limit;
+
+    // Get database connection
+    const db = getTenantDb(tenantId);
+
+    // Build query conditions
+    const conditions: Record<string, unknown> = {};
+    if (status) {
+      conditions.status = status;
+    }
+
+    // Fetch events
+    const events = await db.findMany<IEvent>('events', conditions, {
+      limit,
+      offset,
+      orderBy: 'created_at',
+      orderDirection: 'DESC',
+    });
+
+    // Get total count
+    const total = await db.count('events', conditions);
+
+    return NextResponse.json({
+      data: events,
+      pagination: {
+        page,
+        limit,
+        total,
+        total_pages: Math.ceil(total / limit),
+        has_next: offset + limit < total,
+        has_prev: page > 1,
+      },
+    });
+  } catch (error) {
+    console.error('[API] Error listing events:', error);
+    return NextResponse.json(
+      { error: 'Failed to list events', code: 'INTERNAL_ERROR' },
+      { status: 500 }
+    );
+  }
+}
+
+// ============================================
+// POST /api/events - Create event
+// ============================================
+
+export async function POST(request: NextRequest) {
+  try {
+    // Get tenant from headers
+    const headers = request.headers;
+    const tenantId = getTenantId(headers);
+
+    if (!tenantId) {
+      return NextResponse.json(
+        { error: 'Tenant not found', code: 'TENANT_NOT_FOUND' },
+        { status: 404 }
+      );
+    }
+
+    // Get user from JWT token (if authenticated)
+    const authHeader = headers.get('authorization');
+    let userId: string | null = null;
+
+    if (authHeader) {
+      try {
+        const token = authHeader.replace('Bearer ', '');
+        const payload = verifyAccessToken(token);
+        userId = payload.sub;
+      } catch {
+        // Token invalid, continue as guest
+      }
+    }
+
+    // Parse request body
+    const body: IEventCreate = await request.json();
+
+    // Validate required fields
+    if (!body.name || !body.event_date || !body.event_type) {
+      return NextResponse.json(
+        { error: 'Missing required fields', code: 'VALIDATION_ERROR' },
+        { status: 400 }
+      );
+    }
+
+    // Validate event type
+    const validEventTypes = ['birthday', 'wedding', 'corporate', 'other'];
+    if (!validEventTypes.includes(body.event_type)) {
+      return NextResponse.json(
+        { error: 'Invalid event type', code: 'VALIDATION_ERROR' },
+        { status: 400 }
+      );
+    }
+
+    // Get database connection
+    const db = getTenantDb(tenantId);
+
+    // Check tenant limits (if authenticated)
+    if (userId) {
+      const tenantContext = getTenantContextFromHeaders(headers);
+      if (tenantContext) {
+        const eventsThisMonth = await db.count('events', {
+          created_at: new Date().toISOString().slice(0, 7), // YYYY-MM
+        });
+
+        // TODO: Implement limit validation
+        // For now, just log
+        console.log('[API] Events this month:', eventsThisMonth);
+      }
+    }
+
+    // Generate unique slug
+    let slug = generateSlug(body.name);
+    let slugExists = await db.findOne<IEvent>('events', { slug });
+
+    // If slug exists, add random suffix
+    let attempts = 0;
+    while (slugExists && attempts < 10) {
+      slug = `${slug}-${Math.random().toString(36).substring(2, 6)}`;
+      slugExists = await db.findOne<IEvent>('events', { slug });
+      attempts++;
+    }
+
+    if (slugExists) {
+      return NextResponse.json(
+        { error: 'Could not generate unique slug', code: 'SLUG_ERROR' },
+        { status: 500 }
+      );
+    }
+
+    // Generate event ID
+    const eventId = generateEventId();
+
+    // Generate QR code URL
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const eventUrl = generateEventUrl(baseUrl, eventId, slug);
+
+    // Default settings
+    const defaultSettings = {
+      theme: {
+        primary_color: '#8B5CF6',
+        secondary_color: '#EC4899',
+        background: '#F9FAFB',
+        logo_url: undefined,
+        frame_template: 'polaroid',
+      },
+      features: {
+        photo_upload_enabled: true,
+        lucky_draw_enabled: true,
+        reactions_enabled: true,
+        moderation_required: false,
+        anonymous_allowed: true,
+      },
+      limits: {
+        max_photos_per_user: 5,
+        max_total_photos: 50,
+        max_draw_entries: 30,
+      },
+    };
+
+    // Create event
+    const event = await db.insert<IEvent>('events', {
+      id: eventId,
+      tenant_id: tenantId,
+      organizer_id: userId || '00000000-0000-0000-0000-000000000000', // Guest user
+      name: body.name,
+      slug,
+      description: body.description,
+      event_type: body.event_type,
+      event_date: new Date(body.event_date),
+      timezone: 'UTC',
+      location: body.location,
+      expected_guests: body.expected_guests,
+      custom_hashtag: body.custom_hashtag,
+      settings: { ...defaultSettings, ...body.settings },
+      status: 'active',
+      qr_code_url: eventUrl,
+      created_at: new Date(),
+      updated_at: new Date(),
+    });
+
+    return NextResponse.json(
+      {
+        data: event,
+        message: 'Event created successfully',
+      },
+      { status: 201 }
+    );
+  } catch (error) {
+    console.error('[API] Error creating event:', error);
+    return NextResponse.json(
+      { error: 'Failed to create event', code: 'INTERNAL_ERROR' },
+      { status: 500 }
+    );
+  }
+}
+
+// ============================================
+// PATCH /api/events - Bulk update events
+// ============================================
+
+export async function PATCH(request: NextRequest) {
+  try {
+    // Get tenant from headers
+    const headers = request.headers;
+    const tenantId = getTenantId(headers);
+
+    if (!tenantId) {
+      return NextResponse.json(
+        { error: 'Tenant not found', code: 'TENANT_NOT_FOUND' },
+        { status: 404 }
+      );
+    }
+
+    // Get user from JWT token
+    const authHeader = headers.get('authorization');
+    if (!authHeader) {
+      return NextResponse.json(
+        { error: 'Authentication required', code: 'AUTH_REQUIRED' },
+        { status: 401 }
+      );
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    let payload;
+
+    try {
+      payload = verifyAccessToken(token);
+    } catch {
+      return NextResponse.json(
+        { error: 'Invalid token', code: 'INVALID_TOKEN' },
+        { status: 401 }
+      );
+    }
+
+    // Parse request body
+    const body = { ids: [], updates: {} };
+    const requestBody = await request.json();
+    body.ids = requestBody.ids;
+    body.updates = requestBody.updates;
+
+    if (!body.ids || !Array.isArray(body.ids) || body.ids.length === 0) {
+      return NextResponse.json(
+        { error: 'No event IDs provided', code: 'VALIDATION_ERROR' },
+        { status: 400 }
+      );
+    }
+
+    // Get database connection
+    const db = getTenantDb(tenantId);
+
+    // Check permissions (only organizer or admin can update)
+    const userRole = payload.role;
+    if (!['organizer', 'admin', 'super_admin'].includes(userRole)) {
+      return NextResponse.json(
+        { error: 'Insufficient permissions', code: 'FORBIDDEN' },
+        { status: 403 }
+      );
+    }
+
+    // Update events (only events belonging to this user if organizer)
+    const events: IEvent[] = [];
+
+    if (userRole === 'organizer') {
+      // Only update own events
+      for (const eventId of body.ids) {
+        await db.update(
+          'events',
+          body.updates,
+          { id: eventId, organizer_id: payload.sub }
+        );
+      }
+    } else {
+      // Admin can update any event in tenant
+      for (const eventId of body.ids) {
+        await db.update(
+          'events',
+          body.updates,
+          { id: eventId }
+        );
+      }
+    }
+
+    // Fetch updated events to return
+    let finalEvents: IEvent[] = [];
+
+    if (body.ids.length === 1) {
+      const event = await db.findOne<IEvent>('events', { id: body.ids[0] });
+      if (event) {
+        finalEvents.push(event);
+      }
+    } else {
+      // Use SQL IN clause for multiple IDs
+      const placeholders = body.ids.map((_, index) => `$${index + 1}`).join(', ');
+      const result = await db.query<IEvent>(
+        `SELECT * FROM events WHERE id IN (${placeholders})`,
+        body.ids
+      );
+      finalEvents = result.rows;
+    }
+
+    return NextResponse.json({
+      events: finalEvents,
+      message: `Updated ${finalEvents.length} event(s)`,
+    });
+  } catch (error) {
+    console.error('[API] Error updating events:', error);
+    return NextResponse.json(
+      { error: 'Failed to update events', code: 'INTERNAL_ERROR' },
+      { status: 500 }
+    );
+  }
+}
+
+// ============================================
+// DELETE /api/events - Bulk delete events
+// ============================================
+
+export async function DELETE(request: NextRequest) {
+  try {
+    // Get tenant from headers
+    const headers = request.headers;
+    const tenantId = getTenantId(headers);
+
+    if (!tenantId) {
+      return NextResponse.json(
+        { error: 'Tenant not found', code: 'TENANT_NOT_FOUND' },
+        { status: 404 }
+      );
+    }
+
+    // Get user from JWT token
+    const authHeader = headers.get('authorization');
+    if (!authHeader) {
+      return NextResponse.json(
+        { error: 'Authentication required', code: 'AUTH_REQUIRED' },
+        { status: 401 }
+      );
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    let payload;
+
+    try {
+      payload = verifyAccessToken(token);
+    } catch {
+      return NextResponse.json(
+        { error: 'Invalid token', code: 'INVALID_TOKEN' },
+        { status: 401 }
+      );
+    }
+
+    // Parse request body
+    const requestBody = await request.json();
+    const { ids } = requestBody;
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return NextResponse.json(
+        { error: 'No event IDs provided', code: 'VALIDATION_ERROR' },
+        { status: 400 }
+      );
+    }
+
+    // Get database connection
+    const db = getTenantDb(tenantId);
+
+    // Check permissions
+    const userRole = payload.role;
+    if (!['organizer', 'admin', 'super_admin'].includes(userRole)) {
+      return NextResponse.json(
+        { error: 'Insufficient permissions', code: 'FORBIDDEN' },
+        { status: 403 }
+      );
+    }
+
+    // Delete events
+    let deletedCount = 0;
+
+    if (userRole === 'organizer') {
+      // Only delete own events
+      for (const eventId of ids) {
+        deletedCount += await db.delete('events', {
+          id: eventId,
+          organizer_id: payload.sub,
+        });
+      }
+    } else {
+      // Admin can delete any event in tenant
+      for (const eventId of ids) {
+        deletedCount += await db.delete('events', { id: eventId });
+      }
+    }
+
+    return NextResponse.json({
+      message: `Deleted ${deletedCount} event(s)`,
+    });
+  } catch (error) {
+    console.error('[API] Error deleting events:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete events', code: 'INTERNAL_ERROR' },
+      { status: 500 }
+    );
+  }
+}

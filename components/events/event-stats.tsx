@@ -1,0 +1,282 @@
+// ============================================
+// MOMENTIQUE - Event Stats Component
+// ============================================
+
+'use client';
+
+import { useEffect, useState } from 'react';
+import { Image as ImageIcon, Users, Heart, AlertCircle, TrendingUp, Loader2 } from 'lucide-react';
+import clsx from 'clsx';
+
+interface EventStatsData {
+  totalPhotos: number;
+  totalParticipants: number;
+  photosToday: number;
+  avgPhotosPerUser: number;
+  topContributors: { name: string; count: number }[];
+  uploadTimeline: { date: string; count: number }[];
+  totalReactions: number;
+  pendingModeration: number;
+}
+
+interface EventStatsProps {
+  eventId: string;
+  refreshInterval?: number;
+  className?: string;
+}
+
+const statCards = [
+  {
+    key: 'totalPhotos',
+    label: 'Total Photos',
+    icon: ImageIcon,
+    color: 'bg-violet-500',
+    bgColor: 'bg-violet-50 dark:bg-violet-900/20',
+    textColor: 'text-violet-700 dark:text-violet-400',
+  },
+  {
+    key: 'totalParticipants',
+    label: 'Participants',
+    icon: Users,
+    color: 'bg-blue-500',
+    bgColor: 'bg-blue-50 dark:bg-blue-900/20',
+    textColor: 'text-blue-700 dark:text-blue-400',
+  },
+  {
+    key: 'totalReactions',
+    label: 'Total Reactions',
+    icon: Heart,
+    color: 'bg-pink-500',
+    bgColor: 'bg-pink-50 dark:bg-pink-900/20',
+    textColor: 'text-pink-700 dark:text-pink-400',
+  },
+  {
+    key: 'pendingModeration',
+    label: 'Pending Review',
+    icon: AlertCircle,
+    color: 'bg-orange-500',
+    bgColor: 'bg-orange-50 dark:bg-orange-900/20',
+    textColor: 'text-orange-700 dark:text-orange-400',
+  },
+];
+
+export function EventStats({ eventId, refreshInterval = 30000, className }: EventStatsProps) {
+  const [stats, setStats] = useState<EventStatsData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchStats = async () => {
+    try {
+      const token = localStorage.getItem('access_token');
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(`/api/events/${eventId}/stats`, { headers });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || data.message || 'Failed to fetch stats');
+      }
+
+      setStats(data.data);
+      setError(null);
+    } catch (err) {
+      console.error('[EVENT_STATS] Error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load stats');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStats();
+
+    if (refreshInterval > 0) {
+      const interval = setInterval(fetchStats, refreshInterval);
+      return () => clearInterval(interval);
+    }
+  }, [eventId, refreshInterval]);
+
+  if (isLoading) {
+    return (
+      <div className={clsx('flex items-center justify-center py-12', className)}>
+        <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className={clsx('rounded-lg bg-red-50 p-6 text-center', className)}>
+        <AlertCircle className="mx-auto h-12 w-12 text-red-500" />
+        <p className="mt-2 text-sm font-medium text-red-800 dark:text-red-300">{error}</p>
+      </div>
+    );
+  }
+
+  if (!stats) {
+    return null;
+  }
+
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
+  // Calculate max for timeline chart scaling
+  const maxTimelineCount = Math.max(...stats.uploadTimeline.map(d => d.count), 1);
+
+  return (
+    <div className={clsx('space-y-6', className)}>
+      {/* Stats Grid */}
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        {statCards.map(card => {
+          const Icon = card.icon;
+          const value = stats[card.key as keyof EventStatsData] as number;
+          const subValue = card.key === 'totalPhotos' ? stats.photosToday : undefined;
+
+          return (
+            <div
+              key={card.key}
+              className={clsx(
+                'rounded-xl border p-4',
+                'border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800'
+              )}
+            >
+              <div className={clsx('flex items-center gap-3')}>
+                <div className={clsx('rounded-lg p-2', card.bgColor)}>
+                  <Icon className={clsx('h-5 w-5', card.textColor)} />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">{card.label}</p>
+                  <p className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+                    {value.toLocaleString()}
+                  </p>
+                  {subValue !== undefined && subValue > 0 && (
+                    <p className="text-xs text-gray-500 dark:text-gray-500">
+                      +{subValue} today
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Additional Stats Row */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {/* Avg Photos Per User */}
+        <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+          <div className="flex items-center gap-3">
+            <TrendingUp className="h-8 w-8 text-violet-600" />
+            <div>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Avg Photos Per User</p>
+              <p className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+                {stats.avgPhotosPerUser.toFixed(1)}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Upload Timeline Chart */}
+      <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
+        <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">
+          Upload Timeline (Last 7 Days)
+        </h3>
+        <div className="flex items-end justify-between gap-2">
+          {stats.uploadTimeline.map((item, index) => {
+            const height = (item.count / maxTimelineCount) * 100;
+            const isToday = index === stats.uploadTimeline.length - 1;
+
+            return (
+              <div key={item.date} className="flex flex-1 flex-col items-center gap-2">
+                <div className="relative w-full">
+                  <div
+                    className={clsx(
+                      'w-full rounded-t-lg transition-all duration-300',
+                      isToday
+                        ? 'bg-gradient-to-t from-violet-600 to-pink-600'
+                        : 'bg-violet-200 dark:bg-violet-800'
+                    )}
+                    style={{ height: `${Math.max(height, 4)}%` }}
+                  />
+                  {item.count > 0 && (
+                    <span className="absolute -top-6 left-1/2 -translate-x-1/2 text-xs font-medium text-gray-700 dark:text-gray-300">
+                      {item.count}
+                    </span>
+                  )}
+                </div>
+                <span
+                  className={clsx(
+                    'text-xs',
+                    isToday
+                      ? 'font-semibold text-violet-600 dark:text-violet-400'
+                      : 'text-gray-500 dark:text-gray-500'
+                  )}
+                >
+                  {formatDate(item.date)}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+        {stats.uploadTimeline.every(d => d.count === 0) && (
+          <p className="mt-4 text-center text-sm text-gray-500 dark:text-gray-400">
+            No uploads yet
+          </p>
+        )}
+      </div>
+
+      {/* Top Contributors */}
+      {stats.topContributors.length > 0 && (
+        <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
+          <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">
+            Top Contributors
+          </h3>
+          <div className="space-y-3">
+            {stats.topContributors.map((contributor, index) => (
+              <div
+                key={contributor.name}
+                className="flex items-center justify-between rounded-lg bg-gray-50 px-4 py-3 dark:bg-gray-700/50"
+              >
+                <div className="flex items-center gap-3">
+                  <div
+                    className={clsx(
+                      'flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold',
+                      index === 0
+                        ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+                        : index === 1
+                          ? 'bg-gray-200 text-gray-700 dark:bg-gray-600 dark:text-gray-300'
+                          : index === 2
+                            ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
+                            : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+                    )}
+                  >
+                    {index + 1}
+                  </div>
+                  <span className="font-medium text-gray-900 dark:text-gray-100">
+                    {contributor.name}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <ImageIcon className="h-4 w-4 text-gray-400" />
+                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                    {contributor.count}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default EventStats;
