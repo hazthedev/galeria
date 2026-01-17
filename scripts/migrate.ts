@@ -15,6 +15,9 @@
 import { Pool, PoolClient } from 'pg';
 import * as fs from 'fs';
 import * as path from 'path';
+import { loadEnvConfig } from '@next/env';
+
+loadEnvConfig(process.cwd());
 
 const connectionString = process.env.DATABASE_URL || 'postgresql://momentique:momentique_dev_password@localhost:5432/momentique';
 
@@ -24,12 +27,16 @@ const connectionString = process.env.DATABASE_URL || 'postgresql://momentique:mo
 
 async function getCurrentVersion(pool: Pool): Promise<number> {
   try {
-    const result = await pool.query('SELECT version FROM migration_version LIMIT 1');
-    return result.rows[0]?.version || 0;
+    const result = await pool.query('SELECT MAX(version) as version FROM migration_version');
+    const version = result.rows[0]?.version;
+    if (version === null || version === undefined) {
+      return -1;
+    }
+    return Number(version);
   } catch (error: unknown) {
     // Table doesn't exist, return 0
     if ((error as { code?: string }).code === '42P01') { // undefined_table
-      return 0;
+      return -1;
     }
     throw error;
   }

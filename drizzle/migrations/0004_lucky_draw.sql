@@ -1,19 +1,19 @@
 -- ============================================
-// MOMENTIQUE - Lucky Draw Migration
-// ============================================
+-- MOMENTIQUE - Lucky Draw Migration
+-- ============================================
 -- Adds database tables for lucky draw functionality
 -- Supports automatic entries on photo upload, configurable prize tiers, and winner tracking
 
 -- ============================================
-// ENUMS
-// ============================================
+-- ENUMS
+-- ============================================
 
 CREATE TYPE draw_status AS ENUM ('scheduled', 'completed', 'cancelled');
 CREATE TYPE prize_tier AS ENUM ('grand', 'first', 'second', 'third', 'consolation');
 
 -- ============================================
-// LUCKY DRAW CONFIGURATIONS TABLE
-// ============================================
+-- LUCKY DRAW CONFIGURATIONS TABLE
+-- ============================================
 
 CREATE TABLE lucky_draw_configs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -55,8 +55,8 @@ CREATE TABLE lucky_draw_configs (
 );
 
 -- ============================================
-// LUCKY DRAW ENTRIES TABLE
-// ============================================
+-- LUCKY DRAW ENTRIES TABLE
+-- ============================================
 
 CREATE TABLE lucky_draw_entries (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -77,8 +77,8 @@ CREATE TABLE lucky_draw_entries (
 );
 
 -- ============================================
-// WINNERS TABLE
-// ============================================
+-- WINNERS TABLE
+-- ============================================
 
 CREATE TABLE winners (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -109,8 +109,8 @@ CREATE TABLE winners (
 );
 
 -- ============================================
-// INDEXES
-// ============================================
+-- INDEXES
+-- ============================================
 
 -- Lucky draw configs indexes
 CREATE INDEX draw_config_event_idx ON lucky_draw_configs(event_id);
@@ -134,8 +134,8 @@ CREATE INDEX winner_draw_idx ON winners(entry_id);
 CREATE INDEX winner_claimed_idx ON winners(is_claimed);
 
 -- ============================================
-// ROW LEVEL SECURITY
-// ============================================
+-- ROW LEVEL SECURITY
+-- ============================================
 
 ALTER TABLE lucky_draw_configs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE lucky_draw_entries ENABLE ROW LEVEL SECURITY;
@@ -159,8 +159,8 @@ CREATE POLICY lucky_draw_entries_auto_policy ON lucky_draw_entries
   FOR INSERT WITH CHECK (true); -- Auto-created by photo uploads
 
 -- ============================================
-// TRIGGERS
-// ============================================
+-- TRIGGERS
+-- ============================================
 
 -- Update total_entries count when entry is added
 CREATE OR REPLACE FUNCTION update_total_entries() RETURNS TRIGGER AS $$
@@ -182,29 +182,27 @@ FOR EACH ROW
 EXECUTE FUNCTION update_total_entries();
 
 -- ============================================
-// FUNCTIONS
-// ============================================
+-- FUNCTIONS
+-- ============================================
 
 -- Get current tenant ID helper
 CREATE OR REPLACE FUNCTION get_current_tenant_id() RETURNS UUID AS $$
 BEGIN
   RETURN NULL::uuid;
 END;
-$$;
+$$ LANGUAGE plpgsql;
 
 -- Set tenant context (called from application middleware)
-CREATE OR REPLACE FUNCTION set_tenant_id(user_id UUID) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION set_tenant_id(tenant_uuid UUID) RETURNS VOID AS $$
 BEGIN
-  PERFORM pg_set_config('app.current_tenant_id', user_id::text);
+  PERFORM pg_set_config('app.current_tenant_id', tenant_uuid::text);
 END;
-$$;
+$$ LANGUAGE plpgsql;
 
 -- Grant necessary permissions
 GRANT ALL ON TABLE lucky_draw_configs TO PUBLIC;
 GRANT ALL ON TABLE lucky_draw_entries TO PUBLIC;
 GRANT ALL ON TABLE winners TO PUBLIC;
-GRANT USAGE ON SEQUENCE lucky_draw_entries_id_seq TO PUBLIC;
-GRANT USAGE ON SEQUENCE winners_id_seq TO PUBLIC;
 
 COMMENT ON TABLE lucky_draw_configs IS 'Configuration for lucky draws per event';
 COMMENT ON TABLE lucky_draw_entries IS 'Individual lucky draw entries linked to photos';
