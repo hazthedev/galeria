@@ -24,6 +24,8 @@ const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL || 'https://pub-xxxxxxxxx.r2.dev
 // Image processing constants
 const MAX_DIMENSION = 1920;
 const JPEG_QUALITY = 85;
+const THUMBNAIL_SIZE = 150;
+const MEDIUM_SIZE = 800;
 
 // ============================================
 // R2/S3 CLIENT
@@ -51,7 +53,7 @@ function getR2Client(): S3Client {
 
 /**
  * Compress and upload image to R2/S3 storage
- * Uses single size for MVP (no thumbnails)
+ * Generates multiple sizes: thumbnail (150px), medium (800px), full (1920px)
  */
 export async function uploadImageToStorage(
   eventId: string,
@@ -62,56 +64,74 @@ export async function uploadImageToStorage(
   const client = getR2Client();
   const path = `${eventId}/${photoId}`;
 
-  // Compress image using Sharp (single size for MVP)
-  let compressedBuffer: Buffer;
-  let width: number;
-  let height: number;
+  // Get image metadata
+  const image = sharp(imageBuffer);
+  const metadata = await image.metadata();
+  const originalWidth = metadata.width || MAX_DIMENSION;
+  const originalHeight = metadata.height || MAX_DIMENSION;
 
-  try {
-    const image = sharp(imageBuffer);
-    const metadata = await image.metadata();
+  // Generate full-size image (max 1920px)
+  const fullScale = Math.min(MAX_DIMENSION / originalWidth, MAX_DIMENSION / originalHeight, 1);
+  const fullWidth = Math.round(originalWidth * fullScale);
+  const fullHeight = Math.round(originalHeight * fullScale);
 
-    // Calculate dimensions (fit within max dimension)
-    const imageWidth = metadata.width || MAX_DIMENSION;
-    const imageHeight = metadata.height || MAX_DIMENSION;
-    const scale = Math.min(MAX_DIMENSION / imageWidth, MAX_DIMENSION / imageHeight, 1);
+  const fullBuffer = await image
+    .clone()
+    .resize(fullWidth, fullHeight, { fit: 'inside', withoutEnlargement: true })
+    .jpeg({ quality: JPEG_QUALITY })
+    .toBuffer();
 
-    width = Math.round(imageWidth * scale);
-    height = Math.round(imageHeight * scale);
+  // Generate medium image (max 800px)
+  const mediumScale = Math.min(MEDIUM_SIZE / originalWidth, MEDIUM_SIZE / originalHeight, 1);
+  const mediumWidth = Math.round(originalWidth * mediumScale);
+  const mediumHeight = Math.round(originalHeight * mediumScale);
 
-    // Compress to JPEG at specified quality
-    compressedBuffer = await image
-      .resize(width, height, { fit: 'inside', withoutEnlargement: true })
-      .jpeg({ quality: JPEG_QUALITY })
-      .toBuffer();
-  } catch (error) {
-    console.error('[Storage] Image compression failed:', error);
-    // Fallback to original buffer
-    compressedBuffer = imageBuffer;
-    width = MAX_DIMENSION;
-    height = MAX_DIMENSION;
-  }
+  const mediumBuffer = await image
+    .clone()
+    .resize(mediumWidth, mediumHeight, { fit: 'inside', withoutEnlargement: true })
+    .jpeg({ quality: JPEG_QUALITY })
+    .toBuffer();
 
-  // Upload compressed image to R2
-  await client.send(new PutObjectCommand({
-    Bucket: R2_BUCKET_NAME,
-    Key: `${path}/photo.jpg`,
-    Body: compressedBuffer,
-    ContentType: 'image/jpeg',
-    CacheControl: 'public, max-age=31536000, immutable',
-  }));
+  // Generate thumbnail (150px square, with cover fit)
+  const thumbnailBuffer = await image
+    .clone()
+    .resize(THUMBNAIL_SIZE, THUMBNAIL_SIZE, { fit: 'cover', position: 'center' })
+    .jpeg({ quality: JPEG_QUALITY })
+    .toBuffer();
 
-  // Return same URL for all sizes (MVP simplification - no thumbnails)
-  const url = `${R2_PUBLIC_URL}/${path}/photo.jpg`;
+  // Upload all three sizes to R2 in parallel
+  await Promise.all([
+    client.send(new PutObjectCommand({
+      Bucket: R2_BUCKET_NAME,
+      Key: `${path}/full.jpg`,
+      Body: fullBuffer,
+      ContentType: 'image/jpeg',
+      CacheControl: 'public, max-age=31536000, immutable',
+    })),
+    client.send(new PutObjectCommand({
+      Bucket: R2_BUCKET_NAME,
+      Key: `${path}/medium.jpg`,
+      Body: mediumBuffer,
+      ContentType: 'image/jpeg',
+      CacheControl: 'public, max-age=31536000, immutable',
+    })),
+    client.send(new PutObjectCommand({
+      Bucket: R2_BUCKET_NAME,
+      Key: `${path}/thumbnail.jpg`,
+      Body: thumbnailBuffer,
+      ContentType: 'image/jpeg',
+      CacheControl: 'public, max-age=31536000, immutable',
+    })),
+  ]);
 
   return {
-    original_url: url,
-    thumbnail_url: url,
-    medium_url: url,
-    full_url: url,
-    width,
-    height,
-    file_size: compressedBuffer.length,
+    original_url: `${R2_PUBLIC_URL}/${path}/full.jpg`,
+    thumbnail_url: `${R2_PUBLIC_URL}/${path}/thumbnail.jpg`,
+    medium_url: `${R2_PUBLIC_URL}/${path}/medium.jpg`,
+    full_url: `${R2_PUBLIC_URL}/${path}/full.jpg`,
+    width: fullWidth,
+    height: fullHeight,
+    file_size: fullBuffer.length,
     format: 'jpg',
   };
 }
@@ -165,35 +185,47 @@ export function generateSignedUrl(key: string, _expiresIn: number = 3600): strin
  * Get image dimensions from buffer
  */
 export async function getImageDimensionsFromBuffer(
-  _buffer: Buffer
+  buffer: Buffer
 ): Promise<{ width: number; height: number }> {
-  return new Promise((_resolve) => {
-    // TODO: Implement using sharp package
-    // For now, return default dimensions
-    _resolve({ width: 1920, height: 1080 });
-  });
+  const metadata = await sharp(buffer).metadata();
+  return {
+    width: metadata.width || 0,
+    height: metadata.height || 0,
+  };
 }
 
 /**
- * Generate thumbnail from image
+ * Generate thumbnail from image (square, cover fit)
  */
 export async function generateThumbnail(
   imageBuffer: Buffer,
-  _size: 300
+  size: number = THUMBNAIL_SIZE
 ): Promise<Buffer> {
-  // TODO: Implement using sharp package
-  return imageBuffer;
+  return await sharp(imageBuffer)
+    .resize(size, size, { fit: 'cover', position: 'center' })
+    .jpeg({ quality: JPEG_QUALITY })
+    .toBuffer();
 }
 
 /**
- * Generate medium-sized image
+ * Generate medium-sized image (max width/height)
  */
 export async function generateMediumImage(
   imageBuffer: Buffer,
-  _maxSize: 800
+  maxSize: number = MEDIUM_SIZE
 ): Promise<Buffer> {
-  // TODO: Implement using sharp package
-  return imageBuffer;
+  const metadata = await sharp(imageBuffer).metadata();
+  const width = metadata.width || maxSize;
+  const height = metadata.height || maxSize;
+  
+  const scale = Math.min(maxSize / width, maxSize / height, 1);
+  const newWidth = Math.round(width * scale);
+  const newHeight = Math.round(height * scale);
+
+  return await sharp(imageBuffer)
+    .resize(newWidth, newHeight, { fit: 'inside', withoutEnlargement: true })
+    .jpeg({ quality: JPEG_QUALITY })
+    .toBuffer();
 }
 
 // ============================================

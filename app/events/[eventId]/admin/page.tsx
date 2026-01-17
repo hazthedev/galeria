@@ -17,10 +17,12 @@ import {
   Loader2,
   ChevronDown,
   ChevronUp,
+  Sparkles,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { EventStats } from '@/components/events/event-stats';
 import QRCodeDisplay from '@/components/events/qr-code-display';
+import { LuckyDrawAdminTab } from '@/components/lucky-draw/admin/LuckyDrawAdminTab';
 import type { IEvent } from '@/lib/types';
 
 export default function EventAdminPage() {
@@ -31,7 +33,7 @@ export default function EventAdminPage() {
   const [event, setEvent] = useState<IEvent | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'qr' | 'settings' | 'moderation'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'qr' | 'lucky_draw' | 'settings' | 'moderation'>('overview');
 
   useEffect(() => {
     const fetchEvent = async () => {
@@ -66,6 +68,7 @@ export default function EventAdminPage() {
 
   const tabs = [
     { id: 'overview' as const, label: 'Overview', icon: ImageIcon },
+    { id: 'lucky_draw' as const, label: 'Lucky Draw', icon: Sparkles },
     { id: 'qr' as const, label: 'QR Code', icon: QrCode },
     { id: 'settings' as const, label: 'Settings', icon: Settings },
     { id: 'moderation' as const, label: 'Moderation', icon: Shield },
@@ -150,6 +153,18 @@ export default function EventAdminPage() {
 
         {/* Tab Content */}
         <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          {activeTab === 'lucky_draw' && (
+            <div>
+              <h2 className="mb-2 text-xl font-semibold text-gray-900 dark:text-gray-100">
+                Lucky Draw Management
+              </h2>
+              <p className="mb-6 text-sm text-gray-600 dark:text-gray-400">
+                Configure prize tiers, view entries, execute draws, and announce winners
+              </p>
+              <LuckyDrawAdminTab eventId={eventId} />
+            </div>
+          )}
+
           {activeTab === 'overview' && (
             <div>
               <h2 className="mb-6 text-xl font-semibold text-gray-900 dark:text-gray-100">

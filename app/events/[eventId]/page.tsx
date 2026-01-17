@@ -4,7 +4,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -25,6 +25,8 @@ import {
 } from 'lucide-react';
 import clsx from 'clsx';
 import type { IEvent, IPhoto } from '@/lib/types';
+import { useSocket } from '@/lib/websocket/client';
+import { getClientFingerprint } from '@/lib/fingerprint';
 
 interface ReactionButtonsProps {
   photo: IPhoto;
@@ -83,6 +85,8 @@ export default function EventDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedPhoto, setSelectedPhoto] = useState<IPhoto | null>(null);
+  const { socket, connected } = useSocket();
+  const fingerprint = useMemo(() => getClientFingerprint(), []);
 
   const fetchEvent = async () => {
     try {
@@ -121,6 +125,49 @@ export default function EventDetailPage() {
     fetchEvent();
   }, [eventId]);
 
+  useEffect(() => {
+    if (!socket || !connected) return;
+
+    socket.emit('join_event', { event_id: eventId, fingerprint: fingerprint || undefined });
+
+    const handleNewPhoto = (photo: IPhoto) => {
+      if (event?.settings?.features?.moderation_required && photo.status !== 'approved') {
+        return;
+      }
+      setPhotos((prev) => {
+        if (prev.some((p) => p.id === photo.id)) {
+          return prev;
+        }
+        return [photo, ...prev];
+      });
+    };
+
+    const handlePhotoUpdated = (data: { photo_id: string; status: string }) => {
+      setPhotos((prev) => {
+        const updated = prev.map((photo) =>
+          photo.id === data.photo_id
+            ? { ...photo, status: data.status as IPhoto['status'] }
+            : photo
+        );
+
+        if (event?.settings?.features?.moderation_required && data.status !== 'approved') {
+          return updated.filter((photo) => photo.status === 'approved');
+        }
+
+        return updated;
+      });
+    };
+
+    socket.on('new_photo', handleNewPhoto);
+    socket.on('photo_updated', handlePhotoUpdated);
+
+    return () => {
+      socket.emit('leave_event', { event_id: eventId });
+      socket.off('new_photo', handleNewPhoto);
+      socket.off('photo_updated', handlePhotoUpdated);
+    };
+  }, [socket, connected, eventId, fingerprint, event]);
+
   const handleReaction = async (photoId: string, type: 'heart' | 'clap' | 'laugh' | 'wow') => {
     try {
       const token = localStorage.getItem('access_token');
@@ -129,12 +176,13 @@ export default function EventDetailPage() {
         headers: {
           'Content-Type': 'application/json',
           ...(token && { Authorization: `Bearer ${token}` }),
+          ...(fingerprint ? { 'x-fingerprint': fingerprint } : {}),
         },
         body: JSON.stringify({ type }),
       });
 
       if (response.ok) {
-        // Update local state
+        const data = await response.json();
         setPhotos(prev =>
           prev.map(p => {
             if (p.id === photoId) {
@@ -142,7 +190,7 @@ export default function EventDetailPage() {
                 ...p,
                 reactions: {
                   ...p.reactions,
-                  [type]: (p.reactions[type] || 0) + 1,
+                  [type]: data.data?.count ?? (p.reactions[type] || 0),
                 },
               };
             }

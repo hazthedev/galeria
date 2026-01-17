@@ -137,7 +137,7 @@ export default function HomePage() {
               <code className="text-sm text-gray-300">
                 <span className="text-purple-400">POST</span> /api/events<br />
                 <span className="text-purple-400">GET</span> /api/events/[eventId]/photos<br />
-                <span className="text-purple-400">POST</span> /api/events/[eventId]/lucky-draw/start
+                <span className="text-purple-400">POST</span> /api/events/[eventId]/lucky-draw/draw
               </code>
             </div>
           </div>

@@ -10,6 +10,8 @@ import Link from 'next/link';
 import { ArrowLeft, Upload, X, Check, AlertCircle, Loader2, Image as ImageIcon } from 'lucide-react';
 import { validateImageFile, formatFileSize, cn } from '@/lib/utils';
 import type { IEvent } from '@/lib/types';
+import { getClientFingerprint } from '@/lib/fingerprint';
+import { useSocket } from '@/lib/websocket/client';
 
 interface PhotoPreview {
   file: File;
@@ -33,6 +35,7 @@ export default function PhotoUploadPage() {
   const [caption, setCaption] = useState('');
   const [contributorName, setContributorName] = useState('');
   const [isAnonymous, setIsAnonymous] = useState(false);
+  const { socket } = useSocket();
 
   // Fetch event info
   useEffect(() => {
@@ -149,6 +152,10 @@ export default function PhotoUploadPage() {
       const headers: Record<string, string> = {
         ...(token && { Authorization: `Bearer ${token}` }),
       };
+      const fingerprint = getClientFingerprint();
+      if (fingerprint) {
+        headers['x-fingerprint'] = fingerprint;
+      }
 
       const formData = new FormData();
       files.forEach(p => formData.append('files', p.file));
@@ -172,7 +179,14 @@ export default function PhotoUploadPage() {
       const result = await response.json();
 
       if (response.ok) {
-        setUploadedCount(result.data.length);
+        const uploaded = Array.isArray(result.data) ? result.data : result.data ? [result.data] : [];
+        setUploadedCount(uploaded.length);
+        uploaded.forEach((photo: any) => {
+          socket?.emit('upload_photo', {
+            event_id: eventId,
+            photo_data: photo,
+          });
+        });
         // Redirect to event page after showing success
         setTimeout(() => {
           router.push(`/events/${eventId}`);

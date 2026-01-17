@@ -6,13 +6,13 @@ Momentique is a white-label SaaS platform that allows event organizers to create
 
 ## Features
 
-- 🏢 **Multi-Tenant Architecture**: Complete tenant isolation with Row-Level Security (RLS)
-- 📸 **Photo Management**: Upload, moderate, and organize event photos
-- 🎰 **Lucky Draw**: Engage guests with random winner selection
-- 🔴 **Real-Time Updates**: Live photo updates via WebSocket
-- 🔐 **Secure**: JWT authentication, RLS policies, bcrypt password hashing
-- 📊 **Analytics**: Track engagement and usage metrics
-- 🎨 **Customizable**: Tenant branding, themes, and feature flags
+- **Multi-Tenant Architecture**: Complete tenant isolation with Row-Level Security (RLS)
+- **Photo Management**: Upload, moderate, and organize event photos
+- **Lucky Draw**: Engage guests with random winner selection
+- **Real-Time Updates**: Live photo updates via WebSocket
+- **Secure**: JWT authentication, RLS policies, bcrypt password hashing
+- **Analytics**: Track engagement and usage metrics
+- **Customizable**: Tenant branding, themes, and feature flags
 
 ## Quick Start
 
@@ -25,8 +25,8 @@ npm install
 # 2. Start PostgreSQL and Redis (Docker)
 npm run db:setup
 
-# 3. Start the development server
-npm run dev
+# 3. Start the development server + WebSocket server
+npm run dev:all
 ```
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
@@ -38,7 +38,7 @@ To populate the database with sample data for development:
 ```bash
 npm run db:setup
 npm run db:seed    # Creates sample tenant, users, events, and photos
-npm run dev
+npm run dev:all
 ```
 
 **Admin credentials** (from seed data):

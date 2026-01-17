@@ -8,6 +8,7 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { io as io, Socket } from 'socket.io-client';
 import type { IEventStats, IPhoto, IWinner, ILuckyDrawEntry, ILuckyDrawConfig } from '@/lib/types';
+import { getClientFingerprint } from '@/lib/fingerprint';
 
 // ============================================
 // CONFIGURATION
@@ -62,12 +63,17 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
       return;
     }
 
+    const fingerprint = getClientFingerprint();
+
     const socketInstance = io(WS_URL, {
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionAttempts: Infinity,
       autoConnect: true,
+      auth: {
+        fingerprint,
+      },
     });
 
     socketInstance.on('connect', () => {

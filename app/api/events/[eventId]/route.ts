@@ -6,20 +6,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getTenantId } from '@/lib/tenant';
 import { getTenantDb } from '@/lib/db';
 import { verifyAccessToken } from '@/lib/auth';
-import type { IEvent } from '@/lib/types';
+import type { IEvent, IEventUpdate } from '@/lib/types';
 
 // ============================================
-// GET /api/events/:id - Get single event
+// GET /api/events/:eventId - Get single event
 // ============================================
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ eventId: string; id: string }> }
+  { params }: { params: Promise<{ eventId: string }> }
 ) {
-  const { id } = await params;
+  const { eventId: id } = await params;
   try {
-
-    // Get tenant from headers
     const headers = request.headers;
     const tenantId = getTenantId(headers);
 
@@ -30,10 +28,7 @@ export async function GET(
       );
     }
 
-    // Get database connection
     const db = getTenantDb(tenantId);
-
-    // Fetch event
     const event = await db.findOne<IEvent>('events', { id });
 
     if (!event) {
@@ -54,17 +49,15 @@ export async function GET(
 }
 
 // ============================================
-// PATCH /api/events/:id - Update event
+// PATCH /api/events/:eventId - Update event
 // ============================================
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ eventId: string; id: string }> }
+  { params }: { params: Promise<{ eventId: string }> }
 ) {
-  const { id } = await params;
+  const { eventId: id } = await params;
   try {
-
-    // Get tenant from headers
     const headers = request.headers;
     const tenantId = getTenantId(headers);
 
@@ -75,7 +68,6 @@ export async function PATCH(
       );
     }
 
-    // Get user from JWT token
     const authHeader = headers.get('authorization');
     if (!authHeader) {
       return NextResponse.json(
@@ -96,13 +88,9 @@ export async function PATCH(
       );
     }
 
-    // Parse request body
-    const updates = await request.json();
-
-    // Get database connection
+    const updates: IEventUpdate = await request.json();
     const db = getTenantDb(tenantId);
 
-    // Check if event exists
     const existingEvent = await db.findOne<IEvent>('events', { id });
     if (!existingEvent) {
       return NextResponse.json(
@@ -111,7 +99,6 @@ export async function PATCH(
       );
     }
 
-    // Check permissions
     const userRole = payload.role;
     const isOwner = existingEvent.organizer_id === payload.sub;
     const isAdmin = ['admin', 'super_admin'].includes(userRole);
@@ -123,15 +110,16 @@ export async function PATCH(
       );
     }
 
-    // Update event
     await db.update(
       'events',
       { ...updates, updated_at: new Date() },
       { id }
     );
 
+    const updatedEvent = await db.findOne<IEvent>('events', { id });
+
     return NextResponse.json({
-      data: { id },
+      data: updatedEvent,
       message: 'Event updated successfully',
     });
   } catch (error) {
@@ -144,17 +132,15 @@ export async function PATCH(
 }
 
 // ============================================
-// DELETE /api/events/:id - Delete event
+// DELETE /api/events/:eventId - Delete event
 // ============================================
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ eventId: string; id: string }> }
+  { params }: { params: Promise<{ eventId: string }> }
 ) {
-  const { id } = await params;
+  const { eventId: id } = await params;
   try {
-
-    // Get tenant from headers
     const headers = request.headers;
     const tenantId = getTenantId(headers);
 
@@ -165,7 +151,6 @@ export async function DELETE(
       );
     }
 
-    // Get user from JWT token
     const authHeader = headers.get('authorization');
     if (!authHeader) {
       return NextResponse.json(
@@ -186,10 +171,8 @@ export async function DELETE(
       );
     }
 
-    // Get database connection
     const db = getTenantDb(tenantId);
 
-    // Check if event exists
     const existingEvent = await db.findOne<IEvent>('events', { id });
     if (!existingEvent) {
       return NextResponse.json(
@@ -198,7 +181,6 @@ export async function DELETE(
       );
     }
 
-    // Check permissions
     const userRole = payload.role;
     const isOwner = existingEvent.organizer_id === payload.sub;
     const isAdmin = ['admin', 'super_admin'].includes(userRole);
@@ -210,7 +192,6 @@ export async function DELETE(
       );
     }
 
-    // Delete event (cascade will delete related records)
     const deletedCount = await db.delete('events', { id });
 
     if (deletedCount === 0) {

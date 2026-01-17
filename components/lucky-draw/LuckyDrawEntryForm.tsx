@@ -270,14 +270,16 @@ interface LuckyDrawStatsProps {
 
 export function LuckyDrawStats({ eventId }: LuckyDrawStatsProps) {
   const [stats, setStats] = useState<{
-    total_entries: number;
-  }>({ total_entries: 0 });
+    totalEntries: number;
+  }>({ totalEntries: 0 });
 
   useEffect(() => {
     // Fetch stats from API
     fetch(`/api/events/${eventId}/lucky-draw/entries`)
       .then((res) => res.json())
-      .then((data) => setStats(data));
+      .then((data) => {
+        setStats({ totalEntries: data.pagination?.total || 0 });
+      });
   }, [eventId]);
 
   return (
@@ -288,13 +290,13 @@ export function LuckyDrawStats({ eventId }: LuckyDrawStatsProps) {
         <div className="bg-purple-50 rounded-lg p-4">
           <p className="text-sm text-gray-600">Total Entries</p>
           <p className="text-3xl font-bold text-purple-900">
-            {stats.total_entries || 0}
+            {stats.totalEntries || 0}
           </p>
         </div>
         <div className="bg-pink-50 rounded-lg p-4">
           <p className="text-sm text-gray-600">Active Participants</p>
           <p className="text-3xl font-bold text-pink-900">
-            {stats.total_entries || 0}
+            {stats.totalEntries || 0}
           </p>
         </div>
       </div>

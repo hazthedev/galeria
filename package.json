@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "ws:dev": "npx tsx scripts/ws-server.ts",
+    "dev:all": "concurrently -k \"npm:dev\" \"npm:ws:dev\"",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
@@ -66,6 +68,7 @@
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "concurrently": "^9.2.1",
     "drizzle-kit": "^0.31.8",
     "eslint": "^9",
     "eslint-config-next": "16.1.1",

@@ -279,6 +279,79 @@ export interface ILuckyDrawConfig {
   confetti_animation: boolean;
 }
 
+// ============================================
+// LUCKY DRAW TYPES (Phase 5)
+// ============================================
+
+export type PrizeTier = 'grand' | 'first' | 'second' | 'third' | 'consolation';
+
+export type DrawStatus = 'scheduled' | 'completed' | 'cancelled';
+
+export interface IPrizeTier {
+  tier: PrizeTier;
+  name: string;
+  description?: string;
+  count: number;
+}
+
+export interface ILuckyDrawConfigV2 {
+  id: string;
+  eventId: string;
+  prizeTiers: IPrizeTier[];
+  maxEntriesPerUser: number;
+  requirePhotoUpload: boolean;
+  preventDuplicateWinners: boolean;
+  animationStyle: AnimationStyle;
+  animationDuration: number;
+  showSelfie: boolean;
+  showFullName: boolean;
+  playSound: boolean;
+  confettiAnimation: boolean;
+  status: DrawStatus;
+  totalEntries: number;
+  scheduledAt?: Date;
+  completedAt?: Date;
+  createdBy: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ILuckyDrawEntryV2 {
+  id: string;
+  eventId: string;
+  configId: string;
+  photoId: string;
+  userFingerprint: string;
+  isWinner: boolean;
+  prizeTier?: PrizeTier;
+  createdAt: Date;
+}
+
+export interface IWinnerV2 {
+  id: string;
+  eventId: string;
+  entryId: string;
+  participantName: string;
+  selfieUrl: string;
+  prizeTier: PrizeTier;
+  prizeName: string;
+  prizeDescription: string;
+  selectionOrder: number;
+  isClaimed: boolean;
+  drawnAt: Date;
+  notifiedAt?: Date;
+  createdAt: Date;
+}
+
+// Type aliases for backward compatibility
+export type LuckyDrawConfig = ILuckyDrawConfigV2;
+export type LuckyDrawEntry = ILuckyDrawEntryV2;
+export type Winner = IWinnerV2;
+export type NewLuckyDrawConfig = Omit<ILuckyDrawConfigV2, 'id' | 'status' | 'totalEntries' | 'createdAt' | 'updatedAt'>;
+export type NewLuckyDrawEntry = Omit<ILuckyDrawEntryV2, 'id' | 'createdAt'>;
+export type NewWinner = Omit<IWinnerV2, 'id' | 'createdAt'>;
+
+// Legacy types (Phase 4 and earlier)
 export interface IWinner {
   id: string;
   event_id: string;

@@ -20,7 +20,7 @@ import {
   MapPin,
   Camera
 } from 'lucide-react';
-import type { IEvent, IPhoto, IEventStats, ILuckyDrawEntry } from '@/lib/types';
+import type { IEvent, IPhoto, IEventStats } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 // ============================================
@@ -154,7 +154,7 @@ export function AdminDashboard({ eventId, tenantId }: AdminDashboardProps) {
   const [event, setEvent] = useState<IEvent | null>(null);
   const [stats, setStats] = useState<IEventStats | null>(null);
   const [pendingPhotos, setPendingPhotos] = useState<IPhoto[]>([]);
-  const [drawEntries, setDrawEntries] = useState<ILuckyDrawEntry[]>([]);
+  const [drawEntriesTotal, setDrawEntriesTotal] = useState(0);
   const [loading, setLoading] = useState(true);
 
   // ============================================
@@ -190,7 +190,7 @@ export function AdminDashboard({ eventId, tenantId }: AdminDashboardProps) {
         const entriesRes = await fetch(`/api/events/${eventId}/lucky-draw/entries`);
         if (entriesRes.ok) {
           const entriesData = await entriesRes.json();
-          setDrawEntries(entriesData.data || []);
+          setDrawEntriesTotal(entriesData.pagination?.total || 0);
         }
       } catch (error) {
         console.error('[Admin] Error fetching data:', error);
@@ -233,7 +233,7 @@ export function AdminDashboard({ eventId, tenantId }: AdminDashboardProps) {
 
   const handleStartLuckyDraw = useCallback(async () => {
     try {
-      const res = await fetch(`/api/events/${eventId}/lucky-draw/start`, { method: 'POST' });
+      const res = await fetch(`/api/events/${eventId}/lucky-draw/draw`, { method: 'POST' });
       if (res.ok) {
         // Handle success
         console.log('[Admin] Lucky draw started');
@@ -368,7 +368,7 @@ export function AdminDashboard({ eventId, tenantId }: AdminDashboardProps) {
             />
             <StatCard
               title="Lucky Draw Entries"
-              value={drawEntries.length}
+              value={drawEntriesTotal}
               icon={Sparkles}
               color="amber"
             />
@@ -428,11 +428,11 @@ export function AdminDashboard({ eventId, tenantId }: AdminDashboardProps) {
               <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                 <div>
                   <p className="font-medium">Total Entries</p>
-                  <p className="text-sm text-gray-600">{drawEntries.length} participants</p>
+                  <p className="text-sm text-gray-600">{drawEntriesTotal} participants</p>
                 </div>
                 <button
                   onClick={handleStartLuckyDraw}
-                  disabled={drawEntries.length === 0}
+                  disabled={drawEntriesTotal === 0}
                   className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
                 >
                   Start Draw
