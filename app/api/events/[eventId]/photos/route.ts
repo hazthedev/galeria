@@ -208,7 +208,8 @@ export async function POST(
 
       if (event.settings.features.lucky_draw_enabled) {
         try {
-          await createEntryFromPhoto(tenantId, eventId, photo.id, userId);
+          const entryName = isAnonymous ? undefined : contributorName || undefined;
+          await createEntryFromPhoto(tenantId, eventId, photo.id, userId, entryName);
         } catch (entryError) {
           console.warn('[API] Lucky draw entry skipped:', entryError);
         }

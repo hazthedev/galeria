@@ -21,12 +21,13 @@ import {
 } from 'lucide-react';
 import clsx from 'clsx';
 import type { AnimationStyle, LuckyDrawConfig, LuckyDrawEntry, Winner } from '@/lib/types';
+import { DrawAnimation } from '@/components/lucky-draw/DrawAnimation';
 
 // ============================================
 // TYPES
 // ============================================
 
-type SubTab = 'config' | 'entries' | 'draw' | 'history';
+type SubTab = 'config' | 'entries' | 'participants' | 'draw' | 'history';
 
 interface LuckyDrawAdminTabProps {
   eventId: string;
@@ -41,6 +42,22 @@ interface LuckyDrawHistoryItem {
   completedAt: LuckyDrawConfig['completedAt'];
   winners: Winner[];
   winnerCount: number;
+}
+
+interface LuckyDrawParticipant {
+  userFingerprint: string;
+  participantName?: string | null;
+  entryCount: number;
+  isWinner: boolean;
+  prizeTier: LuckyDrawConfig['prizeTiers'][number]['tier'] | null;
+  firstEntryAt: string | null;
+  lastEntryAt: string | null;
+}
+
+interface ParticipantsSummary {
+  total: number;
+  uniqueParticipants: number;
+  totalEntries: number;
 }
 
 type PrizeTierForm = {
@@ -71,6 +88,8 @@ type ConfigFormState = {
 function EntryCard({ entry }: { entry: LuckyDrawEntry }) {
   const date = new Date(entry.createdAt).toLocaleDateString();
   const time = new Date(entry.createdAt).toLocaleTimeString();
+  const participantName = entry.participantName?.trim();
+  const entryLabel = `Entry: ${entry.id.slice(0, 8)}...`;
 
   return (
     <div className="flex items-center gap-4 rounded-lg border border-gray-200 bg-white px-4 py-3 dark:border-gray-700 dark:bg-gray-800">
@@ -84,10 +103,10 @@ function EntryCard({ entry }: { entry: LuckyDrawEntry }) {
       {/* Entry info */}
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-          Entry: {entry.id.slice(0, 8)}...
+          {participantName || entryLabel}
         </p>
         <p className="text-xs text-gray-500 dark:text-gray-400">
-          {date} at {time}
+          {participantName ? `${entryLabel} · ${date} at ${time}` : `${date} at ${time}`}
         </p>
       </div>
 
@@ -254,6 +273,12 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
   const [entriesTotal, setEntriesTotal] = useState(0);
   const [drawHistory, setDrawHistory] = useState<LuckyDrawHistoryItem[]>([]);
   const [winners, setWinners] = useState<Winner[]>([]);
+  const [participants, setParticipants] = useState<LuckyDrawParticipant[]>([]);
+  const [participantsSummary, setParticipantsSummary] = useState<ParticipantsSummary>({
+    total: 0,
+    uniqueParticipants: 0,
+    totalEntries: 0,
+  });
 
   // UI state
   const [isLoading, setIsLoading] = useState(true);
@@ -267,6 +292,16 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
   const [configForm, setConfigForm] = useState<ConfigFormState>(() => buildConfigForm(null));
   const [isSavingConfig, setIsSavingConfig] = useState(false);
   const [configSaveError, setConfigSaveError] = useState<string | null>(null);
+  const [participantsLoading, setParticipantsLoading] = useState(false);
+  const [participantsError, setParticipantsError] = useState<string | null>(null);
+
+  const [manualEntryName, setManualEntryName] = useState('');
+  const [manualEntryFingerprint, setManualEntryFingerprint] = useState('');
+  const [manualEntryPhotoId, setManualEntryPhotoId] = useState('');
+  const [manualEntryCount, setManualEntryCount] = useState(1);
+  const [manualEntrySubmitting, setManualEntrySubmitting] = useState(false);
+  const [manualEntryError, setManualEntryError] = useState<string | null>(null);
+  const [manualEntrySuccess, setManualEntrySuccess] = useState<string | null>(null);
 
   // Pagination state for entries
   const [entriesPage, setEntriesPage] = useState(0);
@@ -283,6 +318,12 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
   useEffect(() => {
     fetchEntries();
   }, [eventId, entriesPage]);
+
+  useEffect(() => {
+    if (activeSubTab === 'participants') {
+      fetchParticipants();
+    }
+  }, [activeSubTab, eventId]);
 
   useEffect(() => {
     if (!config) {
@@ -314,6 +355,13 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
       return () => clearTimeout(timer);
     }
   }, [successMessage]);
+
+  useEffect(() => {
+    if (manualEntrySuccess) {
+      const timer = setTimeout(() => setManualEntrySuccess(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [manualEntrySuccess]);
 
   // ============================================
   // DATA FETCHING FUNCTIONS
@@ -403,6 +451,35 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
     } catch (err) {
       console.error('[LUCKY_DRAW_ADMIN] Failed to fetch draws:', err);
       setError('Failed to load draw history');
+    }
+  };
+
+  const fetchParticipants = async () => {
+    setParticipantsLoading(true);
+    setParticipantsError(null);
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`/api/events/${eventId}/lucky-draw/participants`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setParticipants(data.data || []);
+        setParticipantsSummary({
+          total: data.pagination?.total || 0,
+          uniqueParticipants: data.pagination?.uniqueParticipants || 0,
+          totalEntries: data.pagination?.totalEntries || 0,
+        });
+      } else {
+        const data = await response.json();
+        setParticipantsError(data.error || 'Failed to fetch participants');
+      }
+    } catch (err) {
+      console.error('[LUCKY_DRAW_ADMIN] Failed to fetch participants:', err);
+      setParticipantsError('Failed to load participants');
+    } finally {
+      setParticipantsLoading(false);
     }
   };
 
@@ -603,6 +680,75 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
       setDrawError('Failed to execute draw. Please try again.');
     } finally {
       setDrawInProgress(false);
+    }
+  };
+
+  const handleManualEntrySubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setManualEntryError(null);
+    setManualEntrySuccess(null);
+
+    const participantName = manualEntryName.trim();
+    const participantFingerprint = manualEntryFingerprint.trim();
+    const photoId = manualEntryPhotoId.trim();
+    const entryCount = Number.isFinite(manualEntryCount) && manualEntryCount > 0 ? manualEntryCount : 1;
+
+    if (!participantName) {
+      setManualEntryError('Participant name is required.');
+      return;
+    }
+
+    if (config?.requirePhotoUpload && !photoId) {
+      setManualEntryError('Photo ID is required for this draw configuration.');
+      return;
+    }
+
+    setManualEntrySubmitting(true);
+
+    try {
+      const token = localStorage.getItem('access_token');
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+
+      const response = await fetch(`/api/events/${eventId}/lucky-draw/entries`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          participantName,
+          participantFingerprint: participantFingerprint || undefined,
+          photoId: photoId || undefined,
+          entryCount,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setManualEntryError(data.error || 'Failed to add manual entry.');
+        return;
+      }
+
+      const createdCount = data.data?.entries?.length || 0;
+      const fingerprint = data.data?.userFingerprint;
+
+      setManualEntrySuccess(
+        `Added ${createdCount} manual ${createdCount === 1 ? 'entry' : 'entries'}.${fingerprint ? ` Participant ID: ${fingerprint}` : ''}`
+      );
+      setManualEntryName('');
+      setManualEntryFingerprint('');
+      setManualEntryPhotoId('');
+      setManualEntryCount(1);
+
+      await Promise.all([fetchEntries(), fetchParticipants()]);
+    } catch (err) {
+      console.error('[LUCKY_DRAW_ADMIN] Failed to add manual entry:', err);
+      setManualEntryError('Failed to add manual entry.');
+    } finally {
+      setManualEntrySubmitting(false);
     }
   };
 
@@ -950,6 +1096,7 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
     const totalPages = Math.max(1, Math.ceil(entriesTotal / entriesPageSize));
     const hasNextPage = (entriesPage + 1) * entriesPageSize < entriesTotal;
     const hasPrevPage = entriesPage > 0;
+    const isAdmin = userRole === 'admin' || userRole === 'super_admin' || userRole === 'organizer';
 
     return (
       <div className="space-y-6">
@@ -976,6 +1123,104 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
             Refresh
           </button>
         </div>
+
+        {isAdmin && (
+          <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <h4 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4">
+              Manual Entry
+            </h4>
+            <form onSubmit={handleManualEntrySubmit} className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                    Participant name
+                  </label>
+                  <input
+                    type="text"
+                    value={manualEntryName}
+                    onChange={(event) => setManualEntryName(event.target.value)}
+                    className="w-full rounded-md border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-violet-500 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                    placeholder="Alex Tan"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                    Entries to add
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={manualEntryCount}
+                    onChange={(event) => {
+                      const value = Number(event.target.value);
+                      setManualEntryCount(Number.isFinite(value) && value > 0 ? Math.floor(value) : 1);
+                    }}
+                    className="w-full rounded-md border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-violet-500 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                    Participant ID (optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={manualEntryFingerprint}
+                    onChange={(event) => setManualEntryFingerprint(event.target.value)}
+                    className="w-full rounded-md border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-violet-500 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                    placeholder="manual_..."
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                    Photo ID {config?.requirePhotoUpload ? '(required)' : '(optional)'}
+                  </label>
+                  <input
+                    type="text"
+                    value={manualEntryPhotoId}
+                    onChange={(event) => setManualEntryPhotoId(event.target.value)}
+                    className="w-full rounded-md border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-violet-500 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                    placeholder="Photo UUID"
+                  />
+                </div>
+              </div>
+
+              {manualEntryError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200">
+                  {manualEntryError}
+                </div>
+              )}
+
+              {manualEntrySuccess && (
+                <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-sm text-green-700 dark:border-green-500/40 dark:bg-green-500/10 dark:text-green-200">
+                  {manualEntrySuccess}
+                </div>
+              )}
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="submit"
+                  disabled={manualEntrySubmitting || !config}
+                  className={clsx(
+                    'inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white transition-colors',
+                    'bg-gradient-to-r from-violet-600 to-pink-600',
+                    'hover:from-violet-700 hover:to-pink-700',
+                    (manualEntrySubmitting || !config) && 'opacity-70 cursor-not-allowed'
+                  )}
+                >
+                  {manualEntrySubmitting ? 'Adding...' : 'Add Manual Entry'}
+                </button>
+                {!config && (
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    Create a draw configuration before adding entries.
+                  </span>
+                )}
+              </div>
+            </form>
+          </div>
+        )}
 
         {/* Entries List */}
         {isLoading ? (
@@ -1035,6 +1280,111 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
               </div>
             )}
           </>
+        )}
+      </div>
+    );
+  };
+
+  // ============================================
+  // PARTICIPANTS SUB-TAB CONTENT
+  // ============================================
+
+  const renderParticipantsTab = () => {
+    const hasParticipants = participants.length > 0;
+
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              Participants
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              {participantsSummary.uniqueParticipants} participant
+              {participantsSummary.uniqueParticipants === 1 ? '' : 's'} · {participantsSummary.totalEntries} entries
+            </p>
+          </div>
+          <button
+            onClick={fetchParticipants}
+            disabled={participantsLoading}
+            className={clsx(
+              'inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors',
+              'hover:bg-gray-50 dark:hover:bg-gray-800',
+              'disabled:opacity-50 disabled:cursor-not-allowed'
+            )}
+          >
+            <RefreshCw className={clsx('h-4 w-4', participantsLoading && 'animate-spin')} />
+            Refresh
+          </button>
+        </div>
+
+        {participantsError && (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200">
+            {participantsError}
+          </div>
+        )}
+
+        {participantsLoading ? (
+          <div className="flex justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
+          </div>
+        ) : !hasParticipants ? (
+          <div className="text-center py-12">
+            <Users className="mx-auto h-16 w-16 text-gray-400 mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+              No Participants Yet
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Participants will appear once entries are created.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {participants.map((participant) => {
+              const name = participant.participantName?.trim()
+                || `Participant ${participant.userFingerprint.slice(0, 8)}`;
+              const firstEntry = participant.firstEntryAt
+                ? new Date(participant.firstEntryAt).toLocaleDateString()
+                : 'Unknown';
+              const lastEntry = participant.lastEntryAt
+                ? new Date(participant.lastEntryAt).toLocaleDateString()
+                : 'Unknown';
+
+              return (
+                <div
+                  key={participant.userFingerprint}
+                  className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 md:flex-row md:items-center md:justify-between"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+                      {name}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                      ID: {participant.userFingerprint}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      First entry: {firstEntry} · Last entry: {lastEntry}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="text-right">
+                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                        {participant.entryCount} {participant.entryCount === 1 ? 'entry' : 'entries'}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {participant.isWinner ? 'Winner' : 'Participant'}
+                      </p>
+                    </div>
+                    {participant.isWinner && (
+                      <span className="rounded-full bg-yellow-100 px-2.5 py-1 text-xs font-semibold text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300">
+                        Winner
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
     );
@@ -1208,6 +1558,7 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
   const subTabs: { id: SubTab; label: string; icon: any }[] = [
     { id: 'config', label: 'Configuration', icon: Settings },
     { id: 'entries', label: 'Entries', icon: Users },
+    { id: 'participants', label: 'Participants', icon: Users },
     { id: 'draw', label: 'Execute Draw', icon: Play },
     { id: 'history', label: 'History', icon: History },
   ];
@@ -1291,6 +1642,7 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
       <div className="mt-6">
         {activeSubTab === 'config' && renderConfigTab()}
         {activeSubTab === 'entries' && renderEntriesTab()}
+        {activeSubTab === 'participants' && renderParticipantsTab()}
         {activeSubTab === 'draw' && renderDrawTab()}
         {activeSubTab === 'history' && renderHistoryTab()}
       </div>
@@ -1300,6 +1652,10 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
         <WinnerModal
           winners={winners}
           animationStyle={config?.animationStyle || 'spinning_wheel'}
+          animationDuration={config?.animationDuration || 8}
+          showSelfie={config?.showSelfie ?? true}
+          showFullName={config?.showFullName ?? true}
+          confettiAnimation={config?.confettiAnimation ?? true}
           onClose={() => {
             setShowWinnerModal(false);
             setWinners([]);
@@ -1476,10 +1832,22 @@ function DrawStatsCard({
 interface WinnerModalProps {
   winners: Winner[];
   animationStyle: 'slot_machine' | 'spinning_wheel' | 'card_shuffle' | 'drum_roll' | 'random_fade';
+  animationDuration: number;
+  showSelfie: boolean;
+  showFullName: boolean;
+  confettiAnimation: boolean;
   onClose: () => void;
 }
 
-function WinnerModal({ winners, animationStyle, onClose }: WinnerModalProps) {
+function WinnerModal({
+  winners,
+  animationStyle,
+  animationDuration,
+  showSelfie,
+  showFullName,
+  confettiAnimation,
+  onClose,
+}: WinnerModalProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
   const [showWinner, setShowWinner] = useState(false);
@@ -1494,8 +1862,14 @@ function WinnerModal({ winners, animationStyle, onClose }: WinnerModalProps) {
       setIsAnimating(true);
     } else {
       // Show all winners summary
+      setIsAnimating(false);
       setShowAllWinners(true);
     }
+  };
+
+  const handleAnimationComplete = () => {
+    setIsAnimating(false);
+    setShowWinner(true);
   };
 
   const skipToEnd = () => {
@@ -1531,7 +1905,10 @@ function WinnerModal({ winners, animationStyle, onClose }: WinnerModalProps) {
                   Get Ready to Reveal Winners!
                 </p>
                 <button
-                  onClick={() => setIsAnimating(true)}
+                  onClick={() => {
+                    setShowWinner(false);
+                    setIsAnimating(true);
+                  }}
                   className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-violet-600 to-pink-600 px-6 py-3 text-base font-medium text-white hover:from-violet-700 hover:to-pink-700"
                 >
                   <Trophy className="h-5 w-5" />
@@ -1546,14 +1923,26 @@ function WinnerModal({ winners, animationStyle, onClose }: WinnerModalProps) {
               </div>
             )}
 
-            {isAnimating && <DrawAnimationView style={animationStyle} onComplete={advanceToNext} />}
+            {isAnimating && (
+              <DrawAnimation
+                key={`${animationStyle}-${currentIndex}`}
+                style={animationStyle}
+                durationSeconds={animationDuration}
+                onComplete={handleAnimationComplete}
+              />
+            )}
 
             {showWinner && currentWinner && (
               <div className="py-8 text-center">
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                   Winner {currentIndex + 1} of {winners.length}
                 </p>
-                <WinnerDisplay winner={currentWinner} />
+                <WinnerDisplay
+                  winner={currentWinner}
+                  showSelfie={showSelfie}
+                  showFullName={showFullName}
+                  confettiAnimation={confettiAnimation}
+                />
                 <button
                   onClick={advanceToNext}
                   className="mt-6 inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-violet-600 to-pink-600 px-6 py-3 text-base font-medium text-white hover:from-violet-700 hover:to-pink-700"
@@ -1590,47 +1979,6 @@ function WinnerModal({ winners, animationStyle, onClose }: WinnerModalProps) {
   );
 }
 
-// Animation View Component
-function DrawAnimationView({
-  style,
-  onComplete,
-}: {
-  style: 'slot_machine' | 'spinning_wheel' | 'card_shuffle' | 'drum_roll' | 'random_fade';
-  onComplete: () => void;
-}) {
-  const [animationComplete, setAnimationComplete] = useState(false);
-
-  useEffect(() => {
-    // Trigger animation completion after configured duration
-    const durations = {
-      slot_machine: 5000,
-      spinning_wheel: 8000,
-      card_shuffle: 6000,
-      drum_roll: 10000,
-      random_fade: 3000,
-    };
-    const duration = durations[style] || 5000;
-
-    const timer = setTimeout(() => {
-      setAnimationComplete(true);
-      onComplete();
-    }, duration);
-
-    return () => clearTimeout(timer);
-  }, [style, onComplete]);
-
-  if (animationComplete) {
-    return null;
-  }
-
-  // Render animation placeholder - will be replaced with actual animation component
-  return (
-    <div className="flex items-center justify-center py-12">
-      <Loader2 className="h-12 w-12 animate-spin text-violet-600" />
-    </div>
-  );
-}
-
 // Winner Card Component
 function WinnerCard({ winner, rank }: { winner: Winner; rank: number }) {
   const medals = ['🥇', '🥈', '🥉', '🏅'];
@@ -1652,10 +2000,20 @@ function WinnerCard({ winner, rank }: { winner: Winner; rank: number }) {
 }
 
 // Winner Display (single winner with confetti)
-function WinnerDisplay({ winner }: { winner: Winner }) {
+function WinnerDisplay({
+  winner,
+  showSelfie,
+  showFullName,
+  confettiAnimation,
+}: {
+  winner: Winner;
+  showSelfie: boolean;
+  showFullName: boolean;
+  confettiAnimation: boolean;
+}) {
   useEffect(() => {
     // Trigger confetti on mount
-    if (typeof window !== 'undefined' && 'confetti' in window) {
+    if (confettiAnimation && typeof window !== 'undefined' && 'confetti' in window) {
       window.confetti?.({
         particleCount: 200,
         spread: 0.8,
@@ -1671,15 +2029,29 @@ function WinnerDisplay({ winner }: { winner: Winner }) {
         zIndex: 9999,
       });
     }
-  }, []);
+  }, [confettiAnimation]);
+
+  const displayName = showFullName
+    ? winner.participantName
+    : winner.participantName.split(' ')[0] || winner.participantName;
 
   return (
     <div className="text-center">
-      <div className="mb-4 flex justify-center">
-        <Trophy className="h-16 w-16 text-yellow-500" />
-      </div>
+      {showSelfie && winner.selfieUrl ? (
+        <div className="mb-4 flex justify-center">
+          <img
+            src={winner.selfieUrl}
+            alt={winner.participantName}
+            className="h-24 w-24 rounded-full object-cover shadow-md"
+          />
+        </div>
+      ) : (
+        <div className="mb-4 flex justify-center">
+          <Trophy className="h-16 w-16 text-yellow-500" />
+        </div>
+      )}
       <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-        {winner.participantName}
+        {displayName}
       </h2>
       <p className="text-lg text-violet-600 font-semibold mb-1">
         {winner.prizeName}

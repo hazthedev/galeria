@@ -45,6 +45,7 @@ const luckyDrawEntryColumns = `
   config_id AS "configId",
   photo_id AS "photoId",
   user_fingerprint AS "userFingerprint",
+  participant_name AS "participantName",
   is_winner AS "isWinner",
   prize_tier AS "prizeTier",
   created_at AS "createdAt"
@@ -78,27 +79,17 @@ function generateUUID(): string {
 // ============================================
 
 /**
- * Shuffles array in place using Fisher-Yates algorithm
- * Time complexity: O(n), Space complexity: O(1)
- * Uses crypto.random for cryptographic randomness
+ * Shuffles array using Fisher-Yates algorithm
+ * Time complexity: O(n), Space complexity: O(n)
+ * Uses crypto.randomInt for cryptographic randomness
  */
 export function fisherYatesShuffle<T>(array: T[]): T[] {
   const shuffled = [...array];
   for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(crypto.getRandomValues(new Uint8Array(1))[0] * (i + 1));
+    const j = crypto.randomInt(0, i + 1);
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
   return shuffled;
-}
-
-/**
- * Secure random number between min and max (inclusive)
- */
-function randomInt(min: number, max: number): number {
-  const range = max - min + 1;
-  const bytes = crypto.getRandomValues(new Uint8Array(1));
-  const randomValue = bytes[0];
-  return min + (randomValue % range);
 }
 
 /**
@@ -107,7 +98,7 @@ function randomInt(min: number, max: number): number {
 export function generateRandomString(length: number = 8): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   let result = '';
-  const bytes = crypto.getRandomValues(new Uint8Array(length));
+  const bytes = crypto.randomBytes(length);
   for (let i = 0; i < length; i++) {
     result += chars[bytes[i] % chars.length];
   }
@@ -240,16 +231,18 @@ export async function createEntryFromPhoto(
       config_id,
       photo_id,
       user_fingerprint,
+      participant_name,
       is_winner,
       created_at
     )
-    VALUES ($1, $2, $3, $4, $5, $6)
+    VALUES ($1, $2, $3, $4, $5, $6, $7)
     RETURNING ${luckyDrawEntryColumns}
   `, [
     eventId,
     config.id,
     photoId,
     userFingerprint,
+    participantName || null,
     false,
     new Date(),
   ]);
@@ -265,6 +258,80 @@ export async function createEntryFromPhoto(
   );
 
   return entryResult.rows[0];
+}
+
+/**
+ * Create one or more manual lucky draw entries
+ */
+export async function createManualEntries(
+  tenantId: string,
+  eventId: string,
+  input: {
+    participantName: string;
+    userFingerprint?: string;
+    photoId?: string | null;
+    entryCount?: number;
+  }
+): Promise<{ entries: LuckyDrawEntry[]; userFingerprint: string }> {
+  const db = getTenantDb(tenantId);
+
+  const config = await getActiveConfig(tenantId, eventId);
+  if (!config) {
+    throw new Error('No active draw configuration found for this event');
+  }
+
+  const requestedCount = input.entryCount && input.entryCount > 0 ? Math.floor(input.entryCount) : 1;
+  const userFingerprint = input.userFingerprint || `manual_${generateUUID()}`;
+
+  const existingResult = await db.query<{ count: bigint }>(`
+    SELECT COUNT(*) as count
+    FROM lucky_draw_entries
+    WHERE config_id = $1 AND user_fingerprint = $2
+  `, [config.id, userFingerprint]);
+  const existingCount = Number(existingResult.rows[0]?.count || 0);
+  const maxAllowed = config.maxEntriesPerUser || 1;
+
+  if (existingCount + requestedCount > maxAllowed) {
+    throw new Error('Maximum entries per user reached');
+  }
+
+  const entries: LuckyDrawEntry[] = [];
+  for (let i = 0; i < requestedCount; i += 1) {
+    const result = await db.query<LuckyDrawEntry>(`
+      INSERT INTO lucky_draw_entries (
+        event_id,
+        config_id,
+        photo_id,
+        user_fingerprint,
+        participant_name,
+        is_winner,
+        created_at
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      RETURNING ${luckyDrawEntryColumns}
+    `, [
+      eventId,
+      config.id,
+      input.photoId ?? null,
+      userFingerprint,
+      input.participantName,
+      false,
+      new Date(),
+    ]);
+    entries.push(result.rows[0]);
+  }
+
+  await db.query(
+    `UPDATE lucky_draw_configs
+     SET total_entries = (
+       SELECT COUNT(*) FROM lucky_draw_entries WHERE config_id = $1
+     ),
+     updated_at = NOW()
+     WHERE id = $1`,
+    [config.id]
+  );
+
+  return { entries, userFingerprint };
 }
 
 /**
@@ -405,6 +472,7 @@ export async function executeDraw(
   const shuffledEntries = options?.seed
     ? seededShuffle(filteredEntries, options.seed)
     : fisherYatesShuffle(filteredEntries);
+  const entryById = new Map(shuffledEntries.map((entry) => [entry.id, entry]));
 
   // 5. Select winners by prize tiers
   const winners: Winner[] = [];
@@ -431,12 +499,13 @@ export async function executeDraw(
       }
 
       const winner = shuffledEntries[selectionOrder];
+      const fallbackName = winner.userFingerprint.slice(0, 8) || 'Anonymous';
       winners.push({
         id: generateUUID(),
         eventId: winner.eventId,
         entryId: winner.id,
-        participantName: winner.userFingerprint.slice(0, 8) || 'Anonymous', // First 8 chars
-        selfieUrl: winner.photoId, // Using photoId to construct URL
+        participantName: winner.participantName || fallbackName,
+        selfieUrl: '',
         prizeTier: prizeTier.tier,
         prizeName: prizeTier.name,
         prizeDescription: prizeTier.description || '',
@@ -470,7 +539,40 @@ export async function executeDraw(
   );
 
   // 7. Create winner records
-  for (const winner of winners) {
+  const photoIds = Array.from(
+    new Set(
+      winners
+        .map((winner) => entryById.get(winner.entryId)?.photoId || null)
+        .filter((id): id is string => !!id)
+    )
+  );
+
+  const photosResult = photoIds.length
+    ? await db.query<{ id: string; contributorName: string | null; images: { full_url?: string } }>(
+        `
+          SELECT id, contributor_name AS "contributorName", images
+          FROM photos
+          WHERE id = ANY($1)
+        `,
+        [photoIds]
+      )
+    : { rows: [] as Array<{ id: string; contributorName: string | null; images: { full_url?: string } }> };
+
+  const photoMap = new Map(photosResult.rows.map((photo) => [photo.id, photo]));
+
+  const enrichedWinners = winners.map((winner) => {
+    const entry = entryById.get(winner.entryId);
+    const photo = entry?.photoId ? photoMap.get(entry.photoId) : undefined;
+    const participantName = winner.participantName || photo?.contributorName || 'Anonymous';
+    const selfieUrl = photo?.images?.full_url || '';
+    return {
+      ...winner,
+      participantName,
+      selfieUrl,
+    };
+  });
+
+  for (const winner of enrichedWinners) {
     await db.insert('winners', {
       event_id: winner.eventId,
       entry_id: winner.entryId,
@@ -487,7 +589,7 @@ export async function executeDraw(
   }
 
   return {
-    winners,
+    winners: enrichedWinners,
     statistics: {
       totalEntries,
       eligibleEntries: eligibleEntriesCount,

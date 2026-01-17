@@ -320,8 +320,9 @@ export interface ILuckyDrawEntryV2 {
   id: string;
   eventId: string;
   configId: string;
-  photoId: string;
+  photoId?: string | null;
   userFingerprint: string;
+  participantName?: string | null;
   isWinner: boolean;
   prizeTier?: PrizeTier;
   createdAt: Date;

@@ -62,13 +62,18 @@ export async function GET(
     // Format participants list
     const participants = Array.from(userEntryMap.entries()).map(([fingerprint, entries]) => {
       const winnerEntry = entries.find(e => e.isWinner);
+      const participantName = entries.find(e => e.participantName)?.participantName || null;
+      const timestamps = entries.map(entry => new Date(entry.createdAt).getTime());
+      const firstEntryAt = timestamps.length ? new Date(Math.min(...timestamps)) : null;
+      const lastEntryAt = timestamps.length ? new Date(Math.max(...timestamps)) : null;
       return {
         userFingerprint: fingerprint,
+        participantName,
         entryCount: entries.length,
         isWinner: !!winnerEntry,
         prizeTier: winnerEntry?.prizeTier || null,
-        firstEntryAt: entries[0]?.createdAt,
-        lastEntryAt: entries[entries.length - 1]?.createdAt,
+        firstEntryAt,
+        lastEntryAt,
       };
     });
 
