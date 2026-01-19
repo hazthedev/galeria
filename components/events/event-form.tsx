@@ -6,7 +6,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, Calendar, MapPin, Hash, Users } from 'lucide-react';
+import { Loader2, Calendar, MapPin, Hash, Users, CheckCircle } from 'lucide-react';
 import clsx from 'clsx';
 import type { IEvent, EventType, EventStatus } from '@/lib/types';
 
@@ -18,6 +18,7 @@ interface EventFormData {
   location: string;
   expected_guests: string;
   custom_hashtag: string;
+  short_code: string;
   status: EventStatus;
 }
 
@@ -51,6 +52,7 @@ const initialFormData: EventFormData = {
   location: '',
   expected_guests: '',
   custom_hashtag: '',
+  short_code: '',
   status: 'active',
 };
 
@@ -66,6 +68,7 @@ export function EventForm({
   const [errors, setErrors] = useState<Partial<Record<keyof EventFormData, string>>>({});
   const [apiError, setApiError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
 
   useEffect(() => {
     if (event) {
@@ -77,6 +80,7 @@ export function EventForm({
         location: event.location || '',
         expected_guests: event.expected_guests?.toString() || '',
         custom_hashtag: event.custom_hashtag || '',
+        short_code: event.short_code || '',
         status: event.status,
       });
     }
@@ -106,6 +110,13 @@ export function EventForm({
       newErrors.custom_hashtag = 'Hashtag can only contain letters, numbers, and underscores';
     }
 
+    if (formData.short_code.trim()) {
+      const shortCode = formData.short_code.trim().toLowerCase();
+      if (!/^[a-z0-9-]{3,20}$/.test(shortCode)) {
+        newErrors.short_code = 'URL code must be 3-20 characters (letters, numbers, hyphens)';
+      }
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -124,18 +135,13 @@ export function EventForm({
       const url = event ? `/api/events/${event.id}` : '/api/events';
       const method = event ? 'PATCH' : 'POST';
 
-      // Get token from localStorage
-      const token = localStorage.getItem('access_token');
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-
+      // Use session-based authentication (cookies)
       const response = await fetch(url, {
         method,
-        headers,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Send cookies with the request
         body: JSON.stringify({
           name: formData.name.trim(),
           description: formData.description.trim() || undefined,
@@ -144,6 +150,7 @@ export function EventForm({
           location: formData.location.trim() || undefined,
           expected_guests: formData.expected_guests ? parseInt(formData.expected_guests) : undefined,
           custom_hashtag: formData.custom_hashtag.trim() || undefined,
+          short_code: formData.short_code.trim() ? formData.short_code.trim().toLowerCase() : undefined,
           status: formData.status,
         }),
       });
@@ -156,13 +163,22 @@ export function EventForm({
         return;
       }
 
-      onSuccess?.(data.data);
-      if (!event) {
-        router.push(`/events/${data.data.id}`);
+      // Show success state
+      setIsSuccess(true);
+
+      // Call onSuccess callback if provided (parent handles redirect)
+      if (onSuccess) {
+        onSuccess(data.data);
+        // Delay redirect slightly to show success message
+        setTimeout(() => {
+          router.push(`/organizer/events/${data.data.id}`);
+        }, 500);
       } else {
-        router.push(`/events/${data.data.id}`);
+        // No onSuccess callback, handle redirect here
+        setTimeout(() => {
+          router.push(`/organizer/events/${data.data.id}`);
+        }, 500);
       }
-      router.refresh();
     } catch (error) {
       console.error('[EVENT_FORM] Error:', error);
       setApiError('An unexpected error occurred. Please try again.');
@@ -184,6 +200,17 @@ export function EventForm({
 
   return (
     <form onSubmit={handleSubmit} className={clsx('space-y-6', className)}>
+      {/* Success Message */}
+      {isSuccess && (
+        <div className="rounded-lg bg-green-50 p-4 text-sm text-green-800 dark:bg-green-900/20 dark:text-green-300 flex items-center gap-3">
+          <CheckCircle className="h-5 w-5 flex-shrink-0" />
+          <div>
+            <p className="font-medium">Event {event ? 'updated' : 'created'} successfully!</p>
+            <p className="text-xs opacity-75">Redirecting to event page...</p>
+          </div>
+        </div>
+      )}
+
       {/* API Error */}
       {apiError && (
         <div className="rounded-lg bg-red-50 p-4 text-sm text-red-800 dark:bg-red-900/20 dark:text-red-300">
@@ -238,6 +265,44 @@ export function EventForm({
           ))}
         </select>
       </div>
+
+      {/* Custom URL Code (short link) */}
+      {event && (
+        <div className="space-y-1.5">
+          <label htmlFor="short_code" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            Custom URL Code
+          </label>
+          <div className="flex">
+            <span className="inline-flex items-center rounded-l-lg border border-r-0 border-gray-300 bg-gray-50 px-3 text-sm text-gray-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-400">
+              /e/
+            </span>
+            <input
+              id="short_code"
+              type="text"
+              value={formData.short_code}
+              onChange={e => handleInputChange('short_code', e.target.value)}
+              className={clsx(
+                'block w-full rounded-r-lg border px-4 py-2.5 text-sm',
+                'transition-colors duration-200',
+                'placeholder:text-gray-400',
+                'focus:outline-none focus:ring-2 focus:ring-offset-0',
+                {
+                  'border-gray-300 bg-white text-gray-900 focus:border-violet-500 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100':
+                    !errors.short_code,
+                  'border-red-300 bg-red-50 text-red-900 focus:border-red-500 focus:ring-red-500 dark:border-red-600 dark:bg-red-900/10 dark:text-red-200':
+                    errors.short_code,
+                }
+              )}
+              placeholder="birthday-papa"
+              disabled={isLoading}
+            />
+          </div>
+          {errors.short_code && <p className="text-sm text-red-600 dark:text-red-400">{errors.short_code}</p>}
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            Letters, numbers, and hyphens only. Changing this breaks old links.
+          </p>
+        </div>
+      )}
 
       {/* Event Date */}
       <div className="space-y-1.5">

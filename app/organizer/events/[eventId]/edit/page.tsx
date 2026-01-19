@@ -8,6 +8,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import EventFormComponent from '@/components/events/event-form';
 import type { IEvent } from '@/lib/types';
 
@@ -23,15 +24,9 @@ export default function EditEventPage() {
   useEffect(() => {
     const fetchEvent = async () => {
       try {
-        const token = localStorage.getItem('access_token');
-        const headers: Record<string, string> = {
-          'Content-Type': 'application/json',
-        };
-        if (token) {
-          headers['Authorization'] = `Bearer ${token}`;
-        }
-
-        const response = await fetch(`/api/events/${eventId}`, { headers });
+        const response = await fetch(`/api/events/${eventId}`, {
+          credentials: 'include',
+        });
         const data = await response.json();
 
         if (!response.ok) {
@@ -65,10 +60,10 @@ export default function EditEventPage() {
         <div className="text-center">
           <p className="text-red-600 dark:text-red-400">{error || 'Event not found'}</p>
           <Link
-            href={`/events/${eventId}`}
+            href={`/organizer/events/${eventId}/admin`}
             className="mt-4 inline-block text-violet-600 hover:text-violet-700 dark:text-violet-400"
           >
-            Back to Event
+            Back to Admin
           </Link>
         </div>
       </div>
@@ -81,11 +76,11 @@ export default function EditEventPage() {
         {/* Header */}
         <div className="mb-8">
           <Link
-            href={`/events/${eventId}`}
+            href={`/organizer/events/${eventId}/admin`}
             className="mb-4 inline-flex items-center text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Event
+            Back to Admin
           </Link>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Edit Event</h1>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
@@ -99,10 +94,11 @@ export default function EditEventPage() {
             event={event}
             submitLabel="Save Changes"
             onSuccess={(updatedEvent) => {
-              router.push(`/events/${updatedEvent.id}`);
+              // Form component handles redirect
+              toast.success('Event updated successfully');
               router.refresh();
             }}
-            onCancel={() => router.push(`/events/${eventId}`)}
+            onCancel={() => router.push(`/organizer/events/${eventId}/admin`)}
           />
         </div>
       </div>

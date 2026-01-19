@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
-import { WebSocketProvider } from "@/lib/websocket/client";
+import { RealtimeProvider } from "@/lib/realtime/client";
+import { Toaster } from "sonner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Momentique - Event Photos & Lucky Draw Platform",
+  title: "Gatherly - Event Photos & Lucky Draw Platform",
   description: "Capture event moments in real-time. Guests upload photos instantly, engage with lucky draws, and create lasting memories.",
   icons: {
     icon: "/logo.png",
@@ -29,14 +30,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <AuthProvider>
-          <WebSocketProvider>
+          <RealtimeProvider>
             {children}
-          </WebSocketProvider>
+            <Toaster position="top-right" richColors closeButton />
+          </RealtimeProvider>
         </AuthProvider>
       </body>
     </html>

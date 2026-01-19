@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Header Component
+// GATHERLY - Header Component
 // ============================================
 // Main navigation header with auth-aware menu
 
@@ -34,19 +34,20 @@ export function Header() {
   };
 
   return (
-    <header className="border-b border-purple-100 bg-white/80 backdrop-blur-sm">
+    <header className="relative z-50 border-b border-purple-100 bg-white/80 backdrop-blur-sm">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
-          <Link href="/" className="flex items-center">
+          <Link href="/" className="flex items-center gap-2">
             <Image
               src="/logo.png"
-              alt="Momentique Logo"
-              width={48}
-              height={48}
-              className="h-10 w-auto"
+              alt="Gatherly Logo"
+              width={32}
+              height={32}
+              className="h-8 w-auto"
               priority
             />
+            <span className="text-xl font-bold tracking-tight text-gray-900">Gatherly</span>
           </Link>
 
           {/* Navigation */}
@@ -59,16 +60,10 @@ export function Header() {
               <>
                 {/* Authenticated Nav */}
                 <Link
-                  href="/dashboard"
+                  href="/organizer"
                   className="text-sm text-gray-600 hover:text-gray-900"
                 >
                   Dashboard
-                </Link>
-                <Link
-                  href="/events"
-                  className="text-sm text-gray-600 hover:text-gray-900"
-                >
-                  Events
                 </Link>
 
                 {/* User Dropdown */}
@@ -84,7 +79,7 @@ export function Header() {
                   </button>
 
                   {isDropdownOpen && (
-                    <div className="absolute right-0 mt-2 w-56 rounded-lg border border-gray-200 bg-white py-2 shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                    <div className="absolute right-0 mt-2 w-56 z-50 rounded-lg border border-gray-200 bg-white py-2 shadow-lg dark:border-gray-700 dark:bg-gray-800">
                       <div className="px-4 py-2 border-b border-gray-100 dark:border-gray-700">
                         <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
                           {user.name}
@@ -95,7 +90,7 @@ export function Header() {
                       </div>
 
                       <Link
-                        href="/dashboard"
+                        href="/organizer"
                         className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700"
                         onClick={() => setIsDropdownOpen(false)}
                       >

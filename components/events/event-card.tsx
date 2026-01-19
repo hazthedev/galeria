@@ -74,7 +74,7 @@ export function EventCard({
       className
     )}>
       {/* Card Header with Cover Image Placeholder */}
-      <Link href={`/events/${event.id}`} className="block">
+      <Link href={`/organizer/events/${event.id}`} className="block">
         <div className="relative h-32 overflow-hidden rounded-t-2xl bg-gradient-to-br from-violet-500 to-pink-500">
           {event.settings?.theme?.logo_url && (
             <Image
@@ -116,7 +116,7 @@ export function EventCard({
       <div className="p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <Link href={`/events/${event.id}`}>
+            <Link href={`/organizer/events/${event.id}`}>
               <h3 className="truncate text-lg font-semibold text-gray-900 transition-colors hover:text-violet-600 dark:text-gray-100 dark:hover:text-violet-400">
                 {event.name}
               </h3>
@@ -146,7 +146,7 @@ export function EventCard({
               {isDropdownOpen && (
                 <div className="absolute right-0 z-10 mt-1 w-40 rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
                   <Link
-                    href={`/events/${event.id}`}
+                    href={`/organizer/events/${event.id}`}
                     onClick={() => setIsDropdownOpen(false)}
                     className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700"
                   >

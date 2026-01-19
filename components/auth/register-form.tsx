@@ -8,6 +8,7 @@
 import { useState, FormEvent, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, CheckCircle2 } from 'lucide-react';
+import { toast } from 'sonner';
 import clsx from 'clsx';
 
 // ============================================
@@ -58,7 +59,7 @@ interface PasswordValidationResult {
 // COMPONENT
 // ============================================
 
-export function RegisterForm({ onSuccess, redirectTo = '/dashboard', className }: RegisterFormProps) {
+export function RegisterForm({ onSuccess, redirectTo = '/events', className }: RegisterFormProps) {
   const router = useRouter();
   const [formData, setFormData] = useState<RegisterFormData>({
     name: '',
@@ -192,7 +193,9 @@ export function RegisterForm({ onSuccess, redirectTo = '/dashboard', className }
 
       if (!response.ok) {
         const errorData = data as ApiError;
-        setApiError(errorData.message || 'Registration failed. Please try again.');
+        const msg = errorData.message || 'Registration failed. Please try again.';
+        setApiError(msg);
+        toast.error(msg);
         setIsLoading(false);
         return;
       }
@@ -203,15 +206,20 @@ export function RegisterForm({ onSuccess, redirectTo = '/dashboard', className }
         // Call onSuccess callback if provided
         onSuccess?.();
 
+        toast.success('Account created successfully!');
         // Redirect to specified page
         router.push(redirectTo);
         router.refresh();
       } else {
-        setApiError(successData.error || 'Registration failed. Please try again.');
+        const msg = successData.error || 'Registration failed. Please try again.';
+        setApiError(msg);
+        toast.error(msg);
       }
     } catch (error) {
       console.error('[REGISTER] Error:', error);
-      setApiError('An unexpected error occurred. Please try again.');
+      const msg = 'An unexpected error occurred. Please try again.';
+      setApiError(msg);
+      toast.error(msg);
     } finally {
       setIsLoading(false);
     }

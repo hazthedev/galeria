@@ -8,7 +8,9 @@
 import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import clsx from 'clsx';
+import { useAuth } from '@/lib/auth-context';
 
 // ============================================
 // TYPES
@@ -49,8 +51,9 @@ interface ApiError {
 // COMPONENT
 // ============================================
 
-export function LoginForm({ onSuccess, redirectTo = '/dashboard', className }: LoginFormProps) {
+export function LoginForm({ onSuccess, redirectTo = '/organizer', className }: LoginFormProps) {
   const router = useRouter();
+  const { refresh } = useAuth();
   const [formData, setFormData] = useState<LoginFormData>({
     email: '',
     password: '',
@@ -110,7 +113,9 @@ export function LoginForm({ onSuccess, redirectTo = '/dashboard', className }: L
 
       if (!response.ok) {
         const errorData = data as ApiError;
-        setApiError(errorData.message || 'Login failed. Please try again.');
+        const msg = errorData.message || 'Login failed. Please try again.';
+        setApiError(msg);
+        toast.error(msg);
         setIsLoading(false);
         return;
       }
@@ -118,18 +123,34 @@ export function LoginForm({ onSuccess, redirectTo = '/dashboard', className }: L
       const successData = data as LoginResponse;
 
       if (successData.success) {
+        // Refresh auth context to ensure global state is updated BEFORE navigation
+        await refresh();
+
         // Call onSuccess callback if provided
         onSuccess?.();
 
-        // Redirect to specified page
-        router.push(redirectTo);
-        router.refresh();
+        toast.success('Welcome back!');
+
+        // Redirect based on user role - use window.location for full page load
+        // This ensures cookies are properly read and auth state is fresh
+        let destination = redirectTo;
+        if (successData.user?.role === 'super_admin') {
+          destination = '/admin';
+        } else if (redirectTo === '/organizer' || !redirectTo) {
+          destination = '/organizer';
+        }
+
+        window.location.href = destination;
       } else {
-        setApiError(successData.error || 'Login failed. Please try again.');
+        const msg = successData.error || 'Login failed. Please try again.';
+        setApiError(msg);
+        toast.error(msg);
       }
     } catch (error) {
       console.error('[LOGIN] Error:', error);
-      setApiError('An unexpected error occurred. Please try again.');
+      const msg = 'An unexpected error occurred. Please try again.';
+      setApiError(msg);
+      toast.error(msg);
     } finally {
       setIsLoading(false);
     }

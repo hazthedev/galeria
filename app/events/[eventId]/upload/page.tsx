@@ -7,11 +7,11 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Upload, X, Check, AlertCircle, Loader2, Image as ImageIcon } from 'lucide-react';
+import { ArrowLeft, Upload, X, Check, AlertCircle, Loader2, Image as ImageIcon, Camera } from 'lucide-react';
 import { validateImageFile, formatFileSize, cn } from '@/lib/utils';
 import type { IEvent } from '@/lib/types';
 import { getClientFingerprint } from '@/lib/fingerprint';
-import { useSocket } from '@/lib/websocket/client';
+import { usePhotoGallery } from '@/lib/realtime/client';
 
 interface PhotoPreview {
   file: File;
@@ -35,21 +35,15 @@ export default function PhotoUploadPage() {
   const [caption, setCaption] = useState('');
   const [contributorName, setContributorName] = useState('');
   const [isAnonymous, setIsAnonymous] = useState(false);
-  const { socket } = useSocket();
+  const { broadcastNewPhoto } = usePhotoGallery(eventId);
 
   // Fetch event info
   useEffect(() => {
     const fetchEvent = async () => {
       try {
-        const token = localStorage.getItem('access_token');
-        const headers: Record<string, string> = {
-          'Content-Type': 'application/json',
-        };
-        if (token) {
-          headers['Authorization'] = `Bearer ${token}`;
-        }
-
-        const response = await fetch(`/api/events/${eventId}`, { headers });
+        const response = await fetch(`/api/events/${eventId}`, {
+          credentials: 'include',
+        });
         const data = await response.json();
 
         if (response.ok) {
@@ -148,11 +142,8 @@ export default function PhotoUploadPage() {
     setErrors([]);
 
     try {
-      const token = localStorage.getItem('access_token');
-      const headers: Record<string, string> = {
-        ...(token && { Authorization: `Bearer ${token}` }),
-      };
       const fingerprint = getClientFingerprint();
+      const headers: Record<string, string> = {};
       if (fingerprint) {
         headers['x-fingerprint'] = fingerprint;
       }
@@ -172,6 +163,7 @@ export default function PhotoUploadPage() {
 
       const response = await fetch(`/api/events/${eventId}/photos`, {
         method: 'POST',
+        credentials: 'include',
         headers,
         body: formData,
       });
@@ -182,10 +174,7 @@ export default function PhotoUploadPage() {
         const uploaded = Array.isArray(result.data) ? result.data : result.data ? [result.data] : [];
         setUploadedCount(uploaded.length);
         uploaded.forEach((photo: any) => {
-          socket?.emit('upload_photo', {
-            event_id: eventId,
-            photo_data: photo,
-          });
+          broadcastNewPhoto(photo);
         });
         // Redirect to event page after showing success
         setTimeout(() => {
@@ -253,15 +242,15 @@ export default function PhotoUploadPage() {
           onDrop={handleDrop}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
-          onClick={() => document.getElementById('file-input')?.click()}
           className={cn(
-            'relative mb-6 cursor-pointer rounded-lg border-2 border-dashed p-12 text-center transition-all',
+            'relative mb-6 rounded-lg border-2 border-dashed p-8 text-center transition-all',
             isDragging
               ? 'border-violet-500 bg-violet-50 dark:bg-violet-900/20'
-              : 'border-gray-300 hover:border-violet-400 hover:bg-gray-100 dark:border-gray-600 dark:hover:bg-gray-800',
-            files.length >= 5 && 'opacity-50 cursor-not-allowed'
+              : 'border-gray-300 dark:border-gray-600',
+            files.length >= 5 && 'opacity-50'
           )}
         >
+          {/* Hidden file inputs */}
           <input
             id="file-input"
             type="file"
@@ -271,14 +260,55 @@ export default function PhotoUploadPage() {
             className="hidden"
             disabled={isUploading || files.length >= 5}
           />
-          <Upload className={cn(
-            'mx-auto h-12 w-12 mb-4',
-            isDragging ? 'text-violet-600' : 'text-gray-400'
-          )} />
-          <p className="text-lg font-medium text-gray-900 dark:text-gray-100">
-            {files.length >= 5 ? 'Maximum 5 photos' : 'Drop photos here or click to select'}
+          <input
+            id="camera-input"
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={handleFileInput}
+            className="hidden"
+            disabled={isUploading || files.length >= 5}
+          />
+
+          {/* Upload buttons */}
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <button
+              onClick={() => document.getElementById('camera-input')?.click()}
+              disabled={isUploading || files.length >= 5}
+              className={cn(
+                'flex flex-col items-center gap-2 px-6 py-4 rounded-lg border-2 transition-all',
+                'disabled:opacity-50 disabled:cursor-not-allowed',
+                'bg-gradient-to-br from-violet-500 to-pink-500 border-transparent hover:from-violet-600 hover:to-pink-600',
+                'text-white shadow-lg hover:shadow-xl'
+              )}
+            >
+              <Camera className="h-8 w-8" />
+              <span className="font-medium">Take Photo</span>
+              <span className="text-xs opacity-80">Open camera</span>
+            </button>
+
+            <button
+              onClick={() => document.getElementById('file-input')?.click()}
+              disabled={isUploading || files.length >= 5}
+              className={cn(
+                'flex flex-col items-center gap-2 px-6 py-4 rounded-lg border-2 transition-all',
+                'disabled:opacity-50 disabled:cursor-not-allowed',
+                'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600',
+                'hover:border-violet-400 hover:bg-gray-50 dark:hover:bg-gray-700',
+                'text-gray-900 dark:text-gray-100'
+              )}
+            >
+              <ImageIcon className="h-8 w-8 text-violet-600" />
+              <span className="font-medium">Choose from Gallery</span>
+              <span className="text-xs text-gray-500 dark:text-gray-400">Browse files</span>
+            </button>
+          </div>
+
+          {/* Drag-drop hint */}
+          <p className="mt-6 text-sm text-gray-500 dark:text-gray-400">
+            {isDragging ? 'Drop photos here' : 'Or drag and drop files here'}
           </p>
-          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+          <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
             Up to 5 photos, max 10MB each (JPEG, PNG, WebP)
           </p>
         </div>

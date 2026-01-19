@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Tenant Resolution Middleware
+// GATHERLY - Tenant Resolution Middleware
 // ============================================
 // Handles multi-tenant routing via custom domains and subdomains
 
@@ -13,7 +13,7 @@ import type { ITenant, ITenantContext, TenantType, SubscriptionTier } from './ty
 // CONFIGURATION
 // ============================================
 
-const MASTER_DOMAIN = process.env.NEXT_PUBLIC_MASTER_DOMAIN || 'app.momentique.com';
+const MASTER_DOMAIN = process.env.NEXT_PUBLIC_MASTER_DOMAIN || 'app.gatherly.com';
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
 // Cache tenant lookups to reduce database queries
@@ -28,7 +28,7 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
  * Extract tenant identifier from hostname
  * Priority:
  * 1. Custom domain (e.g., events.luxeevents.com)
- * 2. Subdomain (e.g., luxeevents.app.momentique.com)
+ * 2. Subdomain (e.g., luxeevents.app.gatherly.com)
  * 3. Master tenant (fallback)
  */
 export function extractTenantIdentifier(hostname: string): {
@@ -47,7 +47,7 @@ export function extractTenantIdentifier(hostname: string): {
   }
 
   // Extract subdomain from hostname
-  // e.g., luxeevents.app.momentique.com -> luxeevents
+  // e.g., luxeevents.app.gatherly.com -> luxeevents
   const parts = hostname.split('.');
 
   // Handle subdomain.app.masterdomain.com format
@@ -516,13 +516,13 @@ function generateSubdomain(brandName: string): string {
 function getDefaultFeatures(tier: string) {
   const defaults = {
     free: {
-      lucky_draw: true,
-      photo_reactions: false,
+      lucky_draw: false, // Upgrade required for lucky draw
+      photo_reactions: true,
       video_uploads: false,
       custom_templates: false,
       api_access: false,
       sso: false,
-      white_label: false,
+      white_label: false, // Shows "Powered by Gatherly"
       advanced_analytics: false,
     },
     pro: {
@@ -532,7 +532,7 @@ function getDefaultFeatures(tier: string) {
       custom_templates: true,
       api_access: false,
       sso: false,
-      white_label: false,
+      white_label: true, // No branding watermark
       advanced_analytics: true,
     },
     premium: {
@@ -542,7 +542,7 @@ function getDefaultFeatures(tier: string) {
       custom_templates: true,
       api_access: true,
       sso: false,
-      white_label: false,
+      white_label: true,
       advanced_analytics: true,
     },
     enterprise: {
@@ -569,32 +569,32 @@ function getDefaultLimits(tier: string) {
       max_events_per_month: 1,
       max_storage_gb: 1,
       max_admins: 1,
-      max_photos_per_event: 50,
-      max_draw_entries_per_event: 30,
+      max_photos_per_event: 20, // Updated to match tier-config
+      max_draw_entries_per_event: 0, // No lucky draw on free tier
       custom_features: [],
     },
     pro: {
-      max_events_per_month: 5,
-      max_storage_gb: 10,
-      max_admins: 2,
+      max_events_per_month: 10,
+      max_storage_gb: 50,
+      max_admins: 3,
       max_photos_per_event: 500,
       max_draw_entries_per_event: 200,
       custom_features: [],
     },
     premium: {
-      max_events_per_month: -1, // unlimited
-      max_storage_gb: 100,
-      max_admins: 5,
-      max_photos_per_event: -1,
-      max_draw_entries_per_event: -1,
+      max_events_per_month: 50,
+      max_storage_gb: 200,
+      max_admins: 10,
+      max_photos_per_event: 2000,
+      max_draw_entries_per_event: 1000,
       custom_features: [],
     },
     enterprise: {
-      max_events_per_month: -1,
-      max_storage_gb: -1,
-      max_admins: -1,
-      max_photos_per_event: -1,
-      max_draw_entries_per_event: -1,
+      max_events_per_month: -1, // Unlimited
+      max_storage_gb: -1, // Unlimited
+      max_admins: -1, // Unlimited
+      max_photos_per_event: -1, // Unlimited
+      max_draw_entries_per_event: -1, // Unlimited
       custom_features: [],
     },
   };

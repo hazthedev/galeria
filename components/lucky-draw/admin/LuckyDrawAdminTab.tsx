@@ -18,8 +18,11 @@ import {
   ChevronRight,
   ChevronLeft,
   RefreshCw,
+  Copy,
+  Upload,
 } from 'lucide-react';
 import clsx from 'clsx';
+import { toast } from 'sonner';
 import type { AnimationStyle, LuckyDrawConfig, LuckyDrawEntry, Winner } from '@/lib/types';
 import { DrawAnimation } from '@/components/lucky-draw/DrawAnimation';
 
@@ -126,7 +129,7 @@ type DrawHistoryConfig = Pick<
 >;
 
 // Draw History Item
-function DrawHistoryItem({ config, winnerCount }: { config: DrawHistoryConfig; winnerCount: number }) {
+function DrawHistoryItem({ config, winnerCount, winners }: { config: DrawHistoryConfig; winnerCount: number; winners: Winner[] }) {
   const createdAt = new Date(config.createdAt).toLocaleDateString();
   const completedAt = config.completedAt
     ? new Date(config.completedAt).toLocaleString()
@@ -194,6 +197,44 @@ function DrawHistoryItem({ config, winnerCount }: { config: DrawHistoryConfig; w
           ))}
         </div>
       </div>
+
+      {/* Winners list */}
+      {winners.length > 0 && (
+        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+            Winners:
+          </p>
+          <div className="space-y-2">
+            {winners
+              .sort((a, b) => a.selectionOrder - b.selectionOrder)
+              .map((winner) => (
+                <div
+                  key={winner.id}
+                  className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 dark:bg-gray-900/30"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                      {winner.selectionOrder}. {winner.participantName}
+                    </span>
+                    {winner.isClaimed && (
+                      <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                        Claimed
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                      {winner.prizeName}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">
+                      {winner.prizeTier}
+                    </p>
+                  </div>
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -225,17 +266,17 @@ const defaultTierName: Record<PrizeTierForm['tier'], string> = {
 const buildConfigForm = (config: LuckyDrawConfig | null): ConfigFormState => ({
   prizeTiers: config?.prizeTiers?.length
     ? config.prizeTiers.map((tier) => ({
-        tier: tier.tier,
-        name: tier.name || defaultTierName[tier.tier],
-        count: tier.count || 1,
-        description: tier.description || '',
-      }))
+      tier: tier.tier,
+      name: tier.name || defaultTierName[tier.tier],
+      count: tier.count || 1,
+      description: tier.description || '',
+    }))
     : [{
-        tier: 'grand',
-        name: defaultTierName.grand,
-        count: 1,
-        description: '',
-      }],
+      tier: 'grand',
+      name: defaultTierName.grand,
+      count: 1,
+      description: '',
+    }],
   maxEntriesPerUser: config?.maxEntriesPerUser ?? 1,
   requirePhotoUpload: config?.requirePhotoUpload ?? true,
   preventDuplicateWinners: config?.preventDuplicateWinners ?? true,
@@ -288,7 +329,7 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
   const [drawInProgress, setDrawInProgress] = useState(false);
   const [drawError, setDrawError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [isEditingConfig, setIsEditingConfig] = useState(false);
+  const [isEditingConfig, setIsEditingConfig] = useState(true);
   const [configForm, setConfigForm] = useState<ConfigFormState>(() => buildConfigForm(null));
   const [isSavingConfig, setIsSavingConfig] = useState(false);
   const [configSaveError, setConfigSaveError] = useState<string | null>(null);
@@ -302,6 +343,7 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
   const [manualEntrySubmitting, setManualEntrySubmitting] = useState(false);
   const [manualEntryError, setManualEntryError] = useState<string | null>(null);
   const [manualEntrySuccess, setManualEntrySuccess] = useState<string | null>(null);
+  const [photoUploading, setPhotoUploading] = useState(false);
 
   // Pagination state for entries
   const [entriesPage, setEntriesPage] = useState(0);
@@ -326,16 +368,10 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
   }, [activeSubTab, eventId]);
 
   useEffect(() => {
-    if (!config) {
-      setConfigForm(buildConfigForm(null));
-      setIsEditingConfig(true);
-      return;
-    }
-
-    if (!isEditingConfig) {
-      setConfigForm(buildConfigForm(config));
-    }
-  }, [config, isEditingConfig]);
+    // Always show the edit form with config data pre-filled
+    setConfigForm(buildConfigForm(config));
+    setIsEditingConfig(true);
+  }, [config]);
 
   // Poll for updates every 30s
   useEffect(() => {
@@ -369,32 +405,26 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
 
   const fetchUserinfo = async () => {
     try {
-      const token = localStorage.getItem('access_token');
-      if (!token) {
-        setUserRole(null);
-        return;
-      }
-
       const response = await fetch('/api/auth/me', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+        credentials: 'include',
       });
 
       if (response.ok) {
         const data = await response.json();
-        setUserRole(data.data?.role || null);
+        setUserRole(data.user?.role || null);
+      } else {
+        setUserRole(null);
       }
     } catch (err) {
       console.error('[LUCKY_DRAW_ADMIN] Failed to fetch user info:', err);
+      setUserRole(null);
     }
   };
 
   const fetchConfig = async () => {
     try {
-      const token = localStorage.getItem('access_token');
       const response = await fetch(`/api/events/${eventId}/lucky-draw/config`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: 'include',
       });
 
       if (response.ok) {
@@ -412,11 +442,10 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
 
   const fetchEntries = async () => {
     try {
-      const token = localStorage.getItem('access_token');
       const response = await fetch(
         `/api/events/${eventId}/lucky-draw/entries?limit=${entriesPageSize}&offset=${entriesPage * entriesPageSize}`,
         {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          credentials: 'include',
         }
       );
 
@@ -436,9 +465,8 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
 
   const fetchDraws = async () => {
     try {
-      const token = localStorage.getItem('access_token');
       const response = await fetch(`/api/events/${eventId}/lucky-draw/history`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: 'include',
       });
 
       if (response.ok) {
@@ -458,9 +486,8 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
     setParticipantsLoading(true);
     setParticipantsError(null);
     try {
-      const token = localStorage.getItem('access_token');
       const response = await fetch(`/api/events/${eventId}/lucky-draw/participants`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: 'include',
       });
 
       if (response.ok) {
@@ -578,17 +605,12 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
     setIsSavingConfig(true);
 
     try {
-      const token = localStorage.getItem('access_token');
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-      if (token) {
-        headers.Authorization = `Bearer ${token}`;
-      }
-
       const response = await fetch(`/api/events/${eventId}/lucky-draw/config`, {
         method: 'POST',
-        headers,
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           prizeTiers: trimmedTiers.map((tier) => ({
             ...tier,
@@ -614,8 +636,10 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
       }
 
       setConfig(data.data || null);
-      setIsEditingConfig(false);
+      // Keep the form visible after save - don't switch to read-only view
+      // setIsEditingConfig(false);
       setSuccessMessage('Draw configuration saved.');
+      toast.success('Configuration saved successfully!');
     } catch (err) {
       console.error('[LUCKY_DRAW_ADMIN] Failed to save config:', err);
       setConfigSaveError('Failed to save configuration.');
@@ -629,19 +653,29 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
   // ============================================
 
   const handleExecuteDraw = async () => {
-    if (!config) {
-      setDrawError('Please create a draw configuration first');
+    // Check user role first
+    const isAdmin = userRole === 'super_admin' || userRole === 'organizer';
+    if (!isAdmin) {
+      toast.error('Access Denied: Only organizers can execute the lucky draw.');
       return;
     }
 
+    // Check configuration exists
+    if (!config) {
+      toast.error('No Configuration: Please create a draw configuration first in the Configuration tab.');
+      return;
+    }
+
+    // Check entries exist
     const entryCount = entriesTotal;
     if (entryCount === 0) {
-      setDrawError('No entries available. Users must upload photos to enter the draw.');
+      toast.error('No Entries: Users must upload photos to enter the draw. Add manual entries or wait for participants to upload photos.');
       return;
     }
 
+    // Check status
     if (config.status !== 'scheduled') {
-      setDrawError(`Draw is ${config.status}. Cannot execute.`);
+      toast.error(`Draw Status: The draw is currently "${config.status}". Only draws with "scheduled" status can be executed.`);
       return;
     }
 
@@ -650,15 +684,12 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
     setSuccessMessage(null);
 
     try {
-      const token = localStorage.getItem('access_token');
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) {
-        headers.Authorization = `Bearer ${token}`;
-      }
-
-      const response = await fetch(`/api/events/${eventId}/lucky-draw/draw`, {
+      const response = await fetch(`/api/events/${eventId}/lucky-draw`, {
         method: 'POST',
-        headers,
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
       });
 
       const data = await response.json();
@@ -706,17 +737,12 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
     setManualEntrySubmitting(true);
 
     try {
-      const token = localStorage.getItem('access_token');
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-      if (token) {
-        headers.Authorization = `Bearer ${token}`;
-      }
-
       const response = await fetch(`/api/events/${eventId}/lucky-draw/entries`, {
         method: 'POST',
-        headers,
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           participantName,
           participantFingerprint: participantFingerprint || undefined,
@@ -749,6 +775,79 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
       setManualEntryError('Failed to add manual entry.');
     } finally {
       setManualEntrySubmitting(false);
+    }
+  };
+
+  // Generate UUID for Participant ID
+  const generateParticipantUUID = () => {
+    const uuid = crypto.randomUUID();
+    setManualEntryFingerprint(uuid);
+    toast.success('Generated Participant ID: ' + uuid);
+  };
+
+  // Generate UUID for Photo ID
+  const generatePhotoUUID = () => {
+    const uuid = crypto.randomUUID();
+    setManualEntryPhotoId(uuid);
+    toast.success('Generated Photo ID: ' + uuid);
+  };
+
+  // Upload photo for manual entry
+  const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setManualEntryError('Please select an image file.');
+      return;
+    }
+
+    // Validate file size (max 10MB)
+    const maxSize = 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+      setManualEntryError('Photo size must be less than 10MB.');
+      return;
+    }
+
+    setPhotoUploading(true);
+    setManualEntryError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('contributor_name', manualEntryName || 'Admin');
+      formData.append('is_anonymous', 'false');
+      formData.append('join_lucky_draw', 'false'); // Don't auto-join, we'll create manual entry
+
+      const response = await fetch(`/api/events/${eventId}/photos`, {
+        method: 'POST',
+        credentials: 'include',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setManualEntryError(data.error || 'Failed to upload photo.');
+        return;
+      }
+
+      // Set the photo ID from the response - data is an array
+      const photos = data.data;
+      if (photos && photos.length > 0 && photos[0].id) {
+        setManualEntryPhotoId(photos[0].id);
+        toast.success('Photo uploaded! Photo ID: ' + photos[0].id);
+      } else {
+        setManualEntryError('Photo uploaded but no ID returned.');
+      }
+    } catch (err) {
+      console.error('[LUCKY_DRAW_ADMIN] Failed to upload photo:', err);
+      setManualEntryError('Failed to upload photo.');
+    } finally {
+      setPhotoUploading(false);
+      // Reset file input
+      event.target.value = '';
     }
   };
 
@@ -1096,7 +1195,7 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
     const totalPages = Math.max(1, Math.ceil(entriesTotal / entriesPageSize));
     const hasNextPage = (entriesPage + 1) * entriesPageSize < entriesTotal;
     const hasPrevPage = entriesPage > 0;
-    const isAdmin = userRole === 'admin' || userRole === 'super_admin' || userRole === 'organizer';
+    const isAdmin = userRole === 'super_admin' || userRole === 'organizer';
 
     return (
       <div className="space-y-6">
@@ -1164,26 +1263,91 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
                   <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
                     Participant ID (optional)
                   </label>
-                  <input
-                    type="text"
-                    value={manualEntryFingerprint}
-                    onChange={(event) => setManualEntryFingerprint(event.target.value)}
-                    className="w-full rounded-md border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-violet-500 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
-                    placeholder="manual_..."
-                  />
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={manualEntryFingerprint}
+                      onChange={(event) => setManualEntryFingerprint(event.target.value)}
+                      className="flex-1 rounded-md border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-violet-500 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                      placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                    />
+                    <button
+                      type="button"
+                      onClick={generateParticipantUUID}
+                      className="inline-flex items-center gap-1 rounded-lg border border-violet-300 bg-violet-50 px-3 py-2 text-sm font-medium text-violet-700 hover:bg-violet-100 dark:border-violet-700 dark:bg-violet-900/30 dark:text-violet-300 dark:hover:bg-violet-900/50"
+                      title="Generate UUID"
+                    >
+                      <Copy className="h-4 w-4" />
+                      Generate
+                    </button>
+                  </div>
                 </div>
 
                 <div>
                   <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
                     Photo ID {config?.requirePhotoUpload ? '(required)' : '(optional)'}
                   </label>
-                  <input
-                    type="text"
-                    value={manualEntryPhotoId}
-                    onChange={(event) => setManualEntryPhotoId(event.target.value)}
-                    className="w-full rounded-md border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-violet-500 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
-                    placeholder="Photo UUID"
-                  />
+                  {config?.requirePhotoUpload ? (
+                    <div className="space-y-2">
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={manualEntryPhotoId}
+                          onChange={(event) => setManualEntryPhotoId(event.target.value)}
+                          className="flex-1 rounded-md border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-violet-500 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                          placeholder="Upload a photo below to auto-fill"
+                          readOnly
+                        />
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-gray-100 px-3 py-2 text-sm font-medium text-gray-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400 cursor-not-allowed"
+                          disabled
+                        >
+                          Auto-filled
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <label className="inline-flex items-center gap-2 rounded-lg border border-dashed border-violet-300 bg-violet-50 px-4 py-2 text-sm text-violet-700 hover:bg-violet-100 dark:border-violet-700 dark:bg-violet-900/30 dark:text-violet-300 dark:hover:bg-violet-900/50 cursor-pointer">
+                          <Upload className="h-4 w-4" />
+                          <span>Upload Photo</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handlePhotoUpload}
+                            disabled={photoUploading}
+                            className="hidden"
+                          />
+                          {photoUploading && <Loader2 className="h-4 w-4 animate-spin" />}
+                        </label>
+                        <span className="text-xs text-violet-600 dark:text-violet-400 font-medium">
+                          Required - upload a photo first
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={manualEntryPhotoId}
+                          onChange={(event) => setManualEntryPhotoId(event.target.value)}
+                          className="flex-1 rounded-md border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-violet-500 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                          placeholder="Not needed - leave empty"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setManualEntryPhotoId('')}
+                          className="inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
+                          title="Clear field"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Photos not required for this draw. Leave empty.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1397,7 +1561,7 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
   const renderDrawTab = () => {
     const totalPrizes = config?.prizeTiers.reduce((sum, tier) => sum + tier.count, 0) || 0;
     const canExecute = !!config && config.status === 'scheduled' && entriesTotal > 0;
-    const isAdmin = userRole === 'admin' || userRole === 'super_admin' || userRole === 'organizer';
+    const isAdmin = userRole === 'super_admin' || userRole === 'organizer';
 
     return (
       <div className="space-y-6">
@@ -1434,7 +1598,7 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
               canExecute={canExecute}
             />
 
-            {canExecute && isAdmin && (
+            {isAdmin && (
               <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
                 <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4">
                   Execute Draw
@@ -1442,14 +1606,14 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                   Once you execute the draw, winners will be selected randomly and cannot be undone.
                 </p>
-                {entriesTotal < totalPrizes && (
+                {entriesTotal < totalPrizes && entriesTotal > 0 && (
                   <p className="text-sm text-orange-600 dark:text-orange-400 mb-4">
                     ⚠️ Warning: Only {entriesTotal} entries available for {totalPrizes} prizes
                   </p>
                 )}
                 <button
                   onClick={handleExecuteDraw}
-                  disabled={drawInProgress || !canExecute}
+                  disabled={drawInProgress}
                   className={clsx(
                     'w-full flex items-center justify-center gap-2 rounded-lg px-6 py-3 text-base font-semibold transition-colors',
                     'bg-gradient-to-r from-violet-600 to-pink-600 text-white',
@@ -1543,6 +1707,7 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
                   completedAt: draw.completedAt,
                 }}
                 winnerCount={draw.winnerCount}
+                winners={draw.winners}
               />
             ))}
           </div>
@@ -1656,6 +1821,7 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
           showSelfie={config?.showSelfie ?? true}
           showFullName={config?.showFullName ?? true}
           confettiAnimation={config?.confettiAnimation ?? true}
+          entries={entries}
           onClose={() => {
             setShowWinnerModal(false);
             setWinners([]);
@@ -1836,6 +2002,7 @@ interface WinnerModalProps {
   showSelfie: boolean;
   showFullName: boolean;
   confettiAnimation: boolean;
+  entries: LuckyDrawEntry[];
   onClose: () => void;
 }
 
@@ -1846,6 +2013,7 @@ function WinnerModal({
   showSelfie,
   showFullName,
   confettiAnimation,
+  entries,
   onClose,
 }: WinnerModalProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -1853,7 +2021,9 @@ function WinnerModal({
   const [showWinner, setShowWinner] = useState(false);
   const [showAllWinners, setShowAllWinners] = useState(false);
 
-  const currentWinner = winners[currentIndex];
+  // Sort winners by prize rank (lowest to highest) for the reveal build-up
+  const displayWinners = [...winners].reverse();
+  const currentWinner = displayWinners[currentIndex];
 
   const advanceToNext = () => {
     if (currentIndex < winners.length - 1) {
@@ -1887,11 +2057,11 @@ function WinnerModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-      <div className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="relative bg-gradient-to-br from-violet-50 via-white to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-pink-900/30 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         {/* Close button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:text-gray-300 dark:hover:text-gray-100"
+          className="absolute top-4 right-4 z-10 text-gray-400 hover:text-gray-600 dark:text-gray-300 dark:hover:text-gray-100"
         >
           ✕
         </button>
@@ -1900,40 +2070,47 @@ function WinnerModal({
           <>
             {/* Animation Phase */}
             {!isAnimating && !showWinner && (
-              <div className="py-12 text-center">
-                <p className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
-                  Get Ready to Reveal Winners!
+              <div className="p-8 text-center">
+                <p className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-6">
+                  Ready to Reveal: <span className="text-violet-600 font-bold">{currentWinner?.prizeName}</span>
                 </p>
-                <button
-                  onClick={() => {
-                    setShowWinner(false);
-                    setIsAnimating(true);
-                  }}
-                  className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-violet-600 to-pink-600 px-6 py-3 text-base font-medium text-white hover:from-violet-700 hover:to-pink-700"
-                >
-                  <Trophy className="h-5 w-5" />
-                  Start Reveal
-                </button>
-                <button
-                  onClick={skipToEnd}
-                  className="ml-4 inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-6 py-3 text-base font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
-                >
-                  Show All Winners
-                </button>
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                  <button
+                    onClick={() => {
+                      setShowWinner(false);
+                      setIsAnimating(true);
+                    }}
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-violet-600 to-pink-600 px-6 py-3 text-base font-medium text-white hover:from-violet-700 hover:to-pink-700"
+                  >
+                    <Trophy className="h-5 w-5" />
+                    Start Reveal
+                  </button>
+                  <button
+                    onClick={skipToEnd}
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-6 py-3 text-base font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
+                  >
+                    Show All Winners
+                  </button>
+                </div>
               </div>
             )}
 
             {isAnimating && (
-              <DrawAnimation
-                key={`${animationStyle}-${currentIndex}`}
-                style={animationStyle}
-                durationSeconds={animationDuration}
-                onComplete={handleAnimationComplete}
-              />
+              <div className="p-8">
+                <DrawAnimation
+                  key={`${animationStyle}-${currentIndex}`}
+                  style={animationStyle}
+                  durationSeconds={animationDuration}
+                  participantName={currentWinner?.participantName}
+                  prizeName={currentWinner?.prizeName}
+                  entries={entries}
+                  onComplete={handleAnimationComplete}
+                />
+              </div>
             )}
 
             {showWinner && currentWinner && (
-              <div className="py-8 text-center">
+              <div className="p-8 text-center">
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                   Winner {currentIndex + 1} of {winners.length}
                 </p>
@@ -1945,7 +2122,7 @@ function WinnerModal({
                 />
                 <button
                   onClick={advanceToNext}
-                  className="mt-6 inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-violet-600 to-pink-600 px-6 py-3 text-base font-medium text-white hover:from-violet-700 hover:to-pink-700"
+                  className="mt-6 w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-violet-600 to-pink-600 px-6 py-3 text-base font-medium text-white hover:from-violet-700 hover:to-pink-700"
                 >
                   {currentIndex < winners.length - 1 ? 'Next Winner' : 'View All Winners'}
                   <ChevronRight className="h-5 w-5" />
@@ -1955,7 +2132,7 @@ function WinnerModal({
           </>
         ) : (
           /* All Winners Summary */
-          <div className="py-6">
+          <div className="p-8">
             <h2 className="text-2xl font-bold text-center text-gray-900 dark:text-gray-100 mb-6">
               🎉 Draw Complete!
             </h2>

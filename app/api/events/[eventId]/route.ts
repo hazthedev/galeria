@@ -6,6 +6,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getTenantId } from '@/lib/tenant';
 import { getTenantDb } from '@/lib/db';
 import { verifyAccessToken } from '@/lib/auth';
+import { extractSessionId, validateSession } from '@/lib/session';
+import { generateSlug, generateEventUrl } from '@/lib/utils';
 import type { IEvent, IEventUpdate } from '@/lib/types';
 
 // ============================================
@@ -19,13 +21,11 @@ export async function GET(
   const { eventId: id } = await params;
   try {
     const headers = request.headers;
-    const tenantId = getTenantId(headers);
+    let tenantId = getTenantId(headers);
 
+    // Fallback to default tenant for development (Turbopack middleware issue)
     if (!tenantId) {
-      return NextResponse.json(
-        { error: 'Tenant not found', code: 'TENANT_NOT_FOUND' },
-        { status: 404 }
-      );
+      tenantId = '00000000-0000-0000-0000-000000000001';
     }
 
     const db = getTenantDb(tenantId);
@@ -59,31 +59,45 @@ export async function PATCH(
   const { eventId: id } = await params;
   try {
     const headers = request.headers;
-    const tenantId = getTenantId(headers);
+    let tenantId = getTenantId(headers);
 
+    // Fallback to default tenant for development (Turbopack middleware issue)
     if (!tenantId) {
-      return NextResponse.json(
-        { error: 'Tenant not found', code: 'TENANT_NOT_FOUND' },
-        { status: 404 }
-      );
+      tenantId = '00000000-0000-0000-0000-000000000001';
     }
 
+    // Get user from session or JWT token (supports both auth methods)
+    const cookieHeader = headers.get('cookie');
     const authHeader = headers.get('authorization');
-    if (!authHeader) {
+    let userId: string | null = null;
+    let userRole: string | null = null;
+
+    // Try session-based auth first
+    const sessionResult = extractSessionId(cookieHeader, authHeader);
+    if (sessionResult.sessionId) {
+      const session = await validateSession(sessionResult.sessionId, false);
+      if (session.valid && session.user) {
+        userId = session.user.id;
+        userRole = session.user.role;
+      }
+    }
+
+    // Fallback to JWT token
+    if (!userId && authHeader) {
+      try {
+        const token = authHeader.replace('Bearer ', '');
+        const payload = verifyAccessToken(token);
+        userId = payload.sub;
+        userRole = payload.role;
+      } catch {
+        // Token invalid
+      }
+    }
+
+    // Check if user is authenticated
+    if (!userId) {
       return NextResponse.json(
         { error: 'Authentication required', code: 'AUTH_REQUIRED' },
-        { status: 401 }
-      );
-    }
-
-    const token = authHeader.replace('Bearer ', '');
-    let payload;
-
-    try {
-      payload = verifyAccessToken(token);
-    } catch {
-      return NextResponse.json(
-        { error: 'Invalid token', code: 'INVALID_TOKEN' },
         { status: 401 }
       );
     }
@@ -99,15 +113,46 @@ export async function PATCH(
       );
     }
 
-    const userRole = payload.role;
-    const isOwner = existingEvent.organizer_id === payload.sub;
-    const isAdmin = ['admin', 'super_admin'].includes(userRole);
+    const isOwner = existingEvent.organizer_id === userId;
+    const isSuperAdmin = userRole === 'super_admin';
 
-    if (!isOwner && !isAdmin) {
+    if (!isOwner && !isSuperAdmin) {
       return NextResponse.json(
         { error: 'Insufficient permissions', code: 'FORBIDDEN' },
         { status: 403 }
       );
+    }
+
+    // Regenerate slug and QR URL if name changed
+    if (updates.name && updates.name !== existingEvent.name) {
+      const newSlug = generateSlug(updates.name);
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+      const newUrl = generateEventUrl(baseUrl, id, newSlug);
+
+      updates.slug = newSlug;
+      updates.qr_code_url = newUrl;
+    }
+
+    if (typeof updates.short_code === 'string') {
+      const shortCode = updates.short_code.trim().toLowerCase();
+      if (!/^[a-z0-9-]{3,20}$/.test(shortCode)) {
+        return NextResponse.json(
+          { error: 'Short code must be 3-20 characters (letters, numbers, hyphens)', code: 'VALIDATION_ERROR' },
+          { status: 400 }
+        );
+      }
+
+      if (shortCode !== existingEvent.short_code) {
+        const shortCodeExists = await db.findOne<IEvent>('events', { short_code: shortCode });
+        if (shortCodeExists && shortCodeExists.id !== id) {
+          return NextResponse.json(
+            { error: 'Short code already in use', code: 'SHORT_CODE_TAKEN' },
+            { status: 409 }
+          );
+        }
+      }
+
+      updates.short_code = shortCode;
     }
 
     await db.update(
@@ -142,31 +187,45 @@ export async function DELETE(
   const { eventId: id } = await params;
   try {
     const headers = request.headers;
-    const tenantId = getTenantId(headers);
+    let tenantId = getTenantId(headers);
 
+    // Fallback to default tenant for development (Turbopack middleware issue)
     if (!tenantId) {
-      return NextResponse.json(
-        { error: 'Tenant not found', code: 'TENANT_NOT_FOUND' },
-        { status: 404 }
-      );
+      tenantId = '00000000-0000-0000-0000-000000000001';
     }
 
+    // Get user from session or JWT token
+    const cookieHeader = headers.get('cookie');
     const authHeader = headers.get('authorization');
-    if (!authHeader) {
+    let userId: string | null = null;
+    let userRole: string | null = null;
+
+    // Try session-based auth first
+    const sessionResult = extractSessionId(cookieHeader, authHeader);
+    if (sessionResult.sessionId) {
+      const session = await validateSession(sessionResult.sessionId, false);
+      if (session.valid && session.user) {
+        userId = session.user.id;
+        userRole = session.user.role;
+      }
+    }
+
+    // Fallback to JWT token
+    if (!userId && authHeader) {
+      try {
+        const token = authHeader.replace('Bearer ', '');
+        const payload = verifyAccessToken(token);
+        userId = payload.sub;
+        userRole = payload.role;
+      } catch {
+        // Token invalid
+      }
+    }
+
+    // Check if user is authenticated
+    if (!userId) {
       return NextResponse.json(
         { error: 'Authentication required', code: 'AUTH_REQUIRED' },
-        { status: 401 }
-      );
-    }
-
-    const token = authHeader.replace('Bearer ', '');
-    let payload;
-
-    try {
-      payload = verifyAccessToken(token);
-    } catch {
-      return NextResponse.json(
-        { error: 'Invalid token', code: 'INVALID_TOKEN' },
         { status: 401 }
       );
     }
@@ -181,11 +240,10 @@ export async function DELETE(
       );
     }
 
-    const userRole = payload.role;
-    const isOwner = existingEvent.organizer_id === payload.sub;
-    const isAdmin = ['admin', 'super_admin'].includes(userRole);
+    const isOwner = existingEvent.organizer_id === userId;
+    const isSuperAdmin = userRole === 'super_admin';
 
-    if (!isOwner && !isAdmin) {
+    if (!isOwner && !isSuperAdmin) {
       return NextResponse.json(
         { error: 'Insufficient permissions', code: 'FORBIDDEN' },
         { status: 403 }

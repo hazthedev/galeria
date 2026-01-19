@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import Image from 'next/image';
 import Lightbox from 'yet-another-react-lightbox';
 import type { IPhoto } from '@/lib/types';
@@ -18,6 +18,7 @@ interface PhotoGalleryProps {
   isModerator?: boolean;
   photos?: IPhoto[];
   onReaction?: (photoId: string, emoji: string) => void;
+  onPhotoUpdate?: (photoId: string, status: 'approved' | 'rejected') => void;
 }
 
 // ============================================
@@ -28,46 +29,35 @@ export function PhotoGallery({
   isModerator = false,
   photos: initialPhotos = [],
   onReaction,
+  onPhotoUpdate,
 }: PhotoGalleryProps) {
   // State
   const [photos, setPhotos] = useState<IPhoto[]>(initialPhotos);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
+  // Sync local state when props change (e.g., when switching status tabs)
+  useEffect(() => {
+    setPhotos(initialPhotos);
+  }, [initialPhotos]);
+
   // ============================================
   // REACTION HANDLERS
   // ============================================
 
   const handleReaction = useCallback(
-    async (photoId: string, emoji: 'heart' | 'clap' | 'laugh' | 'wow') => {
+    async (photoId: string) => {
       try {
-        // Optimistic update
-        setPhotos((prev) =>
-          prev.map((photo) =>
-            photo.id === photoId
-              ? {
-                  ...photo,
-                  reactions: {
-                    ...photo.reactions,
-                    [emoji]: (photo.reactions[emoji] || 0) + 1,
-                  },
-                }
-              : photo
-          )
-        );
-
-        // Call callback
-        onReaction?.(photoId, emoji);
-
-        // API call
-        const response = await fetch(`/api/photos/${photoId}/react`, {
+        const response = await fetch(`/api/photos/${photoId}/reactions`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ emoji }),
+          credentials: 'include',
+          body: JSON.stringify({ type: 'heart' }),
         });
 
-        if (!response.ok) {
-          // Revert on failure
+        if (response.ok) {
+          const data = await response.json();
+          // Update local state
           setPhotos((prev) =>
             prev.map((photo) =>
               photo.id === photoId
@@ -75,12 +65,14 @@ export function PhotoGallery({
                     ...photo,
                     reactions: {
                       ...photo.reactions,
-                      [emoji]: Math.max(0, (photo.reactions[emoji] || 0) - 1),
+                      heart: data.data?.count ?? (photo.reactions.heart || 0) + 1,
                     },
                   }
                 : photo
             )
           );
+          // Call callback
+          onReaction?.(photoId, 'heart');
         }
       } catch (error) {
         console.error('[Gallery] Error adding reaction:', error);
@@ -103,17 +95,20 @@ export function PhotoGallery({
         });
 
         if (response.ok) {
+          // Update local state
           setPhotos((prev) =>
             prev.map((photo) =>
               photo.id === photoId ? { ...photo, status: 'approved' as IPhoto['status'] } : photo
             )
           );
+          // Notify parent to update its state and refetch if needed
+          onPhotoUpdate?.(photoId, 'approved');
         }
       } catch (error) {
         console.error('[Gallery] Error approving photo:', error);
       }
     },
-    [isModerator]
+    [isModerator, onPhotoUpdate]
   );
 
   const handleReject = useCallback(
@@ -126,17 +121,20 @@ export function PhotoGallery({
         });
 
         if (response.ok) {
+          // Update local state
           setPhotos((prev) =>
             prev.map((photo) =>
               photo.id === photoId ? { ...photo, status: 'rejected' as IPhoto['status'] } : photo
             )
           );
+          // Notify parent to update its state and refetch if needed
+          onPhotoUpdate?.(photoId, 'rejected');
         }
       } catch (error) {
         console.error('[Gallery] Error rejecting photo:', error);
       }
     },
-    [isModerator]
+    [isModerator, onPhotoUpdate]
   );
 
   // ============================================
@@ -184,47 +182,19 @@ export function PhotoGallery({
               {/* Overlay on hover */}
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                 <div className="p-4 text-white">
-                  <div className="flex items-center gap-2 mb-2">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleReaction(photo.id, 'heart');
-                      }}
-                      className="cursor-pointer hover:scale-110 transition-transform"
-                    >
-                      ❤️ {photoReactions.heart || 0}
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleReaction(photo.id, 'clap');
-                      }}
-                      className="cursor-pointer hover:scale-110 transition-transform"
-                    >
-                      👏 {photoReactions.clap || 0}
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleReaction(photo.id, 'laugh');
-                      }}
-                      className="cursor-pointer hover:scale-110 transition-transform"
-                    >
-                      😂 {photoReactions.laugh || 0}
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleReaction(photo.id, 'wow');
-                      }}
-                      className="cursor-pointer hover:scale-110 transition-transform"
-                    >
-                      😮 {photoReactions.wow || 0}
-                    </button>
-                  </div>
+                  {/* Love reaction - only this reaction */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleReaction(photo.id);
+                    }}
+                    className="flex items-center gap-2 cursor-pointer hover:scale-110 transition-transform"
+                  >
+                    ❤️ <span className="font-semibold">{photoReactions.heart || 0}</span>
+                  </button>
 
                   {photo.caption && (
-                    <p className="text-sm line-clamp-2">{photo.caption}</p>
+                    <p className="mt-2 text-sm line-clamp-2">{photo.caption}</p>
                   )}
 
                   {!photo.is_anonymous && photo.contributor_name && (
@@ -271,17 +241,18 @@ export function PhotoGallery({
       {photos.length === 0 && (
         <div className="text-center py-12">
           <svg
+            xmlns="http://www.w3.org/2000/svg"
             className="mx-auto h-16 w-16 text-gray-400 mb-4"
-            fill="none"
             viewBox="0 0 24 24"
+            fill="none"
             stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4 16l4.586-4.294a9.956 9.956 0 111.414 1.414M4 20h16a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v2a2 2 0 002 2h16a2 2 0 002-2v-2a2 2 0 00-2-2H6a2 2 0 00-2-2v2a2 2 0 002 2z"
-            />
+            <path d="M12 3v12" />
+            <path d="M7 8l5-5 5 5" />
+            <rect x="4" y="15" width="16" height="6" rx="2" />
           </svg>
           <p className="text-gray-500">No photos yet</p>
           <p className="text-sm text-gray-400">Be the first to share a moment!</p>

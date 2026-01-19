@@ -58,7 +58,7 @@ export function generateEventId(): string {
  * Generate a unique photo ID
  */
 export function generatePhotoId(): string {
-  return `photo_${crypto.randomBytes(16).toString('hex').substring(0, 24)}`;
+  return crypto.randomUUID();
 }
 
 /**

@@ -15,20 +15,25 @@ const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 const REDIS_PASSWORD = process.env.REDIS_PASSWORD || '';
 const REDIS_DB = parseInt(process.env.REDIS_DB || '0', 10);
 
-// Parse Redis URL for connection options
-function parseRedisUrl(url: string): { host: string; port: number } {
-  try {
-    const parsed = new URL(url);
-    return {
-      host: parsed.hostname || 'localhost',
-      port: parseInt(parsed.port || '6379', 10),
-    };
-  } catch {
-    return { host: 'localhost', port: 6379 };
-  }
+// Check if a URL has a scheme (redis:// or rediss://)
+function hasScheme(url: string): boolean {
+  return /^[a-z][a-z0-9+.-]*:\/\//i.test(url);
 }
 
-const { host, port } = parseRedisUrl(REDIS_URL);
+// Parse host:port strings for connection options
+function parseHostPort(value: string): { host: string; port: number } {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return { host: 'localhost', port: 6379 };
+  }
+
+  const [hostPart, portPart] = trimmed.split(':');
+  const parsedPort = parseInt(portPart || '6379', 10);
+  return {
+    host: hostPart || 'localhost',
+    port: Number.isNaN(parsedPort) ? 6379 : parsedPort,
+  };
+}
 
 // ============================================
 // REDIS CLIENT SINGLETON
@@ -42,9 +47,7 @@ let redisClient: RedisType | null = null;
  */
 export function getRedisClient(): RedisType {
   if (!redisClient) {
-    redisClient = new Redis({
-      host,
-      port,
+    const redisOptions = {
       password: REDIS_PASSWORD || undefined,
       db: REDIS_DB,
       lazyConnect: true,
@@ -68,7 +71,22 @@ export function getRedisClient(): RedisType {
       maxRetriesPerRequest: 3,
       enableReadyCheck: true,
       enableOfflineQueue: true,
-    });
+    };
+
+    if (hasScheme(REDIS_URL)) {
+      const parsed = new URL(REDIS_URL);
+      if (parsed.protocol === 'rediss:') {
+        (redisOptions as { tls?: Record<string, unknown> }).tls = {};
+      }
+      redisClient = new Redis(REDIS_URL, redisOptions);
+    } else {
+      const { host, port } = parseHostPort(REDIS_URL);
+      redisClient = new Redis({
+        host,
+        port,
+        ...redisOptions,
+      });
+    }
 
     // Event listeners for monitoring
     redisClient.on('connect', () => {
@@ -184,25 +202,35 @@ export async function setKeyWithExpiry<T>(
   value: T,
   ttlSeconds: number
 ): Promise<void> {
-  const client = getRedisClient();
-  await client.set(key, JSON.stringify(value), 'EX', ttlSeconds);
+  try {
+    const client = getRedisClient();
+    await client.set(key, JSON.stringify(value), 'EX', ttlSeconds);
+  } catch (error) {
+    console.warn('[REDIS] setKeyWithExpiry failed:', error instanceof Error ? error.message : error);
+    // Fail silently in development - session won't persist but auth won't crash
+  }
 }
 
 /**
  * Get a key from Redis
  */
 export async function getKey<T>(key: string): Promise<T | null> {
-  const client = getRedisClient();
-  const data = await client.get(key);
-
-  if (!data) {
-    return null;
-  }
-
   try {
-    return JSON.parse(data) as T;
-  } catch {
-    return null;
+    const client = getRedisClient();
+    const data = await client.get(key);
+
+    if (!data) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(data) as T;
+    } catch {
+      return null;
+    }
+  } catch (error) {
+    console.warn('[REDIS] getKey failed:', error instanceof Error ? error.message : error);
+    return null; // Return null when Redis unavailable - treated as "not found"
   }
 }
 
@@ -234,8 +262,13 @@ export async function setRawKey(
  * Delete a key from Redis
  */
 export async function deleteKey(key: string): Promise<number> {
-  const client = getRedisClient();
-  return await client.del(key);
+  try {
+    const client = getRedisClient();
+    return await client.del(key);
+  } catch (error) {
+    console.warn('[REDIS] deleteKey failed:', error instanceof Error ? error.message : error);
+    return 0; // Return 0 (nothing deleted) when Redis unavailable
+  }
 }
 
 /**

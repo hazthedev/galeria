@@ -109,7 +109,7 @@ interface PublicRouteProps {
  */
 export function PublicRoute({
   children,
-  redirectTo = '/dashboard',
+  redirectTo = '/organizer',
 }: PublicRouteProps) {
   const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();

@@ -26,7 +26,7 @@ import { sql } from 'drizzle-orm';
 export const tenantTypeEnum = pgEnum('tenant_type', ['master', 'white_label', 'demo']);
 export const tenantStatusEnum = pgEnum('tenant_status', ['active', 'suspended', 'trial']);
 export const subscriptionTierEnum = pgEnum('subscription_tier', ['free', 'pro', 'premium', 'enterprise']);
-export const userRoleEnum = pgEnum('user_role', ['guest', 'organizer', 'admin', 'super_admin']);
+export const userRoleEnum = pgEnum('user_role', ['guest', 'organizer', 'super_admin']);
 export const eventTypeEnum = pgEnum('event_type', ['birthday', 'wedding', 'corporate', 'other']);
 export const eventStatusEnum = pgEnum('event_status', ['draft', 'active', 'ended', 'archived']);
 export const photoStatusEnum = pgEnum('photo_status', ['pending', 'approved', 'rejected']);
@@ -153,6 +153,7 @@ export const events = pgTable('events', {
   organizerId: uuid('organizer_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
   slug: text('slug').notNull(), // URL-friendly event identifier
+  shortCode: text('short_code').unique(), // Short memorable code for sharing (e.g., "helo", "party123")
   description: text('description'),
   eventType: eventTypeEnum('event_type').notNull().default('other'),
   eventDate: timestamp('event_date').notNull(),

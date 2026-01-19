@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Test Seed Data (CI/CD)
+// GATHERLY - Test Seed Data (CI/CD)
 // ============================================
 // This script creates predictable data for automated testing.
 //
@@ -116,7 +116,7 @@ const testEvent = {
   event_date: new Date('2025-01-01T12:00:00Z'),
   timezone: 'UTC',
   status: 'active',
-  qr_code_url: 'https://test.momentique.com/test-event/qr',
+  qr_code_url: 'https://test.gatherly.com/test-event/qr',
 };
 
 const testPhotos = Array.from({ length: 5 }, (_, i) => ({

@@ -5,7 +5,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { X, Sparkles } from 'lucide-react';
+import { X, Sparkles, Trophy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // ============================================
@@ -332,33 +332,87 @@ function RandomFadeAnimation({
 
 export function LuckyDraw({
   isOrganizer = false,
+  winners = [],
   onStart,
   onWinnerAnnounced,
-}: LuckyDrawProps) {
+  onComplete,
+}: {
+  isOrganizer?: boolean;
+  winners?: Winner[];
+  onStart?: () => void;
+  onWinnerAnnounced?: (winner: Winner) => void;
+  onComplete?: () => void;
+}) {
   const [showDraw, setShowDraw] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
-  const [winner] = useState<Winner | null>(null);
 
+  // Queue State
+  const [displayQueue, setDisplayQueue] = useState<Winner[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [currentWinner, setCurrentWinner] = useState<Winner | null>(null);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [revealPhase, setRevealPhase] = useState<'idle' | 'animating' | 'revealed' | 'complete'>('idle');
+
+  // Config State
   const [animationStyle] = useState<AnimationConfig['style']>('spinning_wheel');
   const [duration] = useState(8);
 
+  useEffect(() => {
+    if (winners.length > 0 && revealPhase === 'idle') {
+      // Sort winners: Lowest Prize (Consolation) -> Highest Prize (Grand)
+      // Assuming input 'winners' is typically ordered Grand -> Consolation by the API
+      // We reverse it to build suspense
+      setDisplayQueue([...winners].reverse());
+    }
+  }, [winners, revealPhase]);
+
   const handleStartDraw = () => {
     setShowDraw(true);
-    setShowConfetti(false);
+    setRevealPhase('idle');
+    setCurrentIndex(0);
+    setCurrentWinner(null);
     onStart?.();
   };
 
-  useEffect(() => {
-    if (winner && !showConfetti) {
-      const timer = setTimeout(() => {
-        setShowConfetti(true);
-      }, 1000);
-
-      return () => {
-        clearTimeout(timer);
-      };
+  const startNextReveal = () => {
+    if (currentIndex >= displayQueue.length) {
+      setRevealPhase('complete');
+      onComplete?.();
+      return;
     }
-  }, [winner, showConfetti]);
+
+    const nextWinner = displayQueue[currentIndex];
+    setCurrentWinner(nextWinner);
+    setIsAnimating(true);
+    setShowConfetti(false);
+    setRevealPhase('animating');
+  };
+
+  const handleAnimationComplete = () => {
+    setIsAnimating(false);
+    setShowConfetti(true);
+    setRevealPhase('revealed');
+    if (currentWinner) {
+      onWinnerAnnounced?.(currentWinner);
+    }
+  };
+
+  const advanceQueue = () => {
+    setCurrentIndex((prev) => prev + 1);
+    // If we have more winners, go back to idle/ready state for next spin
+    // Or auto-start next spin? Let's make it manual for now (Wait for Next)
+    if (currentIndex + 1 < displayQueue.length) {
+      startNextReveal(); // Auto-continue? Or wait? 
+      // For a projector view, usually we want "Next" button or auto. 
+      // Let's implement a manual "Reveal Next" flow pattern.
+      // Actually, let's keep it simple: Click to start next.
+    } else {
+      setRevealPhase('complete');
+      onComplete?.();
+    }
+  };
+
+  // Auto-advance logic could go here if requested, but manual is safer for events.
 
   if (!showDraw) {
     return (
@@ -386,7 +440,7 @@ export function LuckyDraw({
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-bold text-gray-900">
-            {isOrganizer ? 'Control Panel' : '? Lucky Draw'}
+            {isOrganizer ? 'Control Panel' : '🎉 Lucky Draw'}
           </h2>
           {isOrganizer && (
             <button
@@ -398,33 +452,62 @@ export function LuckyDraw({
           )}
         </div>
 
-        {/* Animation */}
-        <div className="flex items-center justify-center mb-8">
-          <AnimationComponent
-            duration={duration}
-            onComplete={() => {
-              setShowConfetti(true);
-              onWinnerAnnounced?.(winner!);
-            }}
-          />
-        </div>
-
-        {/* Winner Information */}
-        {winner && (
-          <div className="mt-8 text-center">
-            <p className="text-sm text-gray-600 mb-2">Congratulations to:</p>
-            <h3 className="text-3xl font-bold text-purple-600">
-              {winner.participant_name}
+        {/* Content Area */}
+        {revealPhase === 'idle' && displayQueue.length > 0 && (
+          <div className="text-center py-8">
+            <p className="text-gray-600 mb-4">Ready to reveal:</p>
+            <h3 className="text-2xl font-bold text-purple-600 mb-6">
+              {displayQueue[currentIndex]?.prize_tier === 1 ? 'Grand Prize' :
+                displayQueue[currentIndex]?.prize_tier === 2 ? '1st Prize' :
+                  `Prize #${displayQueue[currentIndex]?.prize_tier || 'Bonus'}`}
             </h3>
-            <p className="text-sm text-gray-500">
-              {winner.prize_tier === 1 ? '?' : ''}
-              {winner.prize_tier === 2 ? '?' : ''}
-              {winner.prize_tier === 3 ? '?' : ''}
-              {winner.prize_tier === 4 ? '?' : ''}
-              Grand Prize Winner
-            </p>
+            <button
+              onClick={startNextReveal}
+              className="px-8 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full font-bold shadow-lg hover:scale-105 transition-transform"
+            >
+              Roll the Drum! 🥁
+            </button>
           </div>
         )}
+
+        {revealPhase === 'animating' && (
+          <div className="flex items-center justify-center mb-8">
+            <AnimationComponent
+              duration={duration}
+              onComplete={handleAnimationComplete}
+            />
+          </div>
+        )}
+
+        {revealPhase === 'revealed' && currentWinner && (
+          <div className="mt-8 text-center animate-in fade-in zoom-in duration-500">
+            <p className="text-sm text-gray-600 mb-2">Winner of {currentWinner.prize_tier}:</p>
+            {currentWinner.selfie_url && (
+              <img src={currentWinner.selfie_url} alt="Winner" className="w-32 h-32 rounded-full mx-auto mb-4 object-cover border-4 border-yellow-400 shadow-xl" />
+            )}
+            <h3 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600 mb-4">
+              {currentWinner.participant_name}
+            </h3>
+
+            <button
+              onClick={advanceQueue}
+              className="mt-6 px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg font-medium transition-colors"
+            >
+              {currentIndex < displayQueue.length - 1 ? 'Reveal Next Winner →' : 'Finish Draw'}
+            </button>
+          </div>
+        )}
+
+        {revealPhase === 'complete' && (
+          <div className="text-center py-12">
+            <Trophy className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-gray-900">All Winners Revealed!</h2>
+            <button onClick={() => setShowDraw(false)} className="mt-6 text-purple-600 hover:underline">
+              Close Window
+            </button>
+          </div>
+        )}
+
       </div>
     </div>
   );

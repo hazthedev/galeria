@@ -38,15 +38,9 @@ export default function EventAdminPage() {
   useEffect(() => {
     const fetchEvent = async () => {
       try {
-        const token = localStorage.getItem('access_token');
-        const headers: Record<string, string> = {
-          'Content-Type': 'application/json',
-        };
-        if (token) {
-          headers['Authorization'] = `Bearer ${token}`;
-        }
-
-        const response = await fetch(`/api/events/${eventId}`, { headers });
+        const response = await fetch(`/api/events/${eventId}`, {
+          credentials: 'include',
+        });
         const data = await response.json();
 
         if (!response.ok) {
@@ -88,7 +82,7 @@ export default function EventAdminPage() {
         <div className="text-center">
           <p className="text-red-600 dark:text-red-400">{error || 'Event not found'}</p>
           <Link
-            href={`/events/${eventId}`}
+            href={`/organizer/events/${eventId}`}
             className="mt-4 inline-block text-violet-600 hover:text-violet-700 dark:text-violet-400"
           >
             Back to Event
@@ -98,13 +92,17 @@ export default function EventAdminPage() {
     );
   }
 
+  const shortLink = typeof window !== 'undefined'
+    ? `${window.location.origin}/e/${event.short_code || event.id}`
+    : '';
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
           <Link
-            href={`/events/${eventId}`}
+            href={`/organizer/events/${eventId}`}
             className="mb-4 inline-flex items-center text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
@@ -118,7 +116,7 @@ export default function EventAdminPage() {
               <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">Admin Dashboard</p>
             </div>
             <Link
-              href={`/events/${eventId}/edit`}
+              href={`/organizer/events/${eventId}/edit`}
               className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
             >
               <Settings className="mr-2 h-4 w-4" />
@@ -183,10 +181,35 @@ export default function EventAdminPage() {
                 Share this QR code with guests to let them easily upload photos to your event
               </p>
               <QRCodeDisplay
-                url={event.qr_code_url}
+                url={shortLink}
                 eventName={event.name}
                 size={300}
               />
+
+              {/* Shareable Links */}
+              <div className="mt-8 space-y-4">
+                <div>
+                  <h3 className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Short Link (Easy to Share)
+                  </h3>
+                  <div className="flex items-center gap-2 rounded-lg border border-gray-300 bg-gray-50 p-3 dark:border-gray-600 dark:bg-gray-700">
+                    <input
+                      type="text"
+                      readOnly
+                      value={shortLink}
+                      className="flex-1 bg-transparent text-sm text-gray-900 dark:text-gray-100 outline-none"
+                    />
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(shortLink);
+                      }}
+                      className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700"
+                    >
+                      Copy
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
@@ -277,7 +300,7 @@ export default function EventAdminPage() {
 
               <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
                 <Link
-                  href={`/events/${eventId}/edit`}
+                  href={`/organizer/events/${eventId}/edit`}
                   className="inline-flex items-center rounded-lg bg-gradient-to-r from-violet-600 to-pink-600 px-4 py-2 text-sm font-medium text-white hover:from-violet-700 hover:to-pink-700"
                 >
                   <Settings className="mr-2 h-4 w-4" />
@@ -297,7 +320,7 @@ export default function EventAdminPage() {
               </p>
 
               <Link
-                href={`/events/${eventId}/photos?status=pending`}
+                href={`/organizer/events/${eventId}/photos?status=pending`}
                 className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
               >
                 <ImageIcon className="mr-2 h-4 w-4" />

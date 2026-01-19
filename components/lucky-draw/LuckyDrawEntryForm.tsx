@@ -7,7 +7,7 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import Image from 'next/image';
-import { useLuckyDraw } from '@/lib/websocket/client';
+import { useLuckyDraw } from '@/lib/realtime/client';
 import { cn } from '@/lib/utils';
 
 // ============================================

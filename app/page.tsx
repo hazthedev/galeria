@@ -1,157 +1,88 @@
 // ============================================
-// MOMENTIQUE - Landing Page
+// GATHERLY - Landing Page
 // ============================================
+// Simple landing page with organizer and admin login options
 
 import Link from 'next/link';
-import Image from 'next/image';
-import { Header } from '@/components/layout/header';
+import { Users, ShieldCheck } from 'lucide-react';
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50">
-      {/* Header */}
-      <Header />
+    <div className="relative min-h-screen flex items-center justify-center overflow-hidden">
+      {/* Animated Background */}
+      <div className="absolute inset-0 bg-gradient-to-br from-violet-100 via-white to-pink-100 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800" />
 
-      {/* Hero Section */}
-      <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="py-24 text-center">
-          <h1 className="text-4xl font-bold tracking-tight text-gray-900 sm:text-6xl">
-            Capture Event Moments
-            <span className="block bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-              In Real-Time
-            </span>
+      {/* Decorative Blobs */}
+      <div className="absolute top-0 -left-40 h-80 w-80 rounded-full bg-violet-300/40 blur-3xl dark:bg-violet-900/30" />
+      <div className="absolute bottom-0 -right-40 h-80 w-80 rounded-full bg-pink-300/40 blur-3xl dark:bg-pink-900/30" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-96 w-96 rounded-full bg-fuchsia-200/30 blur-3xl dark:bg-fuchsia-900/20" />
+
+      {/* Grid Pattern Overlay */}
+      <div
+        className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05]"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%239C92AC' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+        }}
+      />
+
+      {/* Content */}
+      <div className="relative z-10 w-full max-w-2xl px-4 py-16">
+        {/* Logo */}
+        <div className="text-center mb-16">
+          <h1 className="text-5xl font-extrabold leading-normal py-2 bg-gradient-to-r from-violet-600 to-pink-600 bg-clip-text text-transparent">
+            Gatherly
           </h1>
-          <p className="mx-auto mt-6 max-w-2xl text-lg text-gray-600">
-            Create engaging photo galleries and run exciting lucky draws for your events.
-            Guests upload photos instantly and see them appear live.
+          <p className="mt-3 text-lg text-gray-600 dark:text-gray-400">
+            Event photo sharing made simple
           </p>
-          <div className="mt-10 flex items-center justify-center gap-4">
-            <Link
-              href="/events/new"
-              className="rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 px-8 py-3 text-lg font-semibold text-white shadow-lg hover:from-purple-700 hover:to-pink-700"
-            >
-              Create Event
-            </Link>
-            <Link
-              href="/docs"
-              className="rounded-lg border border-gray-300 px-8 py-3 text-lg font-semibold text-gray-700 hover:bg-gray-50"
-            >
-              Learn More
-            </Link>
-          </div>
         </div>
 
-        {/* Features Grid */}
-        <div className="py-16">
-          <div className="mx-auto max-w-5xl">
-            <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-              {/* Feature 1 */}
-              <div className="rounded-xl border border-purple-100 bg-white p-6 shadow-sm">
-                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-purple-100">
-                  <svg className="h-6 w-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.294a9.956 9.956 0 111.414 1.414M4 20h16a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v2a2 2 0 002 2h16a2 2 0 002-2v-2a2 2 0 00-2-2H6a2 2 0 00-2-2v2a2 2 0 002 2z" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900">Real-Time Photo Gallery</h3>
-                <p className="mt-2 text-sm text-gray-600">
-                  Guests upload photos and see them appear instantly in a beautiful masonry gallery
-                </p>
-              </div>
-
-              {/* Feature 2 */}
-              <div className="rounded-xl border border-purple-100 bg-white p-6 shadow-sm">
-                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-pink-100">
-                  <svg className="h-6 w-6 text-pink-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900">Lucky Draw</h3>
-                <p className="mt-2 text-sm text-gray-600">
-                  Engage guests with exciting lucky draw animations and prize giveaways
-                </p>
-              </div>
-
-              {/* Feature 3 */}
-              <div className="rounded-xl border border-purple-100 bg-white p-6 shadow-sm">
-                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-amber-100">
-                  <svg className="h-6 w-6 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900">Multi-Tenant</h3>
-                <p className="mt-2 text-sm text-gray-600">
-                  White-label solution with custom domains and branding for event organizers
-                </p>
-              </div>
-
-              {/* Feature 4 */}
-              <div className="rounded-xl border border-purple-100 bg-white p-6 shadow-sm">
-                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-emerald-100">
-                  <svg className="h-6 w-6 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900">Photo Moderation</h3>
-                <p className="mt-2 text-sm text-gray-600">
-                  Approve or reject photos before they appear in the public gallery
-                </p>
-              </div>
-
-              {/* Feature 5 */}
-              <div className="rounded-xl border border-purple-100 bg-white p-6 shadow-sm">
-                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-indigo-100">
-                  <svg className="h-6 w-6 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900">Reactions</h3>
-                <p className="mt-2 text-sm text-gray-600">
-                  Guests can react to photos with hearts, claps, laughs, and wow emojis
-                </p>
-              </div>
-
-              {/* Feature 6 */}
-              <div className="rounded-xl border border-purple-100 bg-white p-6 shadow-sm">
-                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-blue-100">
-                  <svg className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900">Easy Export</h3>
-                <p className="mt-2 text-sm text-gray-600">
-                  Download all photos after the event with one click
-                </p>
-              </div>
+        {/* Login Cards */}
+        <div className="grid gap-6 sm:grid-cols-2">
+          {/* Organizer Card */}
+          <Link
+            href="/auth/login"
+            className="group relative flex flex-col items-center rounded-2xl border-2 border-white/60 bg-white/70 backdrop-blur-sm p-8 shadow-lg transition-all hover:border-violet-400 hover:shadow-xl hover:-translate-y-1 dark:border-gray-700/60 dark:bg-gray-800/70 dark:hover:border-violet-500"
+          >
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-pink-500 text-white shadow-lg transition-transform group-hover:scale-110">
+              <Users className="h-8 w-8" />
             </div>
-          </div>
-        </div>
-
-        {/* API Section */}
-        <div className="py-16">
-          <div className="mx-auto max-w-3xl text-center">
-            <h2 className="text-2xl font-bold text-gray-900">Developer Friendly API</h2>
-            <p className="mt-4 text-gray-600">
-              Built with Next.js 16, TypeScript, and modern APIs. Easy to integrate and extend.
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+              Organizer
+            </h2>
+            <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
+              Create and manage your events
             </p>
-            <div className="mt-8 rounded-lg bg-gray-900 p-4 text-left">
-              <code className="text-sm text-gray-300">
-                <span className="text-purple-400">POST</span> /api/events<br />
-                <span className="text-purple-400">GET</span> /api/events/[eventId]/photos<br />
-                <span className="text-purple-400">POST</span> /api/events/[eventId]/lucky-draw/draw
-              </code>
-            </div>
-          </div>
-        </div>
-      </main>
+            <span className="mt-4 inline-flex items-center text-sm font-medium text-violet-600 dark:text-violet-400 transition-transform group-hover:translate-x-1">
+              Login →
+            </span>
+          </Link>
 
-      {/* Footer */}
-      <footer className="border-t border-purple-100 bg-white">
-        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-          <p className="text-center text-sm text-gray-600">
-            © 2025 Momentique. Built with Next.js, TypeScript, and Tailwind CSS.
-          </p>
+          {/* Admin Card */}
+          <Link
+            href="/auth/admin/login"
+            className="group relative flex flex-col items-center rounded-2xl border-2 border-white/60 bg-white/70 backdrop-blur-sm p-8 shadow-lg transition-all hover:border-violet-400 hover:shadow-xl hover:-translate-y-1 dark:border-gray-700/60 dark:bg-gray-800/70 dark:hover:border-violet-500"
+          >
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-gray-700 to-gray-900 text-white shadow-lg transition-transform group-hover:scale-110">
+              <ShieldCheck className="h-8 w-8" />
+            </div>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+              Admin
+            </h2>
+            <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
+              System administration
+            </p>
+            <span className="mt-4 inline-flex items-center text-sm font-medium text-violet-600 dark:text-violet-400 transition-transform group-hover:translate-x-1">
+              Login →
+            </span>
+          </Link>
         </div>
-      </footer>
+
+        {/* Footer */}
+        <p className="mt-16 text-center text-xs text-gray-500 dark:text-gray-500">
+          © 2025 Gatherly
+        </p>
+      </div>
     </div>
   );
 }

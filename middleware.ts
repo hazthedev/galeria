@@ -32,7 +32,7 @@ export async function middleware(request: NextRequest) {
     response.headers.set('x-tenant-id', '00000000-0000-0000-0000-000000000001');
     response.headers.set('x-tenant-type', 'master');
     response.headers.set('x-tenant-tier', 'enterprise');
-    response.headers.set('x-tenant-name', 'Momentique Dev');
+    response.headers.set('x-tenant-name', 'Gatherly Dev');
     response.headers.set('x-tenant-branding', JSON.stringify({
       primary_color: '#8B5CF6',
       secondary_color: '#EC4899',

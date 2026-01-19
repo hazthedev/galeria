@@ -69,7 +69,7 @@ export interface ITenant {
 // USER TYPES
 // ============================================
 
-export type UserRole = 'guest' | 'organizer' | 'admin' | 'super_admin';
+export type UserRole = 'guest' | 'organizer' | 'super_admin';
 
 export interface IUser {
   id: string;
@@ -140,6 +140,7 @@ export interface IEvent {
   organizer_id: string;
   name: string;
   slug: string;
+  short_code?: string | null;
   description?: string;
   event_type: EventType;
   event_date: Date;
@@ -174,6 +175,7 @@ export interface IEventUpdate {
   location?: string;
   settings?: Partial<IEventSettings>;
   status?: EventStatus;
+  short_code?: string;
 }
 
 // ============================================

@@ -74,7 +74,7 @@ Sentry.init({
     event.contexts = {
       ...event.contexts,
       app: {
-        name: "Momentique",
+        name: "Gatherly",
         type: "multi-tenant-saas",
       },
     };
@@ -106,7 +106,7 @@ Sentry.init({
     // Filter out health check transactions
     const txnName = event.transaction;
     if (txnName?.includes("/health") ||
-        txnName?.includes("/api/health")) {
+      txnName?.includes("/api/health")) {
       return null;
     }
 

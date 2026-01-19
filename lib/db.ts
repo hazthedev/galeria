@@ -161,10 +161,10 @@ export class TenantDatabase {
 
     if (conditions && Object.keys(conditions).length > 0) {
       const conditionsStr = Object.entries(conditions)
-        .map(([key]) => {
+        .map(([key, value]) => {
           const placeholder = `$${paramIndex}`;
           paramIndex++;
-          values.push(conditions[key]);
+          values.push(value);
           return `${escapeIdentifier(key)} = ${placeholder}`;
         })
         .join(' AND ');

@@ -24,3 +24,124 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Heart burst animation for photo reactions */
+@keyframes heartBurst {
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+
+  30% {
+    transform: scale(1.3);
+    opacity: 1;
+  }
+
+  60% {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+/* Floating particle animation for landing page */
+@keyframes floatUp {
+  0% {
+    transform: translateY(100vh) rotate(0deg);
+    opacity: 0;
+  }
+
+  10% {
+    opacity: 0.6;
+  }
+
+  90% {
+    opacity: 0.6;
+  }
+
+  100% {
+    transform: translateY(-100vh) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+@keyframes floatSway {
+
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  50% {
+    transform: translateX(20px);
+  }
+}
+
+@keyframes pulse {
+
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.4;
+  }
+
+  50% {
+    transform: scale(1.1);
+    opacity: 0.6;
+  }
+}
+
+/* Bokeh background effect */
+.bokeh-bg {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.bokeh-circle {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(40px);
+  animation: pulse 4s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+/* Floating particle styles */
+.floating-particle {
+  position: absolute;
+  pointer-events: none;
+  animation: floatUp linear infinite, floatSway 3s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+/* Respect user's motion preferences */
+@media (prefers-reduced-motion: reduce) {
+
+  .bokeh-circle,
+  .floating-particle {
+    animation: none;
+  }
+}
+
+/* Hero gradient background */
+.hero-gradient {
+  background: linear-gradient(135deg,
+      #fdf4ff 0%,
+      #fae8ff 25%,
+      #f5d0fe 50%,
+      #f0abfc 75%,
+      #e879f9 100%);
+}
+
+/* Warm memory-themed gradient */
+.memory-gradient {
+  background: linear-gradient(180deg,
+      rgba(250, 232, 255, 0.9) 0%,
+      rgba(253, 244, 255, 1) 50%,
+      rgba(255, 255, 255, 1) 100%);
+}

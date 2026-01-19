@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getTenantId } from '@/lib/tenant';
 import { getTenantDb } from '@/lib/db';
 import { verifyAccessToken } from '@/lib/auth';
+import { extractSessionId, validateSession } from '@/lib/session';
 import type { IPhoto } from '@/lib/types';
 
 interface EventStats {
@@ -30,38 +31,59 @@ interface TopContributor {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ eventId: string }> }
 ) {
-  const { id } = await params;
+  const { eventId: id } = await params;
   try {
     const headers = request.headers;
-    const tenantId = getTenantId(headers);
+    let tenantId = getTenantId(headers);
 
+    // Fallback to default tenant for development (Turbopack middleware issue)
     if (!tenantId) {
-      return NextResponse.json(
-        { error: 'Tenant not found', code: 'TENANT_NOT_FOUND' },
-        { status: 404 }
-      );
+      tenantId = '00000000-0000-0000-0000-000000000001';
     }
 
+    // Get user from session or JWT token
+    const cookieHeader = headers.get('cookie');
     const authHeader = headers.get('authorization');
-    if (!authHeader) {
-      return NextResponse.json(
-        { error: 'Authentication required', code: 'AUTH_REQUIRED' },
-        { status: 401 }
-      );
+    let userId: string | null = null;
+    let userRole: string | null = null;
+
+    // Try session-based auth first
+    const sessionResult = extractSessionId(cookieHeader, authHeader);
+    if (sessionResult.sessionId) {
+      const session = await validateSession(sessionResult.sessionId, false);
+      if (session.valid && session.user) {
+        userId = session.user.id;
+        userRole = session.user.role;
+      }
     }
 
-    const token = authHeader.replace('Bearer ', '');
-    let payload;
+    // Fallback to JWT token
+    if (!userId && authHeader) {
+      try {
+        const token = authHeader.replace('Bearer ', '');
+        const payload = verifyAccessToken(token);
+        userId = payload.sub;
+        userRole = payload.role;
+      } catch {
+        // Token invalid
+      }
+    }
 
-    try {
-      payload = verifyAccessToken(token);
-    } catch {
-      return NextResponse.json(
-        { error: 'Invalid token', code: 'INVALID_TOKEN' },
-        { status: 401 }
-      );
+    // Stats are optional - return empty stats if not authenticated
+    if (!userId) {
+      const emptyStats: EventStats = {
+        totalPhotos: 0,
+        totalParticipants: 0,
+        photosToday: 0,
+        avgPhotosPerUser: 0,
+        topContributors: [],
+        uploadTimeline: [],
+        totalReactions: 0,
+        pendingModeration: 0,
+      };
+      return NextResponse.json({ data: emptyStats });
     }
 
     const db = getTenantDb(tenantId);
@@ -76,11 +98,10 @@ export async function GET(
     }
 
     // Check permissions
-    const userRole = payload.role;
-    const isOwner = event.organizer_id === payload.sub;
-    const isAdmin = ['admin', 'super_admin'].includes(userRole);
+    const isOwner = event.organizer_id === userId;
+    const isSuperAdmin = userRole === 'super_admin';
 
-    if (!isOwner && !isAdmin) {
+    if (!isOwner && !isSuperAdmin) {
       return NextResponse.json(
         { error: 'Insufficient permissions', code: 'FORBIDDEN' },
         { status: 403 }

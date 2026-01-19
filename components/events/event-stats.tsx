@@ -67,15 +67,9 @@ export function EventStats({ eventId, refreshInterval = 30000, className }: Even
 
   const fetchStats = async () => {
     try {
-      const token = localStorage.getItem('access_token');
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-
-      const response = await fetch(`/api/events/${eventId}/stats`, { headers });
+      const response = await fetch(`/api/events/${eventId}/stats`, {
+        credentials: 'include',
+      });
       const data = await response.json();
 
       if (!response.ok) {

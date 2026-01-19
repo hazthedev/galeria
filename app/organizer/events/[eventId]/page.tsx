@@ -19,58 +19,39 @@ import {
   Loader2,
   Image as ImageIcon,
   Heart,
-  ThumbsUp,
-  Smile,
-  Star,
+  Camera,
+  X,
+  Check,
+  AlertCircle,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import clsx from 'clsx';
 import type { IEvent, IPhoto } from '@/lib/types';
-import { useSocket } from '@/lib/websocket/client';
+import { usePhotoGallery } from '@/lib/realtime/client';
 import { getClientFingerprint } from '@/lib/fingerprint';
 
 interface ReactionButtonsProps {
   photo: IPhoto;
-  onReaction: (photoId: string, type: 'heart' | 'clap' | 'laugh' | 'wow') => void;
+  onReaction: (photoId: string, type: 'heart') => void;
 }
 
 function ReactionButtons({ photo, onReaction }: ReactionButtonsProps) {
-  const reactions = [
-    { type: 'heart' as const, icon: Heart, label: 'Love' },
-    { type: 'clap' as const, icon: ThumbsUp, label: 'Like' },
-    { type: 'laugh' as const, icon: Smile, label: 'Smile' },
-    { type: 'wow' as const, icon: Star, label: 'Amazing' },
-  ];
-
-  const totalReactions =
-    (photo.reactions.heart || 0) +
-    (photo.reactions.clap || 0) +
-    (photo.reactions.laugh || 0) +
-    (photo.reactions.wow || 0);
+  const heartCount = photo.reactions.heart || 0;
 
   return (
     <div className="flex items-center gap-1">
-      {reactions.map(reaction => {
-        const Icon = reaction.icon;
-        const count = photo.reactions[reaction.type] || 0;
-        return (
-          <button
-            key={reaction.type}
-            onClick={() => onReaction(photo.id, reaction.type)}
-            className={clsx(
-              'flex items-center gap-1 rounded-full px-2 py-1 text-xs transition-colors',
-              count > 0
-                ? 'bg-pink-100 text-pink-700 hover:bg-pink-200 dark:bg-pink-900/30 dark:text-pink-400'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-400'
-            )}
-          >
-            <Icon className="h-3 w-3" />
-            {count > 0 && <span>{count}</span>}
-          </button>
-        );
-      })}
-      {totalReactions === 0 && (
-        <span className="text-xs text-gray-500 dark:text-gray-500">React</span>
-      )}
+      <button
+        onClick={() => onReaction(photo.id, 'heart')}
+        className={clsx(
+          'flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-medium transition-colors',
+          heartCount > 0
+            ? 'bg-pink-100 text-pink-700 hover:bg-pink-200 dark:bg-pink-900/30 dark:text-pink-400'
+            : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-400'
+        )}
+      >
+        <span className="text-red-500">❤️</span>
+        <span>{heartCount}</span>
+      </button>
     </div>
   );
 }
@@ -85,22 +66,24 @@ export default function EventDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedPhoto, setSelectedPhoto] = useState<IPhoto | null>(null);
-  const { socket, connected } = useSocket();
+  const { channel, broadcastNewPhoto } = usePhotoGallery(eventId);
   const fingerprint = useMemo(() => getClientFingerprint(), []);
+
+  // Quick camera upload state
+  const [showCameraModal, setShowCameraModal] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  // const [uploadSuccess, setUploadSuccess] = useState(false); // Replaced by toast
+  // const [uploadError, setUploadError] = useState<string | null>(null); // Replaced by toast
 
   const fetchEvent = async () => {
     try {
-      const token = localStorage.getItem('access_token');
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-
       const [eventRes, photosRes] = await Promise.all([
-        fetch(`/api/events/${eventId}`, { headers }),
-        fetch(`/api/events/${eventId}/photos`, { headers }),
+        fetch(`/api/events/${eventId}`, {
+          credentials: 'include',
+        }),
+        fetch(`/api/events/${eventId}/photos`, {
+          credentials: 'include',
+        }),
       ]);
 
       const eventData = await eventRes.json();
@@ -126,11 +109,12 @@ export default function EventDetailPage() {
   }, [eventId]);
 
   useEffect(() => {
-    if (!socket || !connected) return;
+    if (!channel) return;
 
-    socket.emit('join_event', { event_id: eventId, fingerprint: fingerprint || undefined });
-
-    const handleNewPhoto = (photo: IPhoto) => {
+    // The channel subscription is already managed by usePhotoGallery hook
+    // We just need to handle photo updates from the channel
+    const handleNewPhoto = (payload: { payload: IPhoto }) => {
+      const photo = payload.payload;
       if (event?.settings?.features?.moderation_required && photo.status !== 'approved') {
         return;
       }
@@ -142,7 +126,8 @@ export default function EventDetailPage() {
       });
     };
 
-    const handlePhotoUpdated = (data: { photo_id: string; status: string }) => {
+    const handlePhotoUpdated = (payload: { payload: { photo_id: string; status: string } }) => {
+      const data = payload.payload;
       setPhotos((prev) => {
         const updated = prev.map((photo) =>
           photo.id === data.photo_id
@@ -158,26 +143,27 @@ export default function EventDetailPage() {
       });
     };
 
-    socket.on('new_photo', handleNewPhoto);
-    socket.on('photo_updated', handlePhotoUpdated);
+    channel.on('broadcast', { event: 'new_photo' }, handleNewPhoto);
+    channel.on('broadcast', { event: 'photo_updated' }, handlePhotoUpdated);
 
     return () => {
-      socket.emit('leave_event', { event_id: eventId });
-      socket.off('new_photo', handleNewPhoto);
-      socket.off('photo_updated', handlePhotoUpdated);
+      // Cleanup is handled by the usePhotoGallery hook
     };
-  }, [socket, connected, eventId, fingerprint, event]);
+  }, [channel, eventId, fingerprint, event]);
 
-  const handleReaction = async (photoId: string, type: 'heart' | 'clap' | 'laugh' | 'wow') => {
+  const handleReaction = async (photoId: string, type: 'heart') => {
     try {
-      const token = localStorage.getItem('access_token');
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (fingerprint) {
+        headers['x-fingerprint'] = fingerprint;
+      }
+
       const response = await fetch(`/api/photos/${photoId}/reactions`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token && { Authorization: `Bearer ${token}` }),
-          ...(fingerprint ? { 'x-fingerprint': fingerprint } : {}),
-        },
+        credentials: 'include',
+        headers,
         body: JSON.stringify({ type }),
       });
 
@@ -200,6 +186,65 @@ export default function EventDetailPage() {
       }
     } catch (err) {
       console.error('[EVENT_DETAIL] Reaction error:', err);
+    }
+  };
+
+  // Quick camera upload handler
+  const handleCameraCapture = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+
+    setIsUploading(true);
+    // setUploadError(null);
+    // setUploadSuccess(false);
+
+    try {
+      const formData = new FormData();
+      for (let i = 0; i < files.length; i++) {
+        formData.append('files', files[i]);
+      }
+
+      const headers: Record<string, string> = {};
+      if (fingerprint) {
+        headers['x-fingerprint'] = fingerprint;
+      }
+
+      const response = await fetch(`/api/events/${eventId}/photos`, {
+        method: 'POST',
+        credentials: 'include',
+        headers,
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        const uploaded = Array.isArray(result.data) ? result.data : result.data ? [result.data] : [];
+        // setUploadSuccess(true);
+        toast.success('Photo uploaded successfully!');
+
+        // Broadcast to channel for real-time updates
+        uploaded.forEach((photo: IPhoto) => {
+          broadcastNewPhoto(photo);
+        });
+
+        // Refresh photos
+        fetchEvent();
+
+        // Close modal after showing success
+        setTimeout(() => {
+          setShowCameraModal(false);
+          // setUploadSuccess(false);
+        }, 500);
+      } else {
+        // setUploadError(result.error || 'Upload failed');
+        toast.error(result.error || 'Upload failed');
+      }
+    } catch (err) {
+      console.error('[EVENT_DETAIL] Upload error:', err);
+      // setUploadError('Network error. Please try again.');
+      toast.error('Network error. Please try again.');
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -299,7 +344,7 @@ export default function EventDetailPage() {
                 Upload Photos
               </Link>
               <Link
-                href={`/events/${event.id}/admin`}
+                href={`/organizer/events/${event.id}/admin`}
                 className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
               >
                 <Settings className="mr-2 h-4 w-4" />
@@ -388,6 +433,106 @@ export default function EventDetailPage() {
               <p className="text-sm opacity-75">by {selectedPhoto.contributor_name}</p>
             )}
             <ReactionButtons photo={selectedPhoto} onReaction={handleReaction} />
+          </div>
+        </div>
+      )}
+
+      {/* Floating Camera Button */}
+      {event?.settings?.features?.photo_upload_enabled !== false && (
+        <button
+          onClick={() => setShowCameraModal(true)}
+          className="fixed bottom-6 right-6 z-40 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-violet-600 to-pink-600 text-white shadow-2xl hover:from-violet-700 hover:to-pink-700 transition-all hover:scale-110 active:scale-95"
+          aria-label="Quick photo upload"
+        >
+          <Camera className="h-8 w-8" />
+        </button>
+      )}
+
+      {/* Quick Camera Modal */}
+      {showCameraModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:bg-gray-800">
+            {/* Header */}
+            <div className="mb-6 flex items-center justify-between">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                Quick Photo Upload
+              </h3>
+              <button
+                onClick={() => {
+                  setShowCameraModal(false);
+                  // setUploadSuccess(false);
+                  // setUploadError(null);
+                }}
+                className="rounded-full p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Error Message - Removed custom alerts */}
+            {/*
+            {uploadSuccess && (
+              <div className="mb-4 flex items-center gap-2 rounded-lg bg-green-50 p-3 text-green-800 dark:bg-green-900/20 dark:text-green-300">
+                <Check className="h-5 w-5 flex-shrink-0" />
+                <p className="text-sm">Photo uploaded successfully!</p>
+              </div>
+            )}
+
+            {uploadError && (
+              <div className="mb-4 flex items-center gap-2 rounded-lg bg-red-50 p-3 text-red-800 dark:bg-red-900/20 dark:text-red-300">
+                <AlertCircle className="h-5 w-5 flex-shrink-0" />
+                <p className="text-sm">{uploadError}</p>
+              </div>
+            )}
+            */}
+
+            {/* Upload Options */}
+            {/* {!uploadSuccess && ( */}
+            <div className="space-y-3">
+              {/* Camera Button */}
+              <label className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed border-violet-300 bg-gradient-to-br from-violet-50 to-pink-50 p-6 transition-all hover:border-violet-400 hover:from-violet-100 hover:to-pink-100 dark:from-violet-900/20 dark:to-pink-900/20 dark:hover:from-violet-900/30 dark:hover:to-pink-900/30">
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={(e) => handleCameraCapture(e.target.files)}
+                  className="hidden"
+                  disabled={isUploading}
+                />
+                <Camera className="h-10 w-10 text-violet-600 dark:text-violet-400" />
+                <span className="font-semibold text-gray-900 dark:text-gray-100">
+                  {isUploading ? 'Uploading...' : 'Take Photo'}
+                </span>
+                <span className="text-xs text-gray-600 dark:text-gray-400">
+                  Open camera to capture
+                </span>
+              </label>
+
+              {/* Gallery Button */}
+              <label className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 p-6 transition-all hover:border-gray-400 hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-800 dark:hover:border-gray-500 dark:hover:bg-gray-700">
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={(e) => handleCameraCapture(e.target.files)}
+                  className="hidden"
+                  disabled={isUploading}
+                />
+                <ImageIcon className="h-10 w-10 text-gray-600 dark:text-gray-400" />
+                <span className="font-semibold text-gray-900 dark:text-gray-100">
+                  {isUploading ? 'Uploading...' : 'Choose from Gallery'}
+                </span>
+                <span className="text-xs text-gray-600 dark:text-gray-400">
+                  Browse photos on your device
+                </span>
+              </label>
+            </div>
+            {/* )} */}
+
+            {/* Helper Text */}
+            <p className="mt-4 text-center text-xs text-gray-500 dark:text-gray-400">
+              Up to 5 photos, max 10MB each (JPEG, PNG, WebP)
+            </p>
           </div>
         </div>
       )}

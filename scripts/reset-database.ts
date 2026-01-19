@@ -17,6 +17,7 @@
 //   3. Seed development data
 //   4. Verify setup
 
+import 'dotenv/config'; // Load .env file
 import { Pool } from 'pg';
 import { execSync } from 'child_process';
 import fs from 'fs';
@@ -50,6 +51,7 @@ async function dropAllTables(pool: Pool): Promise<void> {
     const tables = [
       'photos',
       'lucky_draw_entries',
+      'lucky_draw_configs',
       'winners',
       'webhooks',
       'export_jobs',
@@ -75,9 +77,11 @@ async function dropAllTables(pool: Pool): Promise<void> {
     // Drop enums
     const enums = [
       'device_type',
+      'draw_status',
       'event_status',
       'event_type',
       'photo_status',
+      'prize_tier',
       'subscription_tier',
       'tenant_status',
       'tenant_type',

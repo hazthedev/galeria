@@ -1,8 +1,8 @@
 // ============================================
-// MOMENTIQUE - Client Fingerprint Helper
+// GATHERLY - Client Fingerprint Helper
 // ============================================
 
-const STORAGE_KEY = 'momentique_fingerprint';
+const STORAGE_KEY = 'gatherly_fingerprint';
 
 export function getClientFingerprint(): string | null {
   if (typeof window === 'undefined') {

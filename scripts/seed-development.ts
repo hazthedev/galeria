@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Development Seed Data
+// GATHERLY - Development Seed Data
 // ============================================
 // This script creates sample data for development and testing.
 //
@@ -105,7 +105,7 @@ const events = [
     expected_guests: 150,
     custom_hashtag: '#AcmeParty2025',
     status: 'active',
-    qr_code_url: `https://acme.momentique.com/events/${event1Id}/qr`,
+    qr_code_url: `https://acme.gatherly.com/events/${event1Id}/qr`,
   },
   {
     id: event2Id,
@@ -121,7 +121,7 @@ const events = [
     expected_guests: 200,
     custom_hashtag: '#AcmeLaunch',
     status: 'active',
-    qr_code_url: `https://acme.momentique.com/events/${event2Id}/qr`,
+    qr_code_url: `https://acme.gatherly.com/events/${event2Id}/qr`,
   },
   {
     id: event3Id,
@@ -137,7 +137,7 @@ const events = [
     expected_guests: 50,
     custom_hashtag: '#AcmeRetreat',
     status: 'draft',
-    qr_code_url: `https://acme.momentique.com/events/${event3Id}/qr`,
+    qr_code_url: `https://acme.gatherly.com/events/${event3Id}/qr`,
   },
 ];
 

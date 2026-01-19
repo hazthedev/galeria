@@ -6,6 +6,7 @@
 
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
+import { toast } from 'sonner';
 import EventFormComponent from '@/components/events/event-form';
 
 export default function NewEventPage() {
@@ -33,6 +34,7 @@ export default function NewEventPage() {
             submitLabel="Create Event"
             onSuccess={(event) => {
               // Redirect is handled in the form component
+              toast.success('Event created successfully');
               window.location.href = `/events/${event.id}`;
             }}
           />

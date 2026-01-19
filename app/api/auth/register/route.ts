@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
 
     // For Phase 2, we use the default tenant ID
     // In a full multi-tenant system, we would create a new tenant here
-    const defaultTenantId = '00000000-0000-0000-0000-000000000001';
+    const defaultTenantId = '00000000-0000-0000-0000-000000000000';
     const db = getTenantDb(defaultTenantId);
 
     // Check if user already exists
@@ -146,7 +146,7 @@ export async function POST(request: NextRequest) {
       email: normalizedEmail,
       password_hash: passwordHash,
       name: trimmedName,
-      role: 'admin', // First user is admin of their tenant
+      role: 'organizer', // First user is organizer of their tenant
       email_verified: false, // Phase 3: implement email verification
       created_at: now,
       updated_at: now,

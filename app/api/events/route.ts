@@ -6,8 +6,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getTenantId, getTenantContextFromHeaders } from '@/lib/tenant';
 import { getTenantDb } from '@/lib/db';
 import { verifyAccessToken } from '@/lib/auth';
-import { generateSlug, generateEventId, generateEventUrl } from '@/lib/utils';
-import type { IEvent, IEventCreate } from '@/lib/types';
+import { generateSlug, generateUUID, generateEventUrl } from '@/lib/utils';
+import { extractSessionId, validateSession } from '@/lib/session';
+import { generateUniqueShortCode } from '@/lib/short-code';
+import { checkEventLimit } from '@/lib/limit-check';
+import type { IEvent, IEventCreate, SubscriptionTier } from '@/lib/types';
 
 // ============================================
 // GET /api/events - List events
@@ -17,13 +20,11 @@ export async function GET(request: NextRequest) {
   try {
     // Get tenant from headers (injected by middleware)
     const headers = request.headers;
-    const tenantId = getTenantId(headers);
+    let tenantId = getTenantId(headers);
 
+    // Fallback to default tenant for development (Turbopack middleware issue)
     if (!tenantId) {
-      return NextResponse.json(
-        { error: 'Tenant not found', code: 'TENANT_NOT_FOUND' },
-        { status: 404 }
-      );
+      tenantId = '00000000-0000-0000-0000-000000000001';
     }
 
     // Parse query parameters
@@ -33,6 +34,48 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '20', 10);
     const offset = (page - 1) * limit;
 
+    // Get user from session or JWT token
+    const cookieHeader = headers.get('cookie');
+    const authHeader = headers.get('authorization');
+    let userId: string | null = null;
+    let userRole: string | null = null;
+
+    // Try session-based auth first
+    const sessionResult = extractSessionId(cookieHeader, authHeader);
+    if (sessionResult.sessionId) {
+      const session = await validateSession(sessionResult.sessionId, false);
+      if (session.valid && session.user) {
+        userId = session.user.id;
+        userRole = session.user.role;
+      }
+    }
+
+    // Fallback to JWT token
+    if (!userId && authHeader) {
+      try {
+        const token = authHeader.replace('Bearer ', '');
+        const payload = verifyAccessToken(token);
+        userId = payload.sub;
+        userRole = payload.role;
+      } catch {
+        // Token invalid
+      }
+    }
+
+    if (!userId || !userRole) {
+      return NextResponse.json(
+        { error: 'Authentication required', code: 'AUTH_REQUIRED' },
+        { status: 401 }
+      );
+    }
+
+    if (!['organizer', 'super_admin'].includes(userRole)) {
+      return NextResponse.json(
+        { error: 'Insufficient permissions', code: 'FORBIDDEN' },
+        { status: 403 }
+      );
+    }
+
     // Get database connection
     const db = getTenantDb(tenantId);
 
@@ -40,6 +83,9 @@ export async function GET(request: NextRequest) {
     const conditions: Record<string, unknown> = {};
     if (status) {
       conditions.status = status;
+    }
+    if (userRole === 'organizer') {
+      conditions.organizer_id = userId;
     }
 
     // Fetch events
@@ -81,26 +127,35 @@ export async function POST(request: NextRequest) {
   try {
     // Get tenant from headers
     const headers = request.headers;
-    const tenantId = getTenantId(headers);
+    let tenantId = getTenantId(headers);
 
+    // Fallback to default tenant for development (Turbopack middleware issue)
     if (!tenantId) {
-      return NextResponse.json(
-        { error: 'Tenant not found', code: 'TENANT_NOT_FOUND' },
-        { status: 404 }
-      );
+      tenantId = '00000000-0000-0000-0000-000000000001';
     }
 
-    // Get user from JWT token (if authenticated)
+    // Get user from session or JWT token
+    const cookieHeader = headers.get('cookie');
     const authHeader = headers.get('authorization');
     let userId: string | null = null;
 
-    if (authHeader) {
+    // Try session-based auth first
+    const sessionResult = extractSessionId(cookieHeader, authHeader);
+    if (sessionResult.sessionId) {
+      const session = await validateSession(sessionResult.sessionId, false);
+      if (session.valid && session.session) {
+        userId = session.session.userId;
+      }
+    }
+
+    // Fallback to JWT token
+    if (!userId && authHeader) {
       try {
         const token = authHeader.replace('Bearer ', '');
         const payload = verifyAccessToken(token);
         userId = payload.sub;
       } catch {
-        // Token invalid, continue as guest
+        // Token invalid
       }
     }
 
@@ -131,13 +186,23 @@ export async function POST(request: NextRequest) {
     if (userId) {
       const tenantContext = getTenantContextFromHeaders(headers);
       if (tenantContext) {
-        const eventsThisMonth = await db.count('events', {
-          created_at: new Date().toISOString().slice(0, 7), // YYYY-MM
-        });
+        // Get subscription tier from tenant context
+        const subscriptionTier = (tenantContext.tenant.subscription_tier || 'free') as SubscriptionTier;
 
-        // TODO: Implement limit validation
-        // For now, just log
-        console.log('[API] Events this month:', eventsThisMonth);
+        // Check if event limit is reached
+        const limitResult = await checkEventLimit(tenantId, subscriptionTier);
+        if (!limitResult.allowed) {
+          return NextResponse.json(
+            {
+              error: limitResult.message || 'Event limit reached',
+              code: 'LIMIT_REACHED',
+              upgradeRequired: true,
+              currentCount: limitResult.currentCount,
+              limit: limitResult.limit,
+            },
+            { status: 403 }
+          );
+        }
       }
     }
 
@@ -160,8 +225,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate event ID
-    const eventId = generateEventId();
+    // Generate event ID (use UUID for database compatibility)
+    const eventId = generateUUID();
+
+    // Generate short code for sharing (e.g., "helo", "party123")
+    const shortCode = await generateUniqueShortCode(tenantId);
 
     // Generate QR code URL
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
@@ -190,13 +258,22 @@ export async function POST(request: NextRequest) {
       },
     };
 
+    // Require authentication for event creation
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Authentication required', code: 'AUTH_REQUIRED' },
+        { status: 401 }
+      );
+    }
+
     // Create event
     const event = await db.insert<IEvent>('events', {
       id: eventId,
       tenant_id: tenantId,
-      organizer_id: userId || '00000000-0000-0000-0000-000000000000', // Guest user
+      organizer_id: userId, // Authenticated user
       name: body.name,
       slug,
+      short_code: shortCode,
       description: body.description,
       event_type: body.event_type,
       event_date: new Date(body.event_date),
@@ -283,7 +360,7 @@ export async function PATCH(request: NextRequest) {
 
     // Check permissions (only organizer or admin can update)
     const userRole = payload.role;
-    if (!['organizer', 'admin', 'super_admin'].includes(userRole)) {
+    if (!['organizer', 'super_admin'].includes(userRole)) {
       return NextResponse.json(
         { error: 'Insufficient permissions', code: 'FORBIDDEN' },
         { status: 403 }
@@ -398,7 +475,7 @@ export async function DELETE(request: NextRequest) {
 
     // Check permissions
     const userRole = payload.role;
-    if (!['organizer', 'admin', 'super_admin'].includes(userRole)) {
+    if (!['organizer', 'super_admin'].includes(userRole)) {
       return NextResponse.json(
         { error: 'Insufficient permissions', code: 'FORBIDDEN' },
         { status: 403 }

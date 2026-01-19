@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
 
     // TODO: Implement proper multi-tenant user lookup
     // For now, we'll use the default tenant ID
-    const defaultTenantId = '00000000-0000-0000-0000-000000000001';
+    const defaultTenantId = '00000000-0000-0000-0000-000000000000';
     const db = getTenantDb(defaultTenantId);
 
     // Find user by email

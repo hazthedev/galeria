@@ -7,6 +7,7 @@ import { getTenantId } from '@/lib/tenant';
 import { getTenantDb } from '@/lib/db';
 import { verifyAccessToken } from '@/lib/auth';
 import { createManualEntries, getActiveConfig, getEventEntries } from '@/lib/lucky-draw';
+import { extractSessionId, validateSession } from '@/lib/session';
 
 // ============================================
 // GET /api/events/:eventId/lucky-draw/entries - List entries
@@ -19,13 +20,11 @@ export async function GET(
   try {
     const { eventId } = await params;
     const headers = request.headers;
-    const tenantId = getTenantId(headers);
+    let tenantId = getTenantId(headers);
 
+    // Fallback to default tenant for development (Turbopack middleware issue)
     if (!tenantId) {
-      return NextResponse.json(
-        { error: 'Tenant not found', code: 'TENANT_NOT_FOUND' },
-        { status: 404 }
-      );
+      tenantId = '00000000-0000-0000-0000-000000000001';
     }
 
     const db = getTenantDb(tenantId);
@@ -98,42 +97,62 @@ export async function POST(
   try {
     const { eventId } = await params;
     const headers = request.headers;
-    const tenantId = getTenantId(headers);
+    let tenantId = getTenantId(headers);
 
+    // Fallback to default tenant for development (Turbopack middleware issue)
     if (!tenantId) {
-      return NextResponse.json(
-        { error: 'Tenant not found', code: 'TENANT_NOT_FOUND' },
-        { status: 404 }
-      );
+      tenantId = '00000000-0000-0000-0000-000000000001';
     }
 
+    const db = getTenantDb(tenantId);
+
+    // Verify user is authenticated (session or JWT)
+    const cookieHeader = headers.get('cookie');
     const authHeader = headers.get('authorization');
-    if (!authHeader) {
+    let userId: string | null = null;
+    let userRole: string | null = null;
+
+    // Try session-based auth first
+    const sessionResult = extractSessionId(cookieHeader, authHeader);
+    if (sessionResult.sessionId) {
+      const session = await validateSession(sessionResult.sessionId, false);
+      if (session.valid && session.session) {
+        userId = session.session.userId;
+        // Get user role from database
+        const user = await db.findOne('users', { id: userId });
+        userRole = user?.role || null;
+      }
+    }
+
+    // Fallback to JWT token
+    if (!userId && authHeader) {
+      try {
+        const token = authHeader.replace('Bearer ', '');
+        const payload = verifyAccessToken(token);
+        userId = payload.sub;
+        userRole = payload.role;
+      } catch {
+        return NextResponse.json(
+          { error: 'Unauthorized', code: 'UNAUTHORIZED' },
+          { status: 401 }
+        );
+      }
+    }
+
+    if (!userId) {
       return NextResponse.json(
         { error: 'Unauthorized', code: 'UNAUTHORIZED' },
         { status: 401 }
       );
     }
 
-    const token = authHeader.replace('Bearer ', '');
-    let payload;
-    try {
-      payload = verifyAccessToken(token);
-    } catch {
-      return NextResponse.json(
-        { error: 'Unauthorized', code: 'UNAUTHORIZED' },
-        { status: 401 }
-      );
-    }
-    const isAdmin = payload.role === 'admin' || payload.role === 'super_admin' || payload.role === 'organizer';
+    const isAdmin = userRole === 'super_admin' || userRole === 'organizer';
     if (!isAdmin) {
       return NextResponse.json(
         { error: 'Forbidden', code: 'FORBIDDEN' },
         { status: 403 }
       );
     }
-
-    const db = getTenantDb(tenantId);
 
     const event = await db.findOne('events', { id: eventId });
     if (!event) {
@@ -166,6 +185,20 @@ export async function POST(
       );
     }
 
+    // UUID validation helper
+    const isValidUUID = (str: string) => {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      return uuidRegex.test(str);
+    };
+
+    // Validate photo ID format if provided
+    if (photoId && !isValidUUID(photoId)) {
+      return NextResponse.json(
+        { error: 'Photo ID must be a valid UUID (format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx). You entered: ' + photoId, code: 'INVALID_PHOTO_ID' },
+        { status: 400 }
+      );
+    }
+
     const config = await getActiveConfig(tenantId, eventId);
     if (!config) {
       return NextResponse.json(
@@ -174,14 +207,19 @@ export async function POST(
       );
     }
 
+    // Only require photo if configured
     if (config.requirePhotoUpload && !photoId) {
       return NextResponse.json(
-        { error: 'Photo is required for manual entries', code: 'PHOTO_REQUIRED' },
+        { error: 'This draw requires a photo ID. Please either upload a photo first or disable "Require photo upload" in the draw configuration.', code: 'PHOTO_REQUIRED' },
         { status: 400 }
       );
     }
 
-    if (photoId) {
+    // Only validate photo exists if:
+    // 1. A photoId was provided, AND
+    // 2. Either photos are required OR we should validate any provided photo
+    // Skip validation if photo upload is not required and user just has something in the field
+    if (photoId && config.requirePhotoUpload) {
       const photo = await db.findOne('photos', { id: photoId, event_id: eventId });
       if (!photo) {
         return NextResponse.json(
@@ -191,10 +229,13 @@ export async function POST(
       }
     }
 
+    // Clear photoId if it's not required and we're not validating it
+    const finalPhotoId = (photoId && config.requirePhotoUpload) ? photoId : null;
+
     const result = await createManualEntries(tenantId, eventId, {
       participantName,
       userFingerprint: participantFingerprint,
-      photoId: photoId || null,
+      photoId: finalPhotoId,
       entryCount,
     });
 

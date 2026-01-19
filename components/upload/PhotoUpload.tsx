@@ -5,10 +5,10 @@
 'use client';
 
 import { useState, useCallback, useRef } from 'react';
-import { Upload, X, Image as ImageIcon, Loader2, AlertCircle } from 'lucide-react';
+import { Upload, X, Image as ImageIcon, Loader2, AlertCircle, Camera } from 'lucide-react';
 import { validateImageFile, formatFileSize } from '@/lib/utils';
 import { getClientFingerprint } from '@/lib/fingerprint';
-import { useSocket } from '@/lib/websocket/client';
+import { usePhotoGallery } from '@/lib/realtime/client';
 
 // ============================================
 // TYPES
@@ -48,7 +48,8 @@ export function PhotoUpload({
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const { socket } = useSocket();
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const { broadcastNewPhoto } = usePhotoGallery(eventId);
 
   const remainingSlots = maxFiles - files.filter(f => f.status !== 'error').length;
 
@@ -91,9 +92,12 @@ export function PhotoUpload({
       const selectedFiles = Array.from(e.target.files || []);
       addFiles(selectedFiles);
 
-      // Reset input
+      // Reset both inputs
       if (inputRef.current) {
         inputRef.current.value = '';
+      }
+      if (cameraInputRef.current) {
+        cameraInputRef.current.value = '';
       }
     },
     [disabled, isUploading, files.length, maxFiles]
@@ -203,10 +207,7 @@ export function PhotoUpload({
             const uploaded = Array.isArray(payload) ? payload : payload ? [payload] : [];
             uploaded.forEach((photo) => {
               onSuccess?.(photo);
-              socket?.emit('upload_photo', {
-                event_id: eventId,
-                photo_data: photo,
-              });
+              broadcastNewPhoto(photo);
             });
           } else {
             const error = JSON.parse(xhr.responseText);
@@ -273,14 +274,14 @@ export function PhotoUpload({
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
-          onClick={() => inputRef.current?.click()}
           className={`
-            relative border-2 border-dashed rounded-lg p-8 text-center cursor-pointer
+            relative border-2 border-dashed rounded-lg p-6 text-center
             transition-colors duration-200
-            ${isDragging ? 'border-blue-500 bg-blue-50 dark:bg-blue-950' : 'border-gray-300 hover:border-gray-400 dark:border-gray-700 dark:hover:border-gray-600'}
+            ${isDragging ? 'border-violet-500 bg-violet-50 dark:bg-violet-950' : 'border-gray-300 dark:border-gray-700'}
             ${isUploading ? 'pointer-events-none opacity-50' : ''}
           `}
         >
+          {/* Hidden file inputs */}
           <input
             ref={inputRef}
             type="file"
@@ -291,14 +292,54 @@ export function PhotoUpload({
             className="hidden"
             disabled={disabled || isUploading}
           />
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={handleFileInput}
+            className="hidden"
+            disabled={disabled || isUploading}
+          />
 
-          <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+          {/* Upload buttons */}
+          <div className="flex flex-col sm:flex-row gap-3 justify-center mb-4">
+            <button
+              onClick={() => cameraInputRef.current?.click()}
+              disabled={isUploading || remainingSlots <= 0}
+              className={`
+                flex items-center gap-2 px-4 py-3 rounded-lg border-2 transition-all
+                disabled:opacity-50 disabled:cursor-not-allowed
+                bg-gradient-to-br from-violet-500 to-pink-500 border-transparent hover:from-violet-600 hover:to-pink-600
+                text-white shadow-md hover:shadow-lg
+              `}
+            >
+              <Camera className="h-5 w-5" />
+              <span className="font-medium">Take Photo</span>
+            </button>
 
-          <p className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Drop photos here or click to upload
+            <button
+              onClick={() => inputRef.current?.click()}
+              disabled={isUploading || remainingSlots <= 0}
+              className={`
+                flex items-center gap-2 px-4 py-3 rounded-lg border-2 transition-all
+                disabled:opacity-50 disabled:cursor-not-allowed
+                bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600
+                hover:border-violet-400 hover:bg-gray-50 dark:hover:bg-gray-700
+                text-gray-900 dark:text-gray-100
+              `}
+            >
+              <ImageIcon className="h-5 w-5 text-violet-600" />
+              <span className="font-medium">Choose Files</span>
+            </button>
+          </div>
+
+          {/* Drag-drop hint */}
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {isDragging ? 'Drop photos here' : 'Or drag and drop files'}
           </p>
 
-          <p className="text-sm text-gray-500 dark:text-gray-400">
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
             {remainingSlots > 0
               ? `${remainingSlots} file${remainingSlots > 1 ? 's' : ''} remaining (max ${maxFiles})`
               : 'Maximum files reached'}

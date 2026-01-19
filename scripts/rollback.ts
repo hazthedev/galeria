@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Database Migration Rollback
+// GATHERLY - Database Migration Rollback
 // ============================================
 // This script rolls back database migrations to a specific version.
 //

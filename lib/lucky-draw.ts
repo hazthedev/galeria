@@ -143,13 +143,13 @@ export async function createLuckyDrawConfig(
       updated_at
     )
     VALUES (
-      $1, $2, $3, $4, $5, $6, $7, $8,
+      $1, $2::json, $3, $4, $5, $6, $7, $8,
       $9, $10, $11, $12, $13, $14, $15, $16, $17, $18
     )
     RETURNING ${luckyDrawConfigColumns}
   `, [
     eventId,
-    config.prizeTiers,
+    JSON.stringify(config.prizeTiers),
     config.maxEntriesPerUser ?? 1,
     config.requirePhotoUpload ?? true,
     config.preventDuplicateWinners ?? true,
@@ -163,7 +163,7 @@ export async function createLuckyDrawConfig(
     config.playSound ?? true,
     config.confettiAnimation ?? true,
     0,
-    config.createdBy || 'system',
+    null, // created_by - must be a valid UUID or null
     now,
     now,
   ]);
@@ -184,6 +184,42 @@ export async function getActiveConfig(
     SELECT ${luckyDrawConfigColumns}
     FROM lucky_draw_configs
     WHERE event_id = $1 AND status = 'scheduled'
+    LIMIT 1
+  `, [eventId]);
+
+  return result.rows[0] || null;
+}
+
+/**
+ * Get the most recent configuration for an event.
+ * Prioritizes 'scheduled' configs (active draft) over completed/cancelled ones.
+ * If no scheduled config exists, returns the most recent config of any status.
+ */
+export async function getLatestConfig(
+  tenantId: string,
+  eventId: string
+): Promise<LuckyDrawConfig | null> {
+  const db = getTenantDb(tenantId);
+
+  // First try to get the most recent scheduled config (active draft)
+  const scheduledResult = await db.query<LuckyDrawConfig>(`
+    SELECT ${luckyDrawConfigColumns}
+    FROM lucky_draw_configs
+    WHERE event_id = $1 AND status = 'scheduled'
+    ORDER BY created_at DESC
+    LIMIT 1
+  `, [eventId]);
+
+  if (scheduledResult.rows[0]) {
+    return scheduledResult.rows[0];
+  }
+
+  // Fallback: return the most recent config of any status
+  const result = await db.query<LuckyDrawConfig>(`
+    SELECT ${luckyDrawConfigColumns}
+    FROM lucky_draw_configs
+    WHERE event_id = $1
+    ORDER BY created_at DESC
     LIMIT 1
   `, [eventId]);
 

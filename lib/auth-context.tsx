@@ -12,6 +12,7 @@ import {
   useState,
   ReactNode,
   useCallback,
+  useRef,
 } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import type { IUser, ISessionData } from './types';
@@ -56,6 +57,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [session, setSession] = useState<ISessionData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Use ref to track current user value to avoid stale closures
+  const userRef = useRef<IUser | null>(null);
+
+  // Update ref whenever user changes
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
 
   // Fetch current user data
   const refresh = useCallback(async () => {
@@ -113,22 +122,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, [router]);
 
-  // Fetch user on mount and route change
+  // Fetch user on mount
   useEffect(() => {
     refresh();
   }, [refresh]);
 
-  // Auto-refresh on route change (optional)
-  useEffect(() => {
-    const handleRouteChange = () => {
-      // Only refresh if we have a user session
-      if (user) {
-        refresh();
-      }
-    };
-
-    handleRouteChange();
-  }, [pathname, user, refresh]);
+  // NOTE: Removed auto-refresh on route change to improve performance.
+  // The session is validated on mount and on protected API calls.
+  // If you need to re-validate after inactivity, consider using a visibility change listener instead.
 
   const value: AuthContextValue = {
     user,

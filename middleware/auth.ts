@@ -19,11 +19,12 @@ const PUBLIC_PATHS = [
   '/api/health',
   '/_next',
   '/static',
+  '/auth/admin/login',
 ];
 
 const PROTECTED_PREFIXES = [
   '/api',
-  '/dashboard',
+  '/organizer',
   '/admin',
   '/events',
 ];
@@ -323,8 +324,32 @@ export function createAuthErrorResponse(error: AuthError): NextResponse {
 export async function requireAuth(
   request: NextRequest
 ): Promise<{ user: IUser; session: ISessionData } | NextResponse> {
-  const user = getAuthenticatedUser(request);
-  const session = getSessionData(request);
+  let user = getAuthenticatedUser(request);
+  let session = getSessionData(request);
+
+  // If headers are missing (middleware didn't run or didn't populate them),
+  // we must validate the session manually here.
+  if (!user || !session) {
+    // Extract session ID
+    const cookieHeader = request.headers.get('cookie');
+    const authHeader = request.headers.get('authorization');
+
+    const { sessionId } = extractSessionId(cookieHeader, authHeader);
+
+    if (!sessionId) {
+      return createUnauthorizedResponse('Authentication required');
+    }
+
+    // Validate session
+    const result = await validateSession(sessionId);
+
+    if (!result.valid || !result.user || !result.session) {
+      return createUnauthorizedResponse(result.error || 'Invalid session');
+    }
+
+    user = result.user;
+    session = result.session;
+  }
 
   if (!user || !session) {
     return createUnauthorizedResponse('Authentication required');
@@ -354,12 +379,12 @@ export async function requireRole(
 }
 
 /**
- * Require admin role for an API route
+ * Require super_admin role for an API route
  */
-export async function requireAdmin(
+export async function requireSuperAdmin(
   request: NextRequest
 ): Promise<{ user: IUser; session: ISessionData } | NextResponse> {
-  return requireRole(request, ['admin', 'super_admin']);
+  return requireRole(request, ['super_admin']);
 }
 
 /**
@@ -376,7 +401,7 @@ export async function requireTenantAccess(
     return auth;
   }
 
-  if (auth.user.tenant_id !== tenantId && !['admin', 'super_admin'].includes(auth.user.role)) {
+  if (auth.user.tenant_id !== tenantId && auth.user.role !== 'super_admin') {
     return createForbiddenResponse('Access denied to this tenant');
   }
 

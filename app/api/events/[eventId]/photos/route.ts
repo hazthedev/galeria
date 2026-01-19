@@ -3,13 +3,14 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getTenantId } from '@/lib/tenant';
+import { getTenantId, getTenantContextFromHeaders } from '@/lib/tenant';
 import { getTenantDb } from '@/lib/db';
 import { uploadImageToStorage, validateImageFile } from '@/lib/images';
 import { generatePhotoId } from '@/lib/utils';
 import { createEntryFromPhoto } from '@/lib/lucky-draw';
-import type { DeviceType } from '@/lib/types';
 import { verifyAccessToken } from '@/lib/auth';
+import { checkPhotoLimit } from '@/lib/limit-check';
+import type { DeviceType, SubscriptionTier } from '@/lib/types';
 
 // ============================================
 // POST /api/events/:eventId/photos - Upload photo
@@ -22,13 +23,11 @@ export async function POST(
   try {
     const { eventId } = await params;
     const headers = request.headers;
-    const tenantId = getTenantId(headers);
+    let tenantId = getTenantId(headers);
 
+    // Fallback to default tenant for development (Turbopack middleware issue)
     if (!tenantId) {
-      return NextResponse.json(
-        { error: 'Tenant not found', code: 'TENANT_NOT_FOUND' },
-        { status: 404 }
-      );
+      tenantId = '00000000-0000-0000-0000-000000000001';
     }
 
     const db = getTenantDb(tenantId);
@@ -40,6 +39,7 @@ export async function POST(
       settings: {
         features: {
           photo_upload_enabled: boolean;
+          lucky_draw_enabled: boolean;
           moderation_required: boolean;
           anonymous_allowed: boolean;
         };
@@ -74,12 +74,22 @@ export async function POST(
     }
 
     // Parse multipart form data
-    const formData = await request.formData();
+    let formData: FormData;
+    try {
+      formData = await request.formData();
+    } catch (parseError) {
+      console.error('[PHOTO_UPLOAD] Failed to parse FormData:', parseError);
+      return NextResponse.json(
+        { error: 'Failed to parse form data', code: 'PARSE_ERROR', details: parseError instanceof Error ? parseError.message : 'Unknown' },
+        { status: 400 }
+      );
+    }
     const files = formData.getAll('files');
     const singleFile = formData.get('file');
     const caption = formData.get('caption') as string | null;
     const contributorName = formData.get('contributor_name') as string | null;
     const isAnonymous = formData.get('is_anonymous') === 'true';
+    const joinLuckyDraw = formData.get('join_lucky_draw') === 'true';
 
     const uploadFiles: File[] = [];
     for (const file of files) {
@@ -119,6 +129,7 @@ export async function POST(
 
     // Get user info (authenticated or guest)
     const authHeader = headers.get('authorization');
+    const fingerprint = headers.get('x-fingerprint');
     let userId: string;
     let userRole: string = 'guest';
 
@@ -130,17 +141,39 @@ export async function POST(
         userRole = payload.role;
       } catch {
         // Invalid token - treat as guest
-        userId = `guest_${headers.get('x-fingerprint') || 'anonymous'}`;
+        userId = `guest_${fingerprint || 'anonymous'}`;
       }
     } else {
       // Guest user - use fingerprint
-      userId = `guest_${headers.get('x-fingerprint') || 'anonymous'}`;
+      userId = `guest_${fingerprint || 'anonymous'}`;
     }
 
     // Check photo limits (skip for admins)
-    if (userRole !== 'admin') {
+    if (userRole !== 'super_admin') {
+      // First check tenant tier limit
+      const tenantContext = getTenantContextFromHeaders(headers);
+      const subscriptionTier = (tenantContext?.tenant?.subscription_tier || 'free') as SubscriptionTier;
+
+      const tierLimitResult = await checkPhotoLimit(eventId, tenantId, subscriptionTier);
+      if (!tierLimitResult.allowed) {
+        return NextResponse.json(
+          {
+            error: tierLimitResult.message || 'Photo limit reached',
+            code: 'TIER_LIMIT_REACHED',
+            upgradeRequired: true,
+            currentCount: tierLimitResult.currentCount,
+            limit: tierLimitResult.limit,
+          },
+          { status: 403 }
+        );
+      }
+
+      // Then check event-specific limits (per-user and total)
       const maxPerUser = event.settings.limits.max_photos_per_user || 100;
-      const maxTotal = event.settings.limits.max_total_photos || 1000;
+      const maxTotal = Math.min(
+        event.settings.limits.max_total_photos || 1000,
+        tierLimitResult.limit > 0 ? tierLimitResult.limit : Infinity
+      );
 
       // Check per-user limit
       const userPhotoCount = await db.count('photos', {
@@ -159,7 +192,11 @@ export async function POST(
       const totalPhotoCount = await db.count('photos', { event_id: eventId });
       if (totalPhotoCount + uploadFiles.length > maxTotal) {
         return NextResponse.json(
-          { error: 'This event has reached the maximum number of photos', code: 'EVENT_LIMIT_REACHED' },
+          {
+            error: 'This event has reached the maximum number of photos',
+            code: 'EVENT_LIMIT_REACHED',
+            upgradeRequired: tierLimitResult.limit > 0 && totalPhotoCount >= tierLimitResult.limit,
+          },
           { status: 400 }
         );
       }
@@ -206,7 +243,8 @@ export async function POST(
         approved_at: event.settings.features.moderation_required ? undefined : new Date(),
       });
 
-      if (event.settings.features.lucky_draw_enabled) {
+      // Create lucky draw entry only if user opted in
+      if (event.settings.features.lucky_draw_enabled && joinLuckyDraw) {
         try {
           const entryName = isAnonymous ? undefined : contributorName || undefined;
           await createEntryFromPhoto(tenantId, eventId, photo.id, userId, entryName);
@@ -251,13 +289,11 @@ export async function GET(
   try {
     const { eventId } = await params;
     const headers = request.headers;
-    const tenantId = getTenantId(headers);
+    let tenantId = getTenantId(headers);
 
+    // Fallback to default tenant for development (Turbopack middleware issue)
     if (!tenantId) {
-      return NextResponse.json(
-        { error: 'Tenant not found', code: 'TENANT_NOT_FOUND' },
-        { status: 404 }
-      );
+      tenantId = '00000000-0000-0000-0000-000000000001';
     }
 
     const db = getTenantDb(tenantId);
@@ -271,25 +307,42 @@ export async function GET(
     // Determine if requester can access non-approved content
     const authHeader = headers.get('authorization');
     let isModerator = false;
+    let verifiedRole: string | null = null;
+
+    console.log('[PHOTOS_API] Auth check:', {
+      hasAuth: !!authHeader,
+      authHeaderPrefix: authHeader?.substring(0, 20),
+    });
+
     if (authHeader) {
       try {
         const token = authHeader.replace('Bearer ', '');
         const payload = verifyAccessToken(token);
-        isModerator = payload.role === 'admin' || payload.role === 'super_admin' || payload.role === 'organizer';
-      } catch {
+        verifiedRole = payload.role;
+        isModerator = payload.role === 'super_admin' || payload.role === 'organizer';
+      } catch (verifyError) {
+        console.error('[PHOTOS_API] Token verification failed:', verifyError);
         isModerator = false;
       }
     }
 
+    console.log('[PHOTOS_API] Moderator check:', {
+      isModerator,
+      verifiedRole,
+      status,
+    });
+
     // Build query filter
+    // IMPORTANT: If status is provided, always filter by it (for debugging)
     const filter: Record<string, unknown> = { event_id: eventId };
-    if (isModerator) {
-      if (status) {
-        filter.status = status;
-      }
-    } else {
+    if (status) {
+      filter.status = status;
+    } else if (!isModerator) {
+      // Non-moderators only see approved photos when no status filter
       filter.status = 'approved';
     }
+
+    console.log('[PHOTOS_API] Query filter:', filter);
 
     const total = await db.count('photos', filter);
 
@@ -299,6 +352,11 @@ export async function GET(
       offset,
       orderBy: 'created_at',
       orderDirection: 'DESC',
+    });
+
+    console.log('[PHOTOS_API] Query result:', {
+      photoCount: photos.length,
+      photoStatuses: photos.map((p: any) => ({ id: p.id, status: p.status })),
     });
 
     return NextResponse.json({

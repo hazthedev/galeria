@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Database Restore
+// GATHERLY - Database Restore
 // ============================================
 // This script restores a database from a backup file.
 //

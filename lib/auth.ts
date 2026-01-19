@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Authentication & JWT
+// GATHERLY - Authentication & JWT
 // ============================================
 
 import jwt from 'jsonwebtoken';
@@ -54,8 +54,8 @@ export async function comparePassword(
 export function generateAccessToken(payload: IJWTPayload): string {
   return jwt.sign(payload, ACCESS_TOKEN_SECRET, {
     expiresIn: ACCESS_TOKEN_EXPIRES,
-    issuer: 'momentique.app',
-    audience: 'momentique-api',
+    issuer: 'gatherly.app',
+    audience: 'gatherly-api',
   });
 }
 
@@ -65,8 +65,8 @@ export function generateAccessToken(payload: IJWTPayload): string {
 export function generateRefreshToken(payload: IJWTPayload): string {
   return jwt.sign(payload, REFRESH_TOKEN_SECRET, {
     expiresIn: REFRESH_TOKEN_EXPIRES,
-    issuer: 'momentique.app',
-    audience: 'momentique-api',
+    issuer: 'gatherly.app',
+    audience: 'gatherly-api',
   });
 }
 
@@ -91,8 +91,8 @@ export function generateTokens(payload: IJWTPayload): IAuthTokens {
 export function verifyAccessToken(token: string): IJWTPayload {
   try {
     return jwt.verify(token, ACCESS_TOKEN_SECRET, {
-      issuer: 'momentique.app',
-      audience: 'momentique-api',
+      issuer: 'gatherly.app',
+      audience: 'gatherly-api',
     }) as IJWTPayload;
   } catch (_error) {
     throw new Error('Invalid or expired access token');
@@ -105,8 +105,8 @@ export function verifyAccessToken(token: string): IJWTPayload {
 export function verifyRefreshToken(token: string): IJWTPayload {
   try {
     return jwt.verify(token, REFRESH_TOKEN_SECRET, {
-      issuer: 'momentique.app',
-      audience: 'momentique-api',
+      issuer: 'gatherly.app',
+      audience: 'gatherly-api',
     }) as IJWTPayload;
   } catch (_error) {
     throw new Error('Invalid or expired refresh token');
@@ -338,10 +338,10 @@ export function isOwner(
 }
 
 /**
- * Check if user is admin or higher
+ * Check if user is super_admin (system-wide admin)
  */
-export function isAdmin(role: string): boolean {
-  return ['admin', 'super_admin'].includes(role);
+export function isSuperAdmin(role: string): boolean {
+  return role === 'super_admin';
 }
 
 // ============================================
@@ -530,10 +530,10 @@ export async function requireAuthForApi(headers: Headers): Promise<{
 }
 
 /**
- * Check if user has organizer or admin role
+ * Check if user has organizer or super_admin role (can moderate content)
  */
 export function hasModeratorRole(role: string): boolean {
-  return ['admin', 'super_admin', 'organizer'].includes(role);
+  return ['super_admin', 'organizer'].includes(role);
 }
 
 /**

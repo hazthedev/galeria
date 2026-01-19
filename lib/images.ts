@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Image Processing & Storage
+// GATHERLY - Image Processing & Storage
 // ============================================
 
 import {
@@ -18,7 +18,7 @@ import type { IPhotoImage } from './types';
 const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID || '';
 const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID || '';
 const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY || '';
-const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME || 'momentique-dev';
+const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME || 'gatherly-dev';
 const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL || 'https://pub-xxxxxxxxx.r2.dev';
 
 // Image processing constants
@@ -217,7 +217,7 @@ export async function generateMediumImage(
   const metadata = await sharp(imageBuffer).metadata();
   const width = metadata.width || maxSize;
   const height = metadata.height || maxSize;
-  
+
   const scale = Math.min(maxSize / width, maxSize / height, 1);
   const newWidth = Math.round(width * scale);
   const newHeight = Math.round(height * scale);
