@@ -56,3 +56,4 @@ docker/volumes/
 # debug/session logs
 *.txt
 !README.md
+nul
