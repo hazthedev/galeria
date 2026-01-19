@@ -174,6 +174,7 @@ async function upsertConfig(
       showFullName: settings.showFullName !== false,
       playSound: settings.playSound !== false,
       confettiAnimation: settings.confettiAnimation !== false,
+      createdBy: 'system', // TODO: Get from authenticated user when available
     });
 
     return NextResponse.json({
