@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import EventFormComponent from '@/components/events/event-form';
+import EventSettingsForm from '@/components/events/event-settings-form';
 import type { IEvent } from '@/lib/types';
 
 export default function EditEventPage() {
@@ -88,20 +89,33 @@ export default function EditEventPage() {
           </p>
         </div>
 
-        {/* Form Card */}
-        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-8">
+        {/* Event Details Form */}
+        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-8 mb-6">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-6">
+            Event Details
+          </h2>
           <EventFormComponent
             event={event}
             submitLabel="Save Changes"
             onSuccess={(updatedEvent) => {
-              // Form component handles redirect
               toast.success('Event updated successfully');
-              router.refresh();
+              setEvent(updatedEvent);
             }}
             onCancel={() => router.push(`/organizer/events/${eventId}/admin`)}
+          />
+        </div>
+
+        {/* Theme & Settings Form */}
+        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-8">
+          <EventSettingsForm
+            event={event}
+            onSuccess={(updatedEvent) => {
+              setEvent(updatedEvent);
+            }}
           />
         </div>
       </div>
     </div>
   );
 }
+
