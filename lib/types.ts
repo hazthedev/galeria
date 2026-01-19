@@ -176,6 +176,8 @@ export interface IEventUpdate {
   settings?: Partial<IEventSettings>;
   status?: EventStatus;
   short_code?: string;
+  slug?: string;
+  qr_code_url?: string;
 }
 
 // ============================================
