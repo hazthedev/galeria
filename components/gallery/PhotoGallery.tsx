@@ -94,8 +94,12 @@ export function PhotoGallery({
       if (!isModerator) return;
 
       try {
+        const reason = window.prompt('Reason for approval? (optional)') || undefined;
         const response = await fetch(`/api/photos/${photoId}/approve`, {
           method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ reason }),
         });
 
         if (response.ok) {
@@ -120,8 +124,12 @@ export function PhotoGallery({
       if (!isModerator) return;
 
       try {
+        const reason = window.prompt('Reason for rejection? (optional)') || undefined;
         const response = await fetch(`/api/photos/${photoId}/reject`, {
           method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ reason }),
         });
 
         if (response.ok) {
@@ -184,9 +192,12 @@ export function PhotoGallery({
     if (!confirmed) return;
 
     try {
+      const reason = window.prompt('Reason for deletion? (optional)') || undefined;
       const response = await fetch(`/api/photos/${photo.id}`, {
         method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
+        body: JSON.stringify({ reason }),
       });
 
       if (!response.ok) {

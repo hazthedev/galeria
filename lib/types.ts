@@ -198,6 +198,7 @@ export interface IPhotoImage {
   height: number;
   file_size: number;
   format: string;
+  original_key?: string;
 }
 
 export interface IPhotoReactions {

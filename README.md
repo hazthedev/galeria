@@ -360,7 +360,7 @@ momentique/
 - **Database**: [PostgreSQL 15](https://www.postgresql.org/)
 - **ORM**: [Drizzle ORM](https://orm.drizzle.team/)
 - **Caching**: [Redis 7](https://redis.io/)
-- **Real-Time**: [Socket.io](https://socket.io/)
+- **Real-Time**: Supabase Realtime
 - **Storage**: Cloudflare R2 / AWS S3
 - **Image Processing**: Sharp
 - **Authentication**: JWT + bcrypt
