@@ -204,6 +204,7 @@ export default function EventPhotosPage() {
             photos={photos}
             onReaction={handleReaction}
             onPhotoUpdate={handlePhotoUpdate}
+            allowDownload
           />
         )}
 

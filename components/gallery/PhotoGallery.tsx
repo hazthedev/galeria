@@ -19,6 +19,7 @@ interface PhotoGalleryProps {
   photos?: IPhoto[];
   onReaction?: (photoId: string, emoji: string) => void;
   onPhotoUpdate?: (photoId: string, status: 'approved' | 'rejected') => void;
+  allowDownload?: boolean;
 }
 
 // ============================================
@@ -30,6 +31,7 @@ export function PhotoGallery({
   photos: initialPhotos = [],
   onReaction,
   onPhotoUpdate,
+  allowDownload = false,
 }: PhotoGalleryProps) {
   // State
   const [photos, setPhotos] = useState<IPhoto[]>(initialPhotos);
@@ -151,6 +153,31 @@ export function PhotoGallery({
   }, []);
 
   // ============================================
+  // DOWNLOAD HANDLER
+  // ============================================
+
+  const handleDownload = useCallback(async (photo: IPhoto) => {
+    try {
+      const src = photo.images.full_url || photo.images.original_url;
+      const response = await fetch(src);
+      if (!response.ok) {
+        throw new Error('Failed to download image');
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `photo-${photo.id}.jpg`;
+      document.body.appendChild(link);
+      link.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('[Gallery] Download failed:', error);
+    }
+  }, []);
+
+  // ============================================
   // RENDER
   // ============================================
 
@@ -178,6 +205,34 @@ export function PhotoGallery({
                   loading="lazy"
                 />
               </div>
+
+              {/* Download button */}
+              {allowDownload && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDownload(photo);
+                  }}
+                  className="absolute top-2 left-2 flex h-8 w-8 items-center justify-center rounded-full bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
+                  title="Download photo"
+                >
+                  <span className="sr-only">Download photo</span>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                  </svg>
+                </button>
+              )}
 
               {/* Overlay on hover */}
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200">

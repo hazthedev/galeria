@@ -18,6 +18,13 @@ interface EventStats {
   uploadTimeline: { date: string; count: number }[];
   totalReactions: number;
   pendingModeration: number;
+  topLikedPhotos: {
+    id: string;
+    imageUrl: string;
+    heartCount: number;
+    contributorName: string;
+    isAnonymous: boolean;
+  }[];
 }
 
 interface TopContributor {
@@ -82,6 +89,7 @@ export async function GET(
         uploadTimeline: [],
         totalReactions: 0,
         pendingModeration: 0,
+        topLikedPhotos: [],
       };
       return NextResponse.json({ data: emptyStats });
     }
@@ -169,6 +177,17 @@ export async function GET(
       totalReactions += photo.reactions.wow || 0;
     }
 
+    const topLikedPhotos = photos
+      .map((photo) => ({
+        id: photo.id,
+        imageUrl: photo.images?.thumbnail_url || photo.images?.medium_url || photo.images?.full_url || photo.images?.original_url || '',
+        heartCount: photo.reactions?.heart || 0,
+        contributorName: photo.is_anonymous ? 'Anonymous' : (photo.contributor_name || 'Guest'),
+        isAnonymous: photo.is_anonymous,
+      }))
+      .sort((a, b) => b.heartCount - a.heartCount)
+      .slice(0, 3);
+
     // Count pending moderation
     const pendingModeration = photos.filter(p => p.status === 'pending').length;
 
@@ -181,6 +200,7 @@ export async function GET(
       uploadTimeline,
       totalReactions,
       pendingModeration,
+      topLikedPhotos,
     };
 
     return NextResponse.json({ data: stats });

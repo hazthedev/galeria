@@ -17,6 +17,13 @@ interface EventStatsData {
   uploadTimeline: { date: string; count: number }[];
   totalReactions: number;
   pendingModeration: number;
+  topLikedPhotos: {
+    id: string;
+    imageUrl: string;
+    heartCount: number;
+    contributorName: string;
+    isAnonymous: boolean;
+  }[];
 }
 
 interface EventStatsProps {
@@ -263,6 +270,50 @@ export function EventStats({ eventId, refreshInterval = 30000, className }: Even
                   <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                     {contributor.count}
                   </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Top Liked Photos */}
+      {stats.topLikedPhotos.length > 0 && (
+        <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
+          <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">
+            Top Liked Photos
+          </h3>
+          <div className="grid gap-4 sm:grid-cols-3">
+            {stats.topLikedPhotos.map((photo, index) => (
+              <div
+                key={photo.id}
+                className="overflow-hidden rounded-lg border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800/50"
+              >
+                <div className="relative aspect-square w-full bg-gray-100 dark:bg-gray-700">
+                  {photo.imageUrl ? (
+                    <img
+                      src={photo.imageUrl}
+                      alt={`Top liked ${index + 1}`}
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-gray-400">
+                      <ImageIcon className="h-8 w-8" />
+                    </div>
+                  )}
+                  <div className="absolute left-2 top-2 rounded-full bg-black/60 px-2 py-1 text-xs font-semibold text-white">
+                    #{index + 1}
+                  </div>
+                </div>
+                <div className="flex items-center justify-between px-3 py-2">
+                  <div className="truncate text-xs text-gray-600 dark:text-gray-400">
+                    {photo.contributorName}
+                  </div>
+                  <div className="flex items-center gap-1 text-sm font-semibold text-pink-600 dark:text-pink-400">
+                    <Heart className="h-4 w-4 fill-pink-600 text-pink-600 dark:fill-pink-400 dark:text-pink-400" />
+                    {photo.heartCount}
+                  </div>
                 </div>
               </div>
             ))}
