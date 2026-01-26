@@ -8,6 +8,7 @@ import {
   ListObjectsV2Command,
   DeleteObjectsCommand,
 } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import sharp from 'sharp';
 import type { IPhotoImage } from './types';
 
@@ -133,6 +134,42 @@ export async function uploadImageToStorage(
     height: fullHeight,
     file_size: fullBuffer.length,
     format: 'jpg',
+  };
+}
+
+// ============================================
+// DIRECT UPLOAD (PRESIGNED URL)
+// ============================================
+
+export interface PresignedUploadResult {
+  uploadUrl: string;
+  key: string;
+  publicUrl: string;
+}
+
+/**
+ * Generate a presigned PUT URL for direct-to-R2 upload
+ */
+export async function getPresignedUploadUrl(
+  key: string,
+  contentType: string,
+  expiresInSeconds: number = 600
+): Promise<PresignedUploadResult> {
+  const client = getR2Client();
+  const command = new PutObjectCommand({
+    Bucket: R2_BUCKET_NAME,
+    Key: key,
+    ContentType: contentType,
+    CacheControl: 'public, max-age=31536000, immutable',
+  });
+
+  const uploadUrl = await getSignedUrl(client, command, { expiresIn: expiresInSeconds });
+  const publicUrl = `${R2_PUBLIC_URL}/${key}`;
+
+  return {
+    uploadUrl,
+    key,
+    publicUrl,
   };
 }
 

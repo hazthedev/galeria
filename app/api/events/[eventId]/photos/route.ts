@@ -73,6 +73,181 @@ export async function POST(
       );
     }
 
+    const contentType = headers.get('content-type') || '';
+
+    // ============================================
+    // DIRECT UPLOAD METADATA (JSON)
+    // ============================================
+    if (contentType.includes('application/json')) {
+      const body = await request.json();
+      const {
+        photoId,
+        key,
+        width,
+        height,
+        fileSize,
+        caption,
+        contributorName,
+        isAnonymous = false,
+        joinLuckyDraw = false,
+      } = body || {};
+
+      if (!photoId || !key || !width || !height || !fileSize) {
+        return NextResponse.json(
+          { error: 'Missing required fields', code: 'VALIDATION_ERROR' },
+          { status: 400 }
+        );
+      }
+
+      const expectedPrefix = `${eventId}/${photoId}/`;
+      if (typeof key !== 'string' || !key.startsWith(expectedPrefix)) {
+        return NextResponse.json(
+          { error: 'Invalid storage key', code: 'INVALID_KEY' },
+          { status: 400 }
+        );
+      }
+
+      // Get user info (authenticated or guest)
+      const authHeader = headers.get('authorization');
+      const fingerprint = headers.get('x-fingerprint');
+      let userId: string;
+      let userRole: string = 'guest';
+
+      if (authHeader) {
+        try {
+          const token = authHeader.replace('Bearer ', '');
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          userId = payload.sub;
+          userRole = payload.role;
+        } catch {
+          userId = `guest_${fingerprint || 'anonymous'}`;
+        }
+      } else {
+        userId = `guest_${fingerprint || 'anonymous'}`;
+      }
+
+      // Check if anonymous uploads are allowed
+      if (isAnonymous && !event.settings.features.anonymous_allowed) {
+        return NextResponse.json(
+          { error: 'Anonymous uploads are not allowed for this event', code: 'ANONYMOUS_NOT_ALLOWED' },
+          { status: 400 }
+        );
+      }
+
+      // Check photo limits (skip for admins)
+      if (userRole !== 'super_admin') {
+        const tenantContext = getTenantContextFromHeaders(headers);
+        const subscriptionTier = (tenantContext?.tenant?.subscription_tier || 'free') as SubscriptionTier;
+
+        const tierLimitResult = await checkPhotoLimit(eventId, tenantId, subscriptionTier);
+        if (!tierLimitResult.allowed) {
+          return NextResponse.json(
+            {
+              error: tierLimitResult.message || 'Photo limit reached',
+              code: 'TIER_LIMIT_REACHED',
+              upgradeRequired: true,
+              currentCount: tierLimitResult.currentCount,
+              limit: tierLimitResult.limit,
+            },
+            { status: 403 }
+          );
+        }
+
+        const maxPerUser = event.settings.limits.max_photos_per_user || 100;
+        const maxTotal = Math.min(
+          event.settings.limits.max_total_photos || 1000,
+          tierLimitResult.limit > 0 ? tierLimitResult.limit : Infinity
+        );
+
+        const userPhotoCount = await db.count('photos', {
+          event_id: eventId,
+          user_fingerprint: userId,
+        });
+
+        if (userPhotoCount + 1 > maxPerUser) {
+          return NextResponse.json(
+            { error: 'You have reached the maximum number of photos for this event', code: 'USER_LIMIT_REACHED' },
+            { status: 400 }
+          );
+        }
+
+        const totalPhotoCount = await db.count('photos', { event_id: eventId });
+        if (totalPhotoCount + 1 > maxTotal) {
+          return NextResponse.json(
+            {
+              error: 'This event has reached the maximum number of photos',
+              code: 'EVENT_LIMIT_REACHED',
+              upgradeRequired: tierLimitResult.limit > 0 && totalPhotoCount >= tierLimitResult.limit,
+            },
+            { status: 400 }
+          );
+        }
+      }
+
+      const publicBase = process.env.R2_PUBLIC_URL || 'https://pub-xxxxxxxxx.r2.dev';
+      const publicUrl = `${publicBase}/${key}`;
+      const ext = key.split('.').pop() || 'jpg';
+
+      const userAgent = headers.get('user-agent') || '';
+      let deviceType: DeviceType = 'desktop';
+      if (/Mobile|Android|iPhone/i.test(userAgent)) {
+        deviceType = 'mobile';
+      } else if (/Tablet|iPad/i.test(userAgent)) {
+        deviceType = 'tablet';
+      }
+
+      const photo = await db.insert('photos', {
+        id: photoId,
+        event_id: eventId,
+        user_fingerprint: userId,
+        images: {
+          original_url: publicUrl,
+          thumbnail_url: publicUrl,
+          medium_url: publicUrl,
+          full_url: publicUrl,
+          width,
+          height,
+          file_size: fileSize,
+          format: ext,
+        },
+        caption: caption || undefined,
+        contributor_name: contributorName || undefined,
+        is_anonymous: isAnonymous || false,
+        status: event.settings.features.moderation_required ? 'pending' : 'approved',
+        metadata: {
+          ip_address: headers.get('x-forwarded-for') || headers.get('x-real-ip') || 'unknown',
+          user_agent: userAgent,
+          upload_timestamp: new Date(),
+          device_type: deviceType,
+        },
+        created_at: new Date(),
+        approved_at: event.settings.features.moderation_required ? undefined : new Date(),
+      });
+
+      if (event.settings.features.lucky_draw_enabled && joinLuckyDraw) {
+        try {
+          const entryName = isAnonymous ? undefined : contributorName || undefined;
+          await createEntryFromPhoto(tenantId, eventId, photo.id, userId, entryName);
+        } catch (entryError) {
+          console.warn('[API] Lucky draw entry skipped:', entryError);
+        }
+      }
+
+      return NextResponse.json({
+        data: [{
+          id: photo.id,
+          event_id: photo.event_id,
+          images: photo.images,
+          caption: photo.caption,
+          contributor_name: photo.contributor_name,
+          is_anonymous: photo.is_anonymous,
+          status: photo.status,
+          created_at: photo.created_at,
+        }],
+        message: 'Photo uploaded successfully',
+      }, { status: 201 });
+    }
+
     // Parse multipart form data
     let formData: FormData;
     try {

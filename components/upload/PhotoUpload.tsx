@@ -6,7 +6,7 @@
 
 import { useState, useCallback, useRef } from 'react';
 import { Upload, X, Image as ImageIcon, Loader2, AlertCircle, Camera } from 'lucide-react';
-import { validateImageFile, formatFileSize } from '@/lib/utils';
+import { validateImageFile, formatFileSize, getImageDimensions } from '@/lib/utils';
 import { getClientFingerprint } from '@/lib/fingerprint';
 import { usePhotoGallery } from '@/lib/realtime/client';
 
@@ -179,10 +179,33 @@ export function PhotoUpload({
           )
         );
 
-        const formData = new FormData();
-        formData.append('file', fileData.file);
+        const fingerprint = getClientFingerprint();
+        const presignRes = await fetch(`/api/events/${eventId}/photos/presign`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(fingerprint ? { 'x-fingerprint': fingerprint } : {}),
+          },
+          body: JSON.stringify({
+            filename: fileData.file.name,
+            contentType: fileData.file.type,
+            fileSize: fileData.file.size,
+          }),
+        });
 
-        // Upload with progress tracking
+        if (!presignRes.ok) {
+          const err = await presignRes.json().catch(() => ({}));
+          throw new Error(err.error || 'Failed to get upload URL');
+        }
+
+        const presignData = await presignRes.json();
+        const { uploadUrl, key, photoId } = presignData.data || {};
+
+        if (!uploadUrl || !key || !photoId) {
+          throw new Error('Invalid presign response');
+        }
+
+        // Upload directly to R2 with progress tracking
         const xhr = new XMLHttpRequest();
         xhr.upload.onprogress = (e) => {
           if (e.lengthComputable) {
@@ -195,44 +218,62 @@ export function PhotoUpload({
           }
         };
 
-        xhr.onload = () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            const response = JSON.parse(xhr.responseText);
-            setFiles((prev) =>
-              prev.map((f) =>
-                f.id === fileData.id ? { ...f, status: 'success', progress: 100 } : f
-              )
-            );
-            const payload = response.data;
-            const uploaded = Array.isArray(payload) ? payload : payload ? [payload] : [];
-            uploaded.forEach((photo) => {
-              onSuccess?.(photo);
-              broadcastNewPhoto(photo);
-            });
-          } else {
-            const error = JSON.parse(xhr.responseText);
-            setFiles((prev) =>
-              prev.map((f) =>
-                f.id === fileData.id ? { ...f, status: 'error', error: error.error || 'Upload failed' } : f
-              )
-            );
-          }
-        };
+        const uploadPromise = new Promise<void>((resolve, reject) => {
+          xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              resolve();
+            } else {
+              reject(new Error('Upload failed'));
+            }
+          };
 
-        xhr.onerror = () => {
-          setFiles((prev) =>
-            prev.map((f) =>
-              f.id === fileData.id ? { ...f, status: 'error', error: 'Upload failed' } : f
-            )
-          );
-        };
+          xhr.onerror = () => reject(new Error('Upload failed'));
 
-        xhr.open('POST', `/api/events/${eventId}/photos`);
-        const fingerprint = getClientFingerprint();
-        if (fingerprint) {
-          xhr.setRequestHeader('x-fingerprint', fingerprint);
+          xhr.open('PUT', uploadUrl);
+          xhr.setRequestHeader('Content-Type', fileData.file.type || 'application/octet-stream');
+          xhr.send(fileData.file);
+        });
+
+        await uploadPromise;
+
+        // Finalize upload (store metadata in DB)
+        const dimensions = await getImageDimensions(fileData.file);
+        const finalizeRes = await fetch(`/api/events/${eventId}/photos`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(fingerprint ? { 'x-fingerprint': fingerprint } : {}),
+          },
+          body: JSON.stringify({
+            photoId,
+            key,
+            width: dimensions.width,
+            height: dimensions.height,
+            fileSize: fileData.file.size,
+            caption: undefined,
+            contributorName: undefined,
+            isAnonymous: false,
+            joinLuckyDraw: false,
+          }),
+        });
+
+        if (!finalizeRes.ok) {
+          const err = await finalizeRes.json().catch(() => ({}));
+          throw new Error(err.error || 'Failed to finalize upload');
         }
-        xhr.send(formData);
+
+        const response = await finalizeRes.json();
+        setFiles((prev) =>
+          prev.map((f) =>
+            f.id === fileData.id ? { ...f, status: 'success', progress: 100 } : f
+          )
+        );
+        const payload = response.data;
+        const uploaded = Array.isArray(payload) ? payload : payload ? [payload] : [];
+        uploaded.forEach((photo) => {
+          onSuccess?.(photo);
+          broadcastNewPhoto(photo);
+        });
       } catch (error) {
         setFiles((prev) =>
           prev.map((f) =>
