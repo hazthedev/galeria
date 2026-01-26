@@ -22,7 +22,11 @@ export async function GET(
   try {
     const { id: photoId } = await params;
     const headers = request.headers;
-    const tenantId = getTenantId(headers);
+    let tenantId = getTenantId(headers);
+
+    if (!tenantId && process.env.NODE_ENV !== 'production') {
+      tenantId = '00000000-0000-0000-0000-000000000001';
+    }
 
     if (!tenantId) {
       return NextResponse.json(
@@ -87,7 +91,11 @@ export async function POST(
   try {
     const { id: photoId } = await params;
     const headers = request.headers;
-    const tenantId = getTenantId(headers);
+    let tenantId = getTenantId(headers);
+
+    if (!tenantId && process.env.NODE_ENV !== 'production') {
+      tenantId = '00000000-0000-0000-0000-000000000001';
+    }
 
     if (!tenantId) {
       return NextResponse.json(

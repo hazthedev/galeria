@@ -98,23 +98,17 @@ function generateSecondaryColor(primary: string): string {
     return hslToHex(newH, s, Math.max(20, Math.min(80, newL)));
 }
 
-function generateBackgroundColor(primary: string): string {
-    const { h, s } = hexToHSL(primary);
-    // Pastel with visible color - similar to #c995fe
-    return hslToHex(h, Math.max(s * 0.7, 60), 80);
-}
-
 // ============================================
 // PRESET THEMES
 // ============================================
 
 const presetThemes = [
-    { name: 'Violet Dream', primary: '#7c3aed', secondary: '#ec4899', background: '#c9a5f7' },
-    { name: 'Ocean Blue', primary: '#0ea5e9', secondary: '#06b6d4', background: '#7dd3fc' },
-    { name: 'Forest Green', primary: '#22c55e', secondary: '#84cc16', background: '#86efac' },
-    { name: 'Sunset Orange', primary: '#f97316', secondary: '#eab308', background: '#fdba74' },
-    { name: 'Rose Gold', primary: '#f43f5e', secondary: '#fb7185', background: '#fda4af' },
-    { name: 'Midnight', primary: '#6366f1', secondary: '#8b5cf6', background: '#a5b4fc' },
+    { name: 'Violet Dream', primary: '#7c3aed', secondary: '#ec4899' },
+    { name: 'Ocean Blue', primary: '#0ea5e9', secondary: '#06b6d4' },
+    { name: 'Forest Green', primary: '#22c55e', secondary: '#84cc16' },
+    { name: 'Sunset Orange', primary: '#f97316', secondary: '#eab308' },
+    { name: 'Rose Gold', primary: '#f43f5e', secondary: '#fb7185' },
+    { name: 'Midnight', primary: '#6366f1', secondary: '#8b5cf6' },
 ];
 
 // ============================================
@@ -129,7 +123,6 @@ export function EventSettingsForm({
     // Theme settings
     const [primaryColor, setPrimaryColor] = useState(event.settings?.theme?.primary_color || '#7c3aed');
     const [secondaryColor, setSecondaryColor] = useState(event.settings?.theme?.secondary_color || '#ec4899');
-    const [backgroundColor, setBackgroundColor] = useState(event.settings?.theme?.background || '#f9fafb');
 
     // Feature toggles
     const [guestDownloadEnabled, setGuestDownloadEnabled] = useState(
@@ -152,8 +145,7 @@ export function EventSettingsForm({
 
         const themeChanged =
             primaryColor !== (originalTheme.primary_color || '#7c3aed') ||
-            secondaryColor !== (originalTheme.secondary_color || '#ec4899') ||
-            backgroundColor !== (originalTheme.background || '#f9fafb');
+            secondaryColor !== (originalTheme.secondary_color || '#ec4899');
 
         const featuresChanged =
             guestDownloadEnabled !== (originalFeatures.guest_download_enabled !== false) ||
@@ -161,7 +153,7 @@ export function EventSettingsForm({
             anonymousAllowed !== (originalFeatures.anonymous_allowed !== false);
 
         setHasChanges(themeChanged || featuresChanged);
-    }, [primaryColor, secondaryColor, backgroundColor, guestDownloadEnabled, moderationRequired, anonymousAllowed, event]);
+    }, [primaryColor, secondaryColor, guestDownloadEnabled, moderationRequired, anonymousAllowed, event]);
 
     // Auto-suggest secondary color when primary changes
     const handlePrimaryColorChange = useCallback((color: string) => {
@@ -169,16 +161,12 @@ export function EventSettingsForm({
         // Auto-suggest secondary based on primary
         const suggested = generateSecondaryColor(color);
         setSecondaryColor(suggested);
-        // Also suggest a matching background
-        const suggestedBg = generateBackgroundColor(color);
-        setBackgroundColor(suggestedBg);
     }, []);
 
     // Apply preset theme
     const applyPreset = (preset: typeof presetThemes[0]) => {
         setPrimaryColor(preset.primary);
         setSecondaryColor(preset.secondary);
-        setBackgroundColor(preset.background);
     };
 
     // Save settings
@@ -199,7 +187,6 @@ export function EventSettingsForm({
                             ...event.settings?.theme,
                             primary_color: primaryColor,
                             secondary_color: secondaryColor,
-                            background: backgroundColor,
                         },
                         features: {
                             ...event.settings?.features,
@@ -321,46 +308,12 @@ export function EventSettingsForm({
                         </div>
                     </div>
 
-                    {/* Background Color */}
-                    <div className="space-y-2">
-                        <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                            Background Color
-                            <span className="text-xs text-violet-500 flex items-center gap-1">
-                                <Sparkles className="h-3 w-3" />
-                                Auto
-                            </span>
-                        </label>
-                        <div className="flex items-center gap-2 sm:ml-auto">
-                            <div className="relative">
-                                <input
-                                    type="color"
-                                    value={backgroundColor}
-                                    onChange={(e) => setBackgroundColor(e.target.value)}
-                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                                />
-                                <div
-                                    className="h-10 w-10 rounded-lg border-2 border-gray-300 dark:border-gray-500 shadow-sm"
-                                    style={{ backgroundColor: backgroundColor }}
-                                />
-                            </div>
-                            <input
-                                type="text"
-                                value={backgroundColor}
-                                onChange={(e) => setBackgroundColor(e.target.value)}
-                                placeholder="#f9fafb"
-                                className="w-32 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-mono dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
-                            />
-                        </div>
-                    </div>
                 </div>
 
                 {/* Preview */}
                 <div className="mt-4">
                     <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Preview</p>
-                    <div
-                        className="rounded-xl p-4 border border-gray-200 dark:border-gray-700"
-                        style={{ backgroundColor }}
-                    >
+                    <div className="rounded-xl p-4 border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
                         <div className="flex items-center gap-2">
                             <div
                                 className="rounded-lg px-4 py-2 text-white text-sm font-medium"

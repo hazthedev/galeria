@@ -32,6 +32,17 @@ export default function EventPhotosPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [event, setEvent] = useState<IEvent | null>(null);
+  const [moderationLogs, setModerationLogs] = useState<Array<{
+    id: string;
+    photoId: string;
+    action: string;
+    reason: string | null;
+    createdAt: string;
+    moderatorName: string | null;
+    moderatorEmail: string;
+    photoStatus: string | null;
+    imageUrl: string | null;
+  }>>([]);
   const [activeStatus, setActiveStatus] = useState<PhotoStatus>(
     (searchParams.get('status') as PhotoStatus) || 'all'
   );
@@ -96,6 +107,24 @@ export default function EventPhotosPage() {
     fetchPhotos();
   }, [eventId, activeStatus]);
 
+  useEffect(() => {
+    const fetchLogs = async () => {
+      try {
+        const response = await fetch(`/api/events/${eventId}/moderation-logs?limit=20`, {
+          credentials: 'include',
+        });
+        const data = await response.json();
+        if (response.ok) {
+          setModerationLogs(data.data || []);
+        }
+      } catch (err) {
+        console.error('[PHOTOS_PAGE] Failed to fetch moderation logs:', err);
+      }
+    };
+
+    fetchLogs();
+  }, [eventId]);
+
   // Handle photo status update (approve/reject)
   const handlePhotoUpdate = useCallback(async (photoId: string, newStatus: 'approved' | 'rejected') => {
     // Remove the photo from current view (optimistic update)
@@ -134,10 +163,8 @@ export default function EventPhotosPage() {
     { id: 'rejected' as const, label: 'Rejected', icon: XCircle },
   ];
 
-  const backgroundColor = event?.settings?.theme?.background || '#f9fafb';
-
   return (
-    <div className="min-h-screen" style={{ backgroundColor }}>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-6">
@@ -233,6 +260,57 @@ export default function EventPhotosPage() {
             <p className="text-sm text-gray-400">
               Try selecting a different status filter
             </p>
+          </div>
+        )}
+
+        {/* Moderation Log */}
+        {moderationLogs.length > 0 && (
+          <div className="mt-10 rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
+            <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">
+              Moderation Activity
+            </h2>
+            <div className="space-y-3">
+              {moderationLogs.map((log) => (
+                <div
+                  key={log.id}
+                  className="flex items-center justify-between gap-4 rounded-lg bg-gray-50 px-4 py-3 dark:bg-gray-700/50"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="h-12 w-12 overflow-hidden rounded-md bg-gray-200 dark:bg-gray-700">
+                      {log.imageUrl ? (
+                        <img
+                          src={log.imageUrl}
+                          alt="Moderated"
+                          className="h-full w-full object-cover"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-gray-400">
+                          <ImageIcon className="h-5 w-5" />
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                        {log.action.toUpperCase()}
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        {log.moderatorName || log.moderatorEmail}
+                        {log.photoStatus ? ` • ${log.photoStatus}` : ''}
+                      </div>
+                      {log.reason && (
+                        <div className="text-xs text-gray-600 dark:text-gray-300">
+                          Reason: {log.reason}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                    {new Date(log.createdAt).toLocaleString()}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>

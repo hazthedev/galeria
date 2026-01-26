@@ -274,6 +274,9 @@ export default function GuestEventPage() {
       if (fingerprint) {
         headers['x-fingerprint'] = fingerprint;
       }
+      if (event?.tenant_id) {
+        headers['x-tenant-id'] = event.tenant_id;
+      }
 
       // Use increment mode to always add (up to max), never toggle
       const response = await fetch(`/api/photos/${photoId}/reactions?mode=increment`, {
@@ -525,9 +528,6 @@ export default function GuestEventPage() {
     };
   }, []);
 
-  // Get background color from theme
-  const backgroundColor = event?.settings?.theme?.background || '#f9fafb';
-
   // Loading state
   if (isLoading) {
     return (
@@ -570,10 +570,7 @@ export default function GuestEventPage() {
   const canDownload = event.settings?.features?.guest_download_enabled !== false;
 
   return (
-    <div
-      className="min-h-screen"
-      style={{ backgroundColor }}
-    >
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Guest Name Modal */}
       <GuestNameModal
         isOpen={showGuestModal}
