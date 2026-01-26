@@ -186,7 +186,20 @@ export async function resolveTenant(hostname: string): Promise<ITenant | null> {
 
   // Custom domain
   if (type === 'custom_domain' && identifier) {
-    return await getTenantByDomain(identifier);
+    const byDomain = await getTenantByDomain(identifier);
+    if (byDomain) {
+      return byDomain;
+    }
+
+    const masterDomain = (process.env.NEXT_PUBLIC_MASTER_DOMAIN || '').toLowerCase();
+    const appHost = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/^https?:\/\//, '').toLowerCase();
+    const host = identifier.toLowerCase();
+
+    if (host === masterDomain || host === appHost || host.endsWith('.vercel.app')) {
+      return await getMasterTenant();
+    }
+
+    return null;
   }
 
   // Subdomain
