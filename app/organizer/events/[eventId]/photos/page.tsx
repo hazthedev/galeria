@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import clsx from 'clsx';
 import { PhotoGallery } from '@/components/gallery/PhotoGallery';
-import type { IPhoto } from '@/lib/types';
+import type { IEvent, IPhoto } from '@/lib/types';
 
 type PhotoStatus = 'pending' | 'approved' | 'rejected' | 'all';
 
@@ -31,6 +31,7 @@ export default function EventPhotosPage() {
   const [photos, setPhotos] = useState<IPhoto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [event, setEvent] = useState<IEvent | null>(null);
   const [activeStatus, setActiveStatus] = useState<PhotoStatus>(
     (searchParams.get('status') as PhotoStatus) || 'all'
   );
@@ -42,6 +43,14 @@ export default function EventPhotosPage() {
   useEffect(() => {
     const fetchPhotos = async () => {
       try {
+        const eventResponse = await fetch(`/api/events/${eventId}`, {
+          credentials: 'include',
+        });
+        const eventData = await eventResponse.json();
+        if (eventResponse.ok) {
+          setEvent(eventData.data);
+        }
+
         // Build query params
         const queryParams = new URLSearchParams();
         if (activeStatus !== 'all') {
@@ -120,8 +129,10 @@ export default function EventPhotosPage() {
     { id: 'rejected' as const, label: 'Rejected', icon: XCircle },
   ];
 
+  const backgroundColor = event?.settings?.theme?.background || '#f9fafb';
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen" style={{ backgroundColor }}>
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-6">

@@ -9,6 +9,7 @@ import { uploadImageToStorage, validateImageFile } from '@/lib/images';
 import { generatePhotoId } from '@/lib/utils';
 import { createEntryFromPhoto } from '@/lib/lucky-draw';
 import { verifyAccessToken } from '@/lib/auth';
+import { extractSessionId, validateSession } from '@/lib/session';
 import { checkPhotoLimit } from '@/lib/limit-check';
 import type { DeviceType, SubscriptionTier } from '@/lib/types';
 
@@ -481,6 +482,7 @@ export async function GET(
 
     // Determine if requester can access non-approved content
     const authHeader = headers.get('authorization');
+    const cookieHeader = headers.get('cookie');
     let isModerator = false;
     let verifiedRole: string | null = null;
 
@@ -501,11 +503,29 @@ export async function GET(
       }
     }
 
+    if (!isModerator) {
+      const sessionResult = extractSessionId(cookieHeader, authHeader);
+      if (sessionResult.sessionId) {
+        const session = await validateSession(sessionResult.sessionId, false);
+        if (session.valid && session.user) {
+          verifiedRole = session.user.role;
+          isModerator = session.user.role === 'super_admin' || session.user.role === 'organizer';
+        }
+      }
+    }
+
     console.log('[PHOTOS_API] Moderator check:', {
       isModerator,
       verifiedRole,
       status,
     });
+
+    if (status && status !== 'approved' && !isModerator) {
+      return NextResponse.json(
+        { error: 'Insufficient permissions', code: 'FORBIDDEN' },
+        { status: 403 }
+      );
+    }
 
     // Build query filter
     // IMPORTANT: If status is provided, always filter by it (for debugging)

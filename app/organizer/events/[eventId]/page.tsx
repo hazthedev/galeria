@@ -280,8 +280,10 @@ export default function EventDetailPage() {
     day: 'numeric',
   });
 
+  const backgroundColor = event?.settings?.theme?.background || '#f9fafb';
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen" style={{ backgroundColor }}>
       {/* Hero Section */}
       <div className="relative h-64 overflow-hidden bg-gradient-to-br from-violet-600 to-pink-600 sm:h-80">
         <div className="absolute inset-0 bg-black/20" />

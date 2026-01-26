@@ -7,6 +7,7 @@ import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import type { IUser, IJWTPayload, IAuthTokens, IAuthResponse } from './types';
 import { getTenantDb } from './db';
+import { extractSessionId, validateSession } from './session';
 
 // ============================================
 // CONFIGURATION
@@ -515,17 +516,40 @@ export async function requireAuthForApi(headers: Headers): Promise<{
   tenantId: string;
 }> {
   const authHeader = headers.get('authorization');
-  if (!authHeader) {
+  if (authHeader) {
+    const token = authHeader.replace('Bearer ', '');
+    const payload = verifyAccessToken(token);
+
+    return {
+      payload,
+      userId: payload.sub,
+      tenantId: payload.tenant_id,
+    };
+  }
+
+  // Fallback: session-based auth (cookie or header)
+  const cookieHeader = headers.get('cookie');
+  const { sessionId } = extractSessionId(cookieHeader, authHeader);
+
+  if (!sessionId) {
     throw new Error('Authentication required');
   }
 
-  const token = authHeader.replace('Bearer ', '');
-  const payload = verifyAccessToken(token);
+  const session = await validateSession(sessionId, false);
+  if (!session.valid || !session.user || !session.session) {
+    throw new Error('Authentication required');
+  }
+
+  const payload: IJWTPayload = {
+    sub: session.user.id,
+    tenant_id: session.user.tenant_id,
+    role: session.user.role,
+  };
 
   return {
     payload,
-    userId: payload.sub,
-    tenantId: payload.tenant_id,
+    userId: session.user.id,
+    tenantId: session.user.tenant_id,
   };
 }
 
@@ -557,8 +581,9 @@ export async function verifyPhotoModerationAccess(
     organizer_id: string;
   }>(
     `SELECT p.id,
-            p.organizer_id
+            e.organizer_id
      FROM photos p
+     JOIN events e ON p.event_id = e.id
      WHERE p.id = $1`,
     [photoId]
   );
@@ -575,4 +600,3 @@ export async function verifyPhotoModerationAccess(
     isAdmin: hasModeratorRole(userRole),
   };
 }
-
