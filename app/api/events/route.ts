@@ -10,6 +10,7 @@ import { generateSlug, generateUUID, generateEventUrl } from '@/lib/utils';
 import { extractSessionId, validateSession } from '@/lib/session';
 import { generateUniqueShortCode } from '@/lib/short-code';
 import { checkEventLimit } from '@/lib/limit-check';
+import { getSystemSettings } from '@/lib/system-settings';
 import type { IEvent, IEventCreate, SubscriptionTier } from '@/lib/types';
 
 // ============================================
@@ -236,7 +237,7 @@ export async function POST(request: NextRequest) {
     const eventUrl = generateEventUrl(baseUrl, eventId, slug);
 
     // Default settings
-    const defaultSettings = {
+    let defaultSettings = {
       theme: {
         primary_color: '#8B5CF6',
         secondary_color: '#EC4899',
@@ -250,6 +251,7 @@ export async function POST(request: NextRequest) {
         reactions_enabled: true,
         moderation_required: false,
         anonymous_allowed: true,
+        guest_download_enabled: true,
       },
       limits: {
         max_photos_per_user: 5,
@@ -257,6 +259,30 @@ export async function POST(request: NextRequest) {
         max_draw_entries: 30,
       },
     };
+
+    try {
+      const systemSettings = await getSystemSettings();
+      if (systemSettings?.events?.default_settings) {
+        defaultSettings = {
+          ...defaultSettings,
+          ...systemSettings.events.default_settings,
+          theme: {
+            ...defaultSettings.theme,
+            ...(systemSettings.events.default_settings.theme || {}),
+          },
+          features: {
+            ...defaultSettings.features,
+            ...(systemSettings.events.default_settings.features || {}),
+          },
+          limits: {
+            ...defaultSettings.limits,
+            ...(systemSettings.events.default_settings.limits || {}),
+          },
+        };
+      }
+    } catch (error) {
+      console.warn('[API] Failed to load system defaults:', error);
+    }
 
     // Require authentication for event creation
     if (!userId) {

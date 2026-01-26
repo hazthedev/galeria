@@ -7,15 +7,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getTenantId, getTenantContextFromHeaders } from '@/lib/tenant';
 import { getTenantDb } from '@/lib/db';
 import { getPresignedUploadUrl } from '@/lib/images';
+import { getSystemSettings } from '@/lib/system-settings';
 import { generatePhotoId } from '@/lib/utils';
 import { checkPhotoLimit } from '@/lib/limit-check';
 import type { SubscriptionTier } from '@/lib/types';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/heic', 'image/webp'];
-const MAX_SIZE_BYTES = 10 * 1024 * 1024;
 
 export async function POST(
   request: NextRequest,
@@ -45,16 +43,20 @@ export async function POST(
       );
     }
 
-    if (!ALLOWED_TYPES.includes(contentType)) {
+    const systemSettings = await getSystemSettings();
+    const allowedTypes = systemSettings.uploads.allowed_types || [];
+    const maxSizeBytes = Math.max((systemSettings.uploads.max_file_mb || 10) * 1024 * 1024, 1);
+
+    if (!allowedTypes.includes(contentType)) {
       return NextResponse.json(
         { error: 'Invalid file type', code: 'INVALID_FILE' },
         { status: 400 }
       );
     }
 
-    if (fileSize > MAX_SIZE_BYTES) {
+    if (fileSize > maxSizeBytes) {
       return NextResponse.json(
-        { error: 'File size exceeds 10MB limit', code: 'FILE_TOO_LARGE' },
+        { error: `File size exceeds ${Math.round(maxSizeBytes / (1024 * 1024))}MB limit`, code: 'FILE_TOO_LARGE' },
         { status: 400 }
       );
     }
@@ -138,4 +140,3 @@ export async function POST(
     );
   }
 }
-

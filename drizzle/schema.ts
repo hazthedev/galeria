@@ -109,6 +109,48 @@ export const tenants = pgTable('tenants', {
 }));
 
 // ============================================
+// SYSTEM SETTINGS TABLE
+// ============================================
+
+export const systemSettings = pgTable('system_settings', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  settings: jsonb('settings').$type<{
+    uploads: {
+      max_file_mb: number;
+      allowed_types: string[];
+    };
+    events: {
+      default_settings: {
+        theme: {
+          primary_color: string;
+          secondary_color: string;
+          background: string;
+          logo_url?: string;
+          frame_template: string;
+        };
+        features: {
+          photo_upload_enabled: boolean;
+          lucky_draw_enabled: boolean;
+          reactions_enabled: boolean;
+          moderation_required: boolean;
+          anonymous_allowed: boolean;
+          guest_download_enabled: boolean;
+        };
+        limits: {
+          max_photos_per_user: number;
+          max_total_photos: number;
+          max_draw_entries: number;
+        };
+      };
+    };
+  }>().notNull().default(sql`'{}'::jsonb`),
+  updatedBy: uuid('updated_by').references(() => users.id, { onDelete: 'set null' }),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  systemSettingsUpdatedIdx: index('system_settings_updated_idx').on(table.updatedAt),
+}));
+
+// ============================================
 // USERS TABLE
 // ============================================
 
@@ -422,6 +464,8 @@ export const winners = pgTable('winners', {
 // These can be used throughout the application for type safety
 export type Tenant = typeof tenants.$inferSelect;
 export type NewTenant = typeof tenants.$inferInsert;
+export type SystemSettings = typeof systemSettings.$inferSelect;
+export type NewSystemSettings = typeof systemSettings.$inferInsert;
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Event = typeof events.$inferSelect;

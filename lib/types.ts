@@ -66,6 +66,41 @@ export interface ITenant {
 }
 
 // ============================================
+// SYSTEM SETTINGS
+// ============================================
+
+export interface ISystemSettings {
+  uploads: {
+    max_file_mb: number;
+    allowed_types: string[];
+  };
+  events: {
+    default_settings: {
+      theme: {
+        primary_color: string;
+        secondary_color: string;
+        background: string;
+        logo_url?: string;
+        frame_template: string;
+      };
+      features: {
+        photo_upload_enabled: boolean;
+        lucky_draw_enabled: boolean;
+        reactions_enabled: boolean;
+        moderation_required: boolean;
+        anonymous_allowed: boolean;
+        guest_download_enabled: boolean;
+      };
+      limits: {
+        max_photos_per_user: number;
+        max_total_photos: number;
+        max_draw_entries: number;
+      };
+    };
+  };
+}
+
+// ============================================
 // USER TYPES
 // ============================================
 
