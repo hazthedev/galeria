@@ -5,7 +5,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Plus, Search, RefreshCcw, Pencil, Ban, CheckCircle, Trash2, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Search, RefreshCcw, Pencil, Ban, CheckCircle, Trash2, Loader2, ChevronLeft, ChevronRight, Building2 } from 'lucide-react';
 import clsx from 'clsx';
 import { toast } from 'sonner';
 import type { ITenant, ITenantFeatures, ITenantLimits, SubscriptionTier, TenantType } from '@/lib/types';
@@ -227,16 +227,12 @@ export default function SupervisorTenantsPage() {
         }
     };
 
-    const statusBadge = (status: TenantStatus) => {
-        return clsx(
-            'inline-flex rounded-full px-2.5 py-1 text-xs font-medium capitalize',
-            status === 'active'
-                ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                : status === 'suspended'
-                    ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                    : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
-        );
-    };
+    const statusBadge = (status: TenantStatus) =>
+        status === 'active'
+            ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+            : status === 'suspended'
+                ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400';
 
     return (
         <div className="space-y-6">
@@ -279,48 +275,55 @@ export default function SupervisorTenantsPage() {
                     className="flex-1"
                 >
                     <div className="relative">
-                        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                         <input
+                            type="text"
+                            placeholder="Search tenants..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            placeholder="Search tenants..."
-                            className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-9 pr-4 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                            className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-4 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
                         />
                     </div>
                 </form>
-                <div className="flex items-center gap-2">
-                    {(['all', 'active', 'trial', 'suspended'] as const).map((status) => (
-                        <button
-                            key={status}
-                            onClick={() => {
-                                setStatusFilter(status as TenantStatus | 'all');
-                                setPage(1);
-                            }}
-                            className={clsx(
-                                'rounded-full px-3 py-1 text-xs font-medium capitalize',
-                                statusFilter === status
-                                    ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300'
-                                    : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'
-                            )}
-                        >
-                            {status}
-                        </button>
-                    ))}
-                </div>
+                <select
+                    value={statusFilter}
+                    onChange={(e) => {
+                        setStatusFilter(e.target.value as TenantStatus | 'all');
+                        setPage(1);
+                    }}
+                    className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                >
+                    <option value="all">All Status</option>
+                    <option value="active">Active</option>
+                    <option value="trial">Trial</option>
+                    <option value="suspended">Suspended</option>
+                </select>
             </div>
 
             {/* Table */}
             <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
-                        <thead className="border-b border-gray-200 bg-gray-50 text-left text-xs uppercase text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400">
+                        <thead className="border-b border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900">
                             <tr>
-                                <th className="px-4 py-3">Tenant</th>
-                                <th className="px-4 py-3">Type</th>
-                                <th className="px-4 py-3">Tier</th>
-                                <th className="px-4 py-3">Status</th>
-                                <th className="px-4 py-3">Domain</th>
-                                <th className="px-4 py-3 text-right">Actions</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
+                                    Tenant
+                                </th>
+                                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
+                                    Type
+                                </th>
+                                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
+                                    Tier
+                                </th>
+                                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
+                                    Status
+                                </th>
+                                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
+                                    Domain
+                                </th>
+                                <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
+                                    Actions
+                                </th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -334,13 +337,16 @@ export default function SupervisorTenantsPage() {
                                 </tr>
                             ) : tenants.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} className="px-4 py-10 text-center text-gray-500">
-                                        No tenants found
+                                    <td colSpan={6} className="px-4 py-10">
+                                        <div className="flex flex-col items-center justify-center text-gray-500">
+                                            <Building2 className="mb-2 h-12 w-12 opacity-50" />
+                                            <p>No tenants found</p>
+                                        </div>
                                     </td>
                                 </tr>
                             ) : (
                                 tenants.map((tenant) => (
-                                    <tr key={tenant.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                                    <tr key={tenant.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                                         <td className="px-4 py-3">
                                             <div className="font-medium text-gray-900 dark:text-white">
                                                 {tenant.brand_name}
@@ -354,7 +360,9 @@ export default function SupervisorTenantsPage() {
                                             {tenant.subscription_tier}
                                         </td>
                                         <td className="px-4 py-3">
-                                            <span className={statusBadge(tenant.status)}>{tenant.status}</span>
+                                            <span className={clsx('rounded-full px-2 py-1 text-xs font-medium', statusBadge(tenant.status))}>
+                                                {tenant.status}
+                                            </span>
                                         </td>
                                         <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
                                             {tenant.domain || tenant.subdomain || '-'}
@@ -363,24 +371,24 @@ export default function SupervisorTenantsPage() {
                                             <div className="flex items-center justify-end gap-2">
                                                 <button
                                                     onClick={() => openEdit(tenant)}
-                                                    className="rounded-lg border border-gray-200 px-2 py-1 text-xs text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300"
+                                                    className="rounded p-1 text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-900/20"
                                                 >
                                                     <Pencil className="h-4 w-4" />
                                                 </button>
                                                 <button
                                                     onClick={() => toggleStatus(tenant)}
                                                     className={clsx(
-                                                        'rounded-lg px-2 py-1 text-xs',
+                                                        'rounded p-1',
                                                         tenant.status === 'suspended'
-                                                            ? 'bg-green-100 text-green-700'
-                                                            : 'bg-red-100 text-red-700'
+                                                            ? 'text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20'
+                                                            : 'text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20'
                                                     )}
                                                 >
                                                     {tenant.status === 'suspended' ? <CheckCircle className="h-4 w-4" /> : <Ban className="h-4 w-4" />}
                                                 </button>
                                                 <button
                                                     onClick={() => deleteTenant(tenant)}
-                                                    className="rounded-lg bg-red-100 px-2 py-1 text-xs text-red-700"
+                                                    className="rounded p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
                                                 >
                                                     <Trash2 className="h-4 w-4" />
                                                 </button>
