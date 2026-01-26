@@ -28,12 +28,17 @@ type ActivityItem = {
   imageUrl?: string | null;
 };
 
+const SYSTEM_TENANT_ID = '00000000-0000-0000-0000-000000000000';
+
 const toIsoString = (value: Date | string) => {
   if (typeof value === 'string') {
     return new Date(value).toISOString();
   }
   return value.toISOString();
 };
+
+const isMissingTableError = (error: unknown) =>
+  (error as { code?: string })?.code === '42P01';
 
 export async function GET(request: NextRequest) {
   try {
@@ -42,11 +47,13 @@ export async function GET(request: NextRequest) {
       return auth;
     }
 
-    const db = getTenantDb(auth.user.tenant_id);
+    const db = getTenantDb(SYSTEM_TENANT_ID);
 
     const url = new URL(request.url);
     const limit = Math.min(parseInt(url.searchParams.get('limit') || '12', 10), 50);
     const perTableLimit = Math.min(limit * 2, 50);
+
+    const emptyResult = { rows: [] };
 
     const [usersResult, eventsResult, photosResult, moderationResult] = await Promise.all([
       db.query<{
@@ -69,7 +76,7 @@ export async function GET(request: NextRequest) {
           LIMIT $1
         `,
         [perTableLimit]
-      ),
+      ).catch((error) => (isMissingTableError(error) ? emptyResult : Promise.reject(error))),
       db.query<{
         id: string;
         createdAt: Date;
@@ -93,7 +100,7 @@ export async function GET(request: NextRequest) {
           LIMIT $1
         `,
         [perTableLimit]
-      ),
+      ).catch((error) => (isMissingTableError(error) ? emptyResult : Promise.reject(error))),
       db.query<{
         id: string;
         createdAt: Date;
@@ -121,7 +128,7 @@ export async function GET(request: NextRequest) {
           LIMIT $1
         `,
         [perTableLimit]
-      ),
+      ).catch((error) => (isMissingTableError(error) ? emptyResult : Promise.reject(error))),
       db.query<{
         id: string;
         createdAt: Date;
@@ -157,7 +164,7 @@ export async function GET(request: NextRequest) {
           LIMIT $1
         `,
         [perTableLimit]
-      ),
+      ).catch((error) => (isMissingTableError(error) ? emptyResult : Promise.reject(error))),
     ]);
 
     const activityItems: ActivityItem[] = [
