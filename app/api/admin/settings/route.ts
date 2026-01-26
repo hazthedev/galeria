@@ -4,7 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSuperAdmin } from '@/middleware/auth';
-import { getSystemSettings, updateSystemSettings } from '@/lib/system-settings';
+import { getDefaultSystemSettings, getSystemSettings, updateSystemSettings } from '@/lib/system-settings';
 import type { ISystemSettings } from '@/lib/types';
 
 export async function GET(request: NextRequest) {
@@ -14,7 +14,14 @@ export async function GET(request: NextRequest) {
       return auth;
     }
 
-    const settings = await getSystemSettings();
+    let settings: ISystemSettings;
+    try {
+      settings = await getSystemSettings();
+    } catch (error) {
+      console.warn('[ADMIN_SETTINGS] Falling back to defaults:', error);
+      settings = getDefaultSystemSettings();
+    }
+
     return NextResponse.json({ data: settings });
   } catch (error) {
     console.error('[ADMIN_SETTINGS] Get error:', error);

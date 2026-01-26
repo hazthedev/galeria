@@ -79,13 +79,23 @@ export async function getSystemSettings(): Promise<ISystemSettings> {
   }
 
   const db = getTenantDb(SYSTEM_TENANT_ID);
-  const result = await db.query<{ settings: ISystemSettings }>(
-    'SELECT settings FROM system_settings ORDER BY updated_at DESC LIMIT 1'
-  );
+  try {
+    const result = await db.query<{ settings: ISystemSettings }>(
+      'SELECT settings FROM system_settings ORDER BY updated_at DESC LIMIT 1'
+    );
 
-  const merged = mergeSettings(DEFAULT_SYSTEM_SETTINGS, result.rows[0]?.settings);
-  cachedSettings = { value: merged, expiresAt: Date.now() + CACHE_TTL };
-  return merged;
+    const merged = mergeSettings(DEFAULT_SYSTEM_SETTINGS, result.rows[0]?.settings);
+    cachedSettings = { value: merged, expiresAt: Date.now() + CACHE_TTL };
+    return merged;
+  } catch (error) {
+    const code = (error as { code?: string }).code;
+    if (code === '42P01') {
+      const fallback = DEFAULT_SYSTEM_SETTINGS;
+      cachedSettings = { value: fallback, expiresAt: Date.now() + CACHE_TTL };
+      return fallback;
+    }
+    throw error;
+  }
 }
 
 export async function updateSystemSettings(
@@ -93,27 +103,35 @@ export async function updateSystemSettings(
   updatedBy?: string
 ): Promise<ISystemSettings> {
   const db = getTenantDb(SYSTEM_TENANT_ID);
-  const current = await getSystemSettings();
-  const merged = mergeSettings(current, updates);
+  try {
+    const current = await getSystemSettings();
+    const merged = mergeSettings(current, updates);
 
-  const existing = await db.query<{ id: string }>(
-    'SELECT id FROM system_settings ORDER BY updated_at DESC LIMIT 1'
-  );
+    const existing = await db.query<{ id: string }>(
+      'SELECT id FROM system_settings ORDER BY updated_at DESC LIMIT 1'
+    );
 
-  if (existing.rows[0]) {
-    await db.query(
-      'UPDATE system_settings SET settings = $1, updated_at = $2, updated_by = $3 WHERE id = $4',
-      [merged, new Date(), updatedBy || null, existing.rows[0].id]
-    );
-  } else {
-    await db.query(
-      'INSERT INTO system_settings (settings, updated_at, updated_by) VALUES ($1, $2, $3)',
-      [merged, new Date(), updatedBy || null]
-    );
+    if (existing.rows[0]) {
+      await db.query(
+        'UPDATE system_settings SET settings = $1, updated_at = $2, updated_by = $3 WHERE id = $4',
+        [merged, new Date(), updatedBy || null, existing.rows[0].id]
+      );
+    } else {
+      await db.query(
+        'INSERT INTO system_settings (settings, updated_at, updated_by) VALUES ($1, $2, $3)',
+        [merged, new Date(), updatedBy || null]
+      );
+    }
+
+    cachedSettings = { value: merged, expiresAt: Date.now() + CACHE_TTL };
+    return merged;
+  } catch (error) {
+    const code = (error as { code?: string }).code;
+    if (code === '42P01') {
+      throw new Error('System settings table is missing. Run migration 0010_system_settings.sql.');
+    }
+    throw error;
   }
-
-  cachedSettings = { value: merged, expiresAt: Date.now() + CACHE_TTL };
-  return merged;
 }
 
 export function clearSystemSettingsCache() {
