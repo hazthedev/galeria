@@ -5,7 +5,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Plus, Search, RefreshCcw, Pencil, Ban, CheckCircle, Trash2 } from 'lucide-react';
+import { Plus, Search, RefreshCcw, Pencil, Ban, CheckCircle, Trash2, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import clsx from 'clsx';
 import { toast } from 'sonner';
 import type { ITenant, ITenantFeatures, ITenantLimits, SubscriptionTier, TenantType } from '@/lib/types';
@@ -241,7 +241,7 @@ export default function SupervisorTenantsPage() {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
                         Tenant Management
@@ -253,7 +253,7 @@ export default function SupervisorTenantsPage() {
                 <div className="flex items-center gap-2">
                     <button
                         onClick={() => fetchTenants()}
-                        className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+                        className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
                     >
                         <RefreshCcw className="h-4 w-4" />
                         Refresh
@@ -269,22 +269,25 @@ export default function SupervisorTenantsPage() {
             </div>
 
             {/* Filters */}
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="relative w-full sm:max-w-sm">
-                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                    <input
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                                setPage(1);
-                                fetchTenants();
-                            }
-                        }}
-                        placeholder="Search tenants..."
-                        className="w-full rounded-lg border border-gray-200 bg-white pl-9 pr-4 py-2 text-sm text-gray-700 focus:border-violet-500 focus:ring-violet-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
-                    />
-                </div>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                <form
+                    onSubmit={(e) => {
+                        e.preventDefault();
+                        setPage(1);
+                        fetchTenants();
+                    }}
+                    className="flex-1"
+                >
+                    <div className="relative">
+                        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                        <input
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            placeholder="Search tenants..."
+                            className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-9 pr-4 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                        />
+                    </div>
+                </form>
                 <div className="flex items-center gap-2">
                     {(['all', 'active', 'trial', 'suspended'] as const).map((status) => (
                         <button
@@ -307,10 +310,10 @@ export default function SupervisorTenantsPage() {
             </div>
 
             {/* Table */}
-            <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+            <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
-                        <thead className="bg-gray-50 text-left text-xs uppercase text-gray-500 dark:bg-gray-700/50 dark:text-gray-300">
+                        <thead className="border-b border-gray-200 bg-gray-50 text-left text-xs uppercase text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400">
                             <tr>
                                 <th className="px-4 py-3">Tenant</th>
                                 <th className="px-4 py-3">Type</th>
@@ -323,8 +326,10 @@ export default function SupervisorTenantsPage() {
                         <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                             {isLoading ? (
                                 <tr>
-                                    <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
-                                        Loading tenants...
+                                    <td colSpan={6} className="px-4 py-10">
+                                        <div className="flex items-center justify-center">
+                                            <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
+                                        </div>
                                     </td>
                                 </tr>
                             ) : tenants.length === 0 ? (
@@ -387,25 +392,27 @@ export default function SupervisorTenantsPage() {
                         </tbody>
                     </table>
                 </div>
-                <div className="flex items-center justify-between border-t border-gray-200 px-4 py-3 text-xs text-gray-500 dark:border-gray-700">
-                    <span>Page {page} of {totalPages}</span>
-                    <div className="flex gap-2">
+                {totalPages > 1 && (
+                    <div className="flex items-center justify-between border-t border-gray-200 px-4 py-3 dark:border-gray-700">
                         <button
-                            disabled={page <= 1}
                             onClick={() => setPage((p) => Math.max(1, p - 1))}
-                            className="rounded border border-gray-200 px-3 py-1 disabled:opacity-50 dark:border-gray-700"
+                            disabled={page === 1}
+                            className="flex items-center gap-1 rounded px-3 py-1 text-sm text-gray-600 hover:bg-gray-100 disabled:opacity-50 dark:text-gray-400 dark:hover:bg-gray-700"
                         >
-                            Prev
+                            <ChevronLeft className="h-4 w-4" /> Previous
                         </button>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                            Page {page} of {totalPages}
+                        </span>
                         <button
-                            disabled={page >= totalPages}
                             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                            className="rounded border border-gray-200 px-3 py-1 disabled:opacity-50 dark:border-gray-700"
+                            disabled={page === totalPages}
+                            className="flex items-center gap-1 rounded px-3 py-1 text-sm text-gray-600 hover:bg-gray-100 disabled:opacity-50 dark:text-gray-400 dark:hover:bg-gray-700"
                         >
-                            Next
+                            Next <ChevronRight className="h-4 w-4" />
                         </button>
                     </div>
-                </div>
+                )}
             </div>
 
             {/* Create Modal */}
@@ -420,7 +427,7 @@ export default function SupervisorTenantsPage() {
                             <select
                                 value={createForm.tenant_type}
                                 onChange={(e) => setCreateForm({ ...createForm, tenant_type: e.target.value as TenantType })}
-                                className="rounded-lg border border-gray-200 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
+                                className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900"
                             >
                                 <option value="white_label">White label</option>
                                 <option value="demo">Demo</option>
@@ -430,36 +437,36 @@ export default function SupervisorTenantsPage() {
                                 placeholder="Brand name"
                                 value={createForm.brand_name}
                                 onChange={(e) => setCreateForm({ ...createForm, brand_name: e.target.value })}
-                                className="rounded-lg border border-gray-200 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
+                                className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900"
                             />
                             <input
                                 placeholder="Company name"
                                 value={createForm.company_name}
                                 onChange={(e) => setCreateForm({ ...createForm, company_name: e.target.value })}
-                                className="rounded-lg border border-gray-200 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
+                                className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900"
                             />
                             <input
                                 placeholder="Contact email"
                                 value={createForm.contact_email}
                                 onChange={(e) => setCreateForm({ ...createForm, contact_email: e.target.value })}
-                                className="rounded-lg border border-gray-200 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
+                                className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900"
                             />
                             <input
                                 placeholder="Domain (optional)"
                                 value={createForm.domain}
                                 onChange={(e) => setCreateForm({ ...createForm, domain: e.target.value })}
-                                className="rounded-lg border border-gray-200 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
+                                className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900"
                             />
                             <input
                                 placeholder="Subdomain (optional)"
                                 value={createForm.subdomain}
                                 onChange={(e) => setCreateForm({ ...createForm, subdomain: e.target.value })}
-                                className="rounded-lg border border-gray-200 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
+                                className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900"
                             />
                             <select
                                 value={createForm.subscription_tier}
                                 onChange={(e) => setCreateForm({ ...createForm, subscription_tier: e.target.value as SubscriptionTier })}
-                                className="rounded-lg border border-gray-200 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
+                                className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900"
                             >
                                 <option value="free">Free</option>
                                 <option value="pro">Pro</option>
@@ -498,7 +505,7 @@ export default function SupervisorTenantsPage() {
                             <select
                                 value={editForm.tenant_type}
                                 onChange={(e) => setEditForm({ ...editForm, tenant_type: e.target.value as TenantType })}
-                                className="rounded-lg border border-gray-200 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
+                                className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900"
                             >
                                 <option value="white_label">White label</option>
                                 <option value="demo">Demo</option>
@@ -508,36 +515,36 @@ export default function SupervisorTenantsPage() {
                                 placeholder="Brand name"
                                 value={editForm.brand_name}
                                 onChange={(e) => setEditForm({ ...editForm, brand_name: e.target.value })}
-                                className="rounded-lg border border-gray-200 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
+                                className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900"
                             />
                             <input
                                 placeholder="Company name"
                                 value={editForm.company_name}
                                 onChange={(e) => setEditForm({ ...editForm, company_name: e.target.value })}
-                                className="rounded-lg border border-gray-200 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
+                                className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900"
                             />
                             <input
                                 placeholder="Contact email"
                                 value={editForm.contact_email}
                                 onChange={(e) => setEditForm({ ...editForm, contact_email: e.target.value })}
-                                className="rounded-lg border border-gray-200 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
+                                className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900"
                             />
                             <input
                                 placeholder="Domain"
                                 value={editForm.domain}
                                 onChange={(e) => setEditForm({ ...editForm, domain: e.target.value })}
-                                className="rounded-lg border border-gray-200 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
+                                className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900"
                             />
                             <input
                                 placeholder="Subdomain"
                                 value={editForm.subdomain}
                                 onChange={(e) => setEditForm({ ...editForm, subdomain: e.target.value })}
-                                className="rounded-lg border border-gray-200 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
+                                className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900"
                             />
                             <select
                                 value={editForm.subscription_tier}
                                 onChange={(e) => setEditForm({ ...editForm, subscription_tier: e.target.value as SubscriptionTier })}
-                                className="rounded-lg border border-gray-200 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
+                                className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900"
                             >
                                 <option value="free">Free</option>
                                 <option value="pro">Pro</option>
@@ -547,7 +554,7 @@ export default function SupervisorTenantsPage() {
                             <select
                                 value={editForm.status}
                                 onChange={(e) => setEditForm({ ...editForm, status: e.target.value as TenantStatus })}
-                                className="rounded-lg border border-gray-200 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"
+                                className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900"
                             >
                                 <option value="active">Active</option>
                                 <option value="trial">Trial</option>
@@ -594,10 +601,10 @@ export default function SupervisorTenantsPage() {
                                                     },
                                                 })
                                             }
-                                            className="w-24 rounded border border-gray-200 px-2 py-1 text-xs dark:border-gray-700 dark:bg-gray-900"
-                                        />
-                                    </label>
-                                ))}
+                                        className="w-24 rounded border border-gray-300 px-2 py-1 text-xs focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900"
+                                    />
+                                </label>
+                            ))}
                             <label className="sm:col-span-2 flex flex-col gap-2 text-xs text-gray-600 dark:text-gray-300">
                                 <span>custom features (comma separated)</span>
                                 <input
@@ -615,7 +622,7 @@ export default function SupervisorTenantsPage() {
                                             },
                                         })
                                     }
-                                    className="rounded border border-gray-200 px-3 py-2 text-xs dark:border-gray-700 dark:bg-gray-900"
+                                    className="rounded border border-gray-300 px-3 py-2 text-xs focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900"
                                 />
                             </label>
                         </div>
