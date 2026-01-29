@@ -171,6 +171,10 @@ export default function EventPhotosPage() {
     // Remove the photo from current view (optimistic update)
     setPhotos((prev) => prev.filter((p) => p.id !== photoId));
 
+    // Invalidate caches so updated status shows in other tabs
+    photosCacheRef.current = { all: [], pending: [], approved: [], rejected: [] };
+    photosLoadedRef.current = { all: false, pending: false, approved: false, rejected: false };
+
     // Immediately refetch to ensure we have the latest data
     fetchPhotosRef.current?.();
   }, []);

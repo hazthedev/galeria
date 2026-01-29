@@ -740,11 +740,16 @@ export async function GET(
       status,
     });
 
+    const guestFingerprint = headers.get('x-fingerprint');
+    const guestUserId = guestFingerprint ? `guest_${guestFingerprint}` : null;
+
     if (status && status !== 'approved' && !isModerator) {
-      return NextResponse.json(
-        { error: 'Insufficient permissions', code: 'FORBIDDEN' },
-        { status: 403 }
-      );
+      if (!guestUserId) {
+        return NextResponse.json(
+          { error: 'Insufficient permissions', code: 'FORBIDDEN' },
+          { status: 403 }
+        );
+      }
     }
 
     // Build query filter
@@ -752,6 +757,9 @@ export async function GET(
     const filter: Record<string, unknown> = { event_id: eventId };
     if (status) {
       filter.status = status;
+      if (!isModerator && status !== 'approved') {
+        filter.user_fingerprint = guestUserId;
+      }
     } else if (!isModerator) {
       // Non-moderators only see approved photos when no status filter
       filter.status = 'approved';

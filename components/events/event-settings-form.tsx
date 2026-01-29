@@ -134,6 +134,9 @@ export function EventSettingsForm({
     const [anonymousAllowed, setAnonymousAllowed] = useState(
         event.settings?.features?.anonymous_allowed !== false
     );
+    const [luckyDrawEnabled, setLuckyDrawEnabled] = useState(
+        event.settings?.features?.lucky_draw_enabled !== false
+    );
 
     const [isLoading, setIsLoading] = useState(false);
     const [hasChanges, setHasChanges] = useState(false);
@@ -150,10 +153,11 @@ export function EventSettingsForm({
         const featuresChanged =
             guestDownloadEnabled !== (originalFeatures.guest_download_enabled !== false) ||
             moderationRequired !== (originalFeatures.moderation_required || false) ||
-            anonymousAllowed !== (originalFeatures.anonymous_allowed !== false);
+            anonymousAllowed !== (originalFeatures.anonymous_allowed !== false) ||
+            luckyDrawEnabled !== (originalFeatures.lucky_draw_enabled !== false);
 
         setHasChanges(themeChanged || featuresChanged);
-    }, [primaryColor, secondaryColor, guestDownloadEnabled, moderationRequired, anonymousAllowed, event]);
+    }, [primaryColor, secondaryColor, guestDownloadEnabled, moderationRequired, anonymousAllowed, luckyDrawEnabled, event]);
 
     // Auto-suggest secondary color when primary changes
     const handlePrimaryColorChange = useCallback((color: string) => {
@@ -193,6 +197,7 @@ export function EventSettingsForm({
                             guest_download_enabled: guestDownloadEnabled,
                             moderation_required: moderationRequired,
                             anonymous_allowed: anonymousAllowed,
+                            lucky_draw_enabled: luckyDrawEnabled,
                         },
                     },
                 }),
@@ -342,6 +347,35 @@ export function EventSettingsForm({
                 </div>
 
                 <div className="space-y-4">
+                    {/* Lucky Draw Toggle */}
+                    <label className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-4 cursor-pointer hover:border-violet-300 dark:border-gray-600 dark:bg-gray-800 dark:hover:border-violet-500 transition-colors">
+                        <div className="flex items-center gap-3">
+                            <Sparkles className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                            <div>
+                                <p className="font-medium text-gray-900 dark:text-gray-100">
+                                    Enable Lucky Draw
+                                </p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                    Allow guests to enter photos into the lucky draw
+                                </p>
+                            </div>
+                        </div>
+                        <div
+                            onClick={() => setLuckyDrawEnabled(!luckyDrawEnabled)}
+                            className={clsx(
+                                'relative h-6 w-11 rounded-full transition-colors cursor-pointer',
+                                luckyDrawEnabled ? 'bg-violet-600' : 'bg-gray-300 dark:bg-gray-600'
+                            )}
+                        >
+                            <div
+                                className={clsx(
+                                    'absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-md transition-transform',
+                                    luckyDrawEnabled ? 'left-[22px]' : 'left-0.5'
+                                )}
+                            />
+                        </div>
+                    </label>
+
                     {/* Guest Download Toggle */}
                     <label className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-4 cursor-pointer hover:border-violet-300 dark:border-gray-600 dark:bg-gray-800 dark:hover:border-violet-500 transition-colors">
                         <div className="flex items-center gap-3">

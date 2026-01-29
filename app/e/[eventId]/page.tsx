@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
@@ -94,6 +94,24 @@ async function resizeImageIfNeeded(file: File, maxDimension: number): Promise<{ 
   }
 }
 
+function mergePhotos(approved: IPhoto[], pending: IPhoto[], rejected: IPhoto[]): IPhoto[] {
+  const merged = new Map<string, IPhoto>();
+  const add = (photo: IPhoto) => {
+    const existing = merged.get(photo.id);
+    if (!existing) {
+      merged.set(photo.id, photo);
+      return;
+    }
+    if (existing.status === 'approved' && photo.status !== 'approved') {
+      merged.set(photo.id, photo);
+    }
+  };
+  approved.forEach(add);
+  pending.forEach(add);
+  rejected.forEach(add);
+  return Array.from(merged.values());
+}
+
 // ============================================
 // GUEST NAME MODAL COMPONENT
 // ============================================
@@ -104,12 +122,14 @@ function GuestNameModal({
   eventName,
   initialName,
   initialAnonymous,
+  allowAnonymous = true,
 }: {
   isOpen: boolean;
   onSubmit: (name: string, isAnonymous: boolean) => void;
   eventName: string;
   initialName?: string;
   initialAnonymous?: boolean;
+  allowAnonymous?: boolean;
 }) {
   const [name, setName] = useState('');
   const [isAnonymous, setIsAnonymous] = useState(false);
@@ -118,9 +138,9 @@ function GuestNameModal({
   useEffect(() => {
     if (!isOpen) return;
     setName(initialName || '');
-    setIsAnonymous(!!initialAnonymous);
+    setIsAnonymous(allowAnonymous ? !!initialAnonymous : false);
     setError('');
-  }, [isOpen, initialName, initialAnonymous]);
+  }, [isOpen, initialName, initialAnonymous, allowAnonymous]);
 
   const handleSubmit = () => {
     if (!isAnonymous && !name.trim()) {
@@ -171,25 +191,31 @@ function GuestNameModal({
             />
           </div>
 
-          <label className="flex items-center gap-3 cursor-pointer rounded-lg border border-gray-200 p-3 hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700">
-            <input
-              type="checkbox"
-              checked={isAnonymous}
-              onChange={(e) => {
-                setIsAnonymous(e.target.checked);
-                setError('');
-              }}
-              className="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
-            />
-            <div>
-              <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                Stay Anonymous
-              </span>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Your name won't be shown on photos
-              </p>
+          {allowAnonymous ? (
+            <label className="flex items-center gap-3 cursor-pointer rounded-lg border border-gray-200 p-3 hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700">
+              <input
+                type="checkbox"
+                checked={isAnonymous}
+                onChange={(e) => {
+                  setIsAnonymous(e.target.checked);
+                  setError('');
+                }}
+                className="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+              />
+              <div>
+                <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                  Stay Anonymous
+                </span>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Your name won't be shown on photos
+                </p>
+              </div>
+            </label>
+          ) : (
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs text-gray-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300">
+              Anonymous uploads are disabled for this event.
             </div>
-          </label>
+          )}
 
           {isAnonymous && (
             <div className="rounded-lg bg-amber-50 p-3 dark:bg-amber-900/20">
@@ -236,7 +262,10 @@ export default function GuestEventPage() {
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [uploadSuccessMessage, setUploadSuccessMessage] = useState('Photo uploaded successfully!');
   const [optimizedCount, setOptimizedCount] = useState(0);
+  const [moderationNotice, setModerationNotice] = useState<string | null>(null);
+  const [moderationNoticeType, setModerationNoticeType] = useState<'approved' | 'rejected' | null>(null);
   const [joinLuckyDraw, setJoinLuckyDraw] = useState(true);
   const [hasJoinedDraw, setHasJoinedDraw] = useState(false);
   const fingerprint = useMemo(() => getClientFingerprint(), []);
@@ -245,11 +274,15 @@ export default function GuestEventPage() {
   const { winner, isDrawing } = useLuckyDraw(resolvedEventId || '');
   const [showDrawOverlay, setShowDrawOverlay] = useState(false);
   const [showWinnerOverlay, setShowWinnerOverlay] = useState(false);
+  const pendingIdsRef = useRef<Set<string>>(new Set());
+  const rejectedIdsRef = useRef<Set<string>>(new Set());
 
   // Guest name state (persisted)
   const [guestName, setGuestName] = useState<string>('');
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [showGuestModal, setShowGuestModal] = useState(false);
+  const allowAnonymous = event?.settings?.features?.anonymous_allowed !== false;
+  const moderationRequired = event?.settings?.features?.moderation_required || false;
 
   // Selected files for upload (preview before submit)
   const [selectedFiles, setSelectedFiles] = useState<SelectedFile[]>([]);
@@ -270,7 +303,7 @@ export default function GuestEventPage() {
       try {
         const parsed = JSON.parse(savedData);
         setGuestName(parsed.name || '');
-        setIsAnonymous(parsed.isAnonymous || false);
+        setIsAnonymous(allowAnonymous ? parsed.isAnonymous || false : false);
       } catch {
         // Show modal if no valid data
         setShowGuestModal(true);
@@ -278,16 +311,23 @@ export default function GuestEventPage() {
     } else {
       setShowGuestModal(true);
     }
-  }, [resolvedEventId]);
+  }, [resolvedEventId, allowAnonymous]);
+
+  useEffect(() => {
+    if (!allowAnonymous && isAnonymous) {
+      setIsAnonymous(false);
+    }
+  }, [allowAnonymous, isAnonymous]);
 
   // Handle guest modal submit
   const handleGuestModalSubmit = (name: string, anonymous: boolean) => {
+    const nextAnonymous = allowAnonymous ? anonymous : false;
     setGuestName(name);
-    setIsAnonymous(anonymous);
+    setIsAnonymous(nextAnonymous);
     setShowGuestModal(false);
 
     // If anonymous, can't join lucky draw
-    if (anonymous) {
+    if (nextAnonymous) {
       setJoinLuckyDraw(false);
     } else if (!hasJoinedDraw) {
       setJoinLuckyDraw(true);
@@ -296,7 +336,7 @@ export default function GuestEventPage() {
     // Save to localStorage
     if (resolvedEventId) {
       const storageKey = `guest_name_${resolvedEventId}`;
-      localStorage.setItem(storageKey, JSON.stringify({ name, isAnonymous: anonymous }));
+      localStorage.setItem(storageKey, JSON.stringify({ name, isAnonymous: nextAnonymous }));
     }
   };
 
@@ -336,6 +376,15 @@ export default function GuestEventPage() {
     const timeout = setTimeout(() => setShowWinnerOverlay(false), 12000);
     return () => clearTimeout(timeout);
   }, [winner]);
+
+  useEffect(() => {
+    if (!moderationNotice) return;
+    const timeout = setTimeout(() => {
+      setModerationNotice(null);
+      setModerationNoticeType(null);
+    }, 6000);
+    return () => clearTimeout(timeout);
+  }, [moderationNotice]);
 
   // Handle love reaction on double-click with heart burst animation
   const handleLoveReaction = async (photoId: string) => {
@@ -474,12 +523,38 @@ export default function GuestEventPage() {
 
         setEvent(eventData.data);
 
-        // Fetch photos (only approved ones for guests)
-        const photosResponse = await fetch(`/api/events/${actualEventId}/photos?status=approved`);
-        const photosData = await photosResponse.json();
+        const moderationRequired = eventData.data?.settings?.features?.moderation_required || false;
+        const headers: Record<string, string> = {};
+        if (fingerprint) {
+          headers['x-fingerprint'] = fingerprint;
+        }
 
-        if (photosResponse.ok) {
-          setPhotos(photosData.data || []);
+        // Fetch photos (approved for everyone, plus own pending/rejected if moderation enabled)
+        const approvedResponse = await fetch(`/api/events/${actualEventId}/photos?status=approved`, { headers });
+        const approvedData = await approvedResponse.json();
+
+        let pendingData: { data?: IPhoto[] } = {};
+        let rejectedData: { data?: IPhoto[] } = {};
+
+        if (moderationRequired && fingerprint) {
+          const [pendingRes, rejectedRes] = await Promise.all([
+            fetch(`/api/events/${actualEventId}/photos?status=pending`, { headers }),
+            fetch(`/api/events/${actualEventId}/photos?status=rejected`, { headers }),
+          ]);
+
+          pendingData = await pendingRes.json();
+          rejectedData = await rejectedRes.json();
+        }
+
+        if (approvedResponse.ok) {
+          const merged = mergePhotos(
+            approvedData.data || [],
+            pendingData.data || [],
+            rejectedData.data || []
+          );
+          setPhotos(merged);
+          pendingIdsRef.current = new Set((pendingData.data || []).map((p) => p.id));
+          rejectedIdsRef.current = new Set((rejectedData.data || []).map((p) => p.id));
         }
 
         setError(null);
@@ -493,6 +568,82 @@ export default function GuestEventPage() {
 
     fetchEventData();
   }, [eventId]);
+
+  useEffect(() => {
+    if (!resolvedEventId || !fingerprint || !moderationRequired) return;
+
+    let isCancelled = false;
+    const headers: Record<string, string> = { 'x-fingerprint': fingerprint };
+
+    const pollStatuses = async () => {
+      try {
+        const [pendingRes, rejectedRes] = await Promise.all([
+          fetch(`/api/events/${resolvedEventId}/photos?status=pending`, { headers }),
+          fetch(`/api/events/${resolvedEventId}/photos?status=rejected`, { headers }),
+        ]);
+
+        const pendingJson = await pendingRes.json();
+        const rejectedJson = await rejectedRes.json();
+
+        if (!pendingRes.ok || !rejectedRes.ok) return;
+        if (isCancelled) return;
+
+        const nextPending = new Set<string>((pendingJson.data || []).map((p: IPhoto) => p.id));
+        const nextRejected = new Set<string>((rejectedJson.data || []).map((p: IPhoto) => p.id));
+
+        const prevPending = pendingIdsRef.current;
+        const prevRejected = rejectedIdsRef.current;
+
+        const newlyApproved: string[] = [];
+        const newlyRejected: string[] = [];
+
+        prevPending.forEach((id) => {
+          if (!nextPending.has(id) && nextRejected.has(id)) {
+            newlyRejected.push(id);
+          } else if (!nextPending.has(id) && !nextRejected.has(id)) {
+            newlyApproved.push(id);
+          }
+        });
+
+        pendingIdsRef.current = nextPending;
+        rejectedIdsRef.current = nextRejected;
+
+        if (newlyApproved.length > 0) {
+          setModerationNoticeType('approved');
+          setModerationNotice('Your photo was approved!');
+        }
+
+        if (newlyRejected.length > 0) {
+          setModerationNoticeType('rejected');
+          setModerationNotice('Your photo was rejected.');
+        }
+
+        setPhotos((prev) =>
+          prev.map((photo) => {
+            if (nextRejected.has(photo.id)) {
+              return { ...photo, status: 'rejected' };
+            }
+            if (nextPending.has(photo.id)) {
+              return { ...photo, status: 'pending' };
+            }
+            if (photo.status === 'pending' && !nextPending.has(photo.id) && !nextRejected.has(photo.id)) {
+              return { ...photo, status: 'approved' };
+            }
+            return photo;
+          })
+        );
+      } catch (err) {
+        console.error('[GUEST_EVENT] Moderation poll error:', err);
+      }
+    };
+
+    pollStatuses();
+    const interval = setInterval(pollStatuses, 15000);
+    return () => {
+      isCancelled = true;
+      clearInterval(interval);
+    };
+  }, [resolvedEventId, fingerprint, moderationRequired]);
 
   // Share functionality (always use short link)
   const shareUrl = useMemo(() => {
@@ -616,6 +767,12 @@ export default function GuestEventPage() {
       // Add the new photo(s) to the gallery
       const uploadedPhotos = Array.isArray(data.data) ? data.data : [data.data];
       setPhotos((prev) => [...uploadedPhotos, ...prev]);
+      const hasPending = uploadedPhotos.some((photo: IPhoto) => photo.status === 'pending');
+      if (hasPending) {
+        setUploadSuccessMessage('Photo uploaded and pending approval.');
+      } else {
+        setUploadSuccessMessage('Photo uploaded successfully!');
+      }
 
       // If successfully joined the draw, mark as joined
       if (joinLuckyDraw && !isAnonymous) {
@@ -634,6 +791,7 @@ export default function GuestEventPage() {
         setSelectedFiles([]);
         setCaption('');
         setOptimizedCount(0);
+        setUploadSuccessMessage('Photo uploaded successfully!');
         setRecaptchaToken(null);
         setRecaptchaError(null);
       }, 1500);
@@ -703,6 +861,7 @@ export default function GuestEventPage() {
         eventName={event.name}
         initialName={guestName}
         initialAnonymous={isAnonymous}
+        allowAnonymous={allowAnonymous}
       />
 
       {/* Lucky Draw Overlays */}
@@ -866,6 +1025,18 @@ export default function GuestEventPage() {
         </div>
 
         {/* Upload CTA */}
+        {moderationNotice && (
+          <div
+            className={clsx(
+              'mb-6 rounded-lg px-4 py-3 text-sm font-medium',
+              moderationNoticeType === 'approved'
+                ? 'bg-green-50 text-green-800 dark:bg-green-900/20 dark:text-green-300'
+                : 'bg-red-50 text-red-800 dark:bg-red-900/20 dark:text-red-300'
+            )}
+          >
+            {moderationNotice}
+          </div>
+        )}
         <div className="mb-8">
           <button
             onClick={() => {
@@ -907,7 +1078,10 @@ export default function GuestEventPage() {
                 return (
                   <div
                     key={photo.id}
-                    onDoubleClick={() => handleLoveReaction(photo.id)}
+                    onDoubleClick={() => {
+                      if (photo.status !== 'approved') return;
+                      handleLoveReaction(photo.id);
+                    }}
                     className="group relative aspect-square overflow-hidden rounded-lg bg-gray-100 cursor-pointer"
                   >
                     <Image
@@ -919,7 +1093,7 @@ export default function GuestEventPage() {
                     />
 
                     {/* Download button */}
-                    {canDownload && (
+                    {canDownload && photo.status === 'approved' && (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -930,6 +1104,19 @@ export default function GuestEventPage() {
                       >
                         <Download className="h-4 w-4" />
                       </button>
+                    )}
+
+                    {(photo.status === 'pending' || photo.status === 'rejected') && (
+                      <div className={clsx(
+                        'absolute inset-0 z-10 flex items-center justify-center text-center text-xs font-semibold uppercase tracking-wide',
+                        photo.status === 'pending'
+                          ? 'bg-black/55 text-yellow-100'
+                          : 'bg-black/70 text-red-100'
+                      )}>
+                        <span className="rounded-full bg-black/40 px-3 py-1">
+                          {photo.status === 'pending' ? 'Pending approval' : 'Rejected'}
+                        </span>
+                      </div>
                     )}
 
                     {/* Love Icon at Top Right (when user has loved) */}
@@ -1039,6 +1226,7 @@ export default function GuestEventPage() {
                   setSelectedFiles([]);
                   setUploadError(null);
                   setUploadSuccess(false);
+                  setUploadSuccessMessage('Photo uploaded successfully!');
                   setCaption('');
                   setOptimizedCount(0);
                   setRecaptchaToken(null);
@@ -1056,7 +1244,7 @@ export default function GuestEventPage() {
               <div className="mb-4 flex items-center gap-2 rounded-lg bg-green-50 p-3 text-green-800 dark:bg-green-900/20 dark:text-green-300">
                 <Check className="h-5 w-5 flex-shrink-0" />
                 <p className="text-sm">
-                  Photo uploaded successfully!
+                  {uploadSuccessMessage}
                   {optimizedCount > 0 && (
                     <span className="ml-2 text-xs text-green-700 dark:text-green-300">
                       Optimized {optimizedCount} photo{optimizedCount > 1 ? 's' : ''} for upload.
@@ -1206,7 +1394,7 @@ export default function GuestEventPage() {
                   </div>
                 )}
 
-                {isAnonymous && (
+                {allowAnonymous && isAnonymous && (
                   <div className="rounded-lg bg-amber-50 p-3 dark:bg-amber-900/20">
                     <p className="text-xs text-amber-800 dark:text-amber-300">
                       ⚠️ Anonymous users cannot participate in the lucky draw
