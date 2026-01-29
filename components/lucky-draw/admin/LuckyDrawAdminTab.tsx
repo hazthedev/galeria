@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Lucky Draw Admin Tab
+// Gatherly - Lucky Draw Admin Tab
 // ============================================
 // Main admin panel for lucky draw configuration and management
 
@@ -23,8 +23,10 @@ import {
 } from 'lucide-react';
 import clsx from 'clsx';
 import { toast } from 'sonner';
-import type { AnimationStyle, LuckyDrawConfig, LuckyDrawEntry, Winner } from '@/lib/types';
+import type { AnimationStyle, LuckyDrawConfig, LuckyDrawEntry, Winner, PrizeTier } from '@/lib/types';
 import { DrawAnimation } from '@/components/lucky-draw/DrawAnimation';
+import confetti from 'canvas-confetti';
+import { playDrumRoll, playRevealSound, stopDrumRoll } from '@/lib/sounds';
 
 // ============================================
 // TYPES
@@ -240,23 +242,17 @@ function DrawHistoryItem({ config, winnerCount, winners }: { config: DrawHistory
 }
 
 const prizeTierOptions: Array<{ value: PrizeTierForm['tier']; label: string }> = [
-  { value: 'grand', label: 'Grand Prize' },
   { value: 'first', label: 'First Prize' },
   { value: 'second', label: 'Second Prize' },
   { value: 'third', label: 'Third Prize' },
-  { value: 'consolation', label: 'Consolation' },
+  { value: 'consolation', label: 'Consolation Prize' },
 ];
 
 const animationStyleOptions: Array<{ value: AnimationStyle; label: string }> = [
-  { value: 'spinning_wheel', label: 'Spinning Wheel' },
-  { value: 'slot_machine', label: 'Slot Machine' },
-  { value: 'card_shuffle', label: 'Card Shuffle' },
-  { value: 'drum_roll', label: 'Drum Roll' },
-  { value: 'random_fade', label: 'Random Fade' },
+  { value: 'countdown', label: 'Countdown' },
 ];
 
 const defaultTierName: Record<PrizeTierForm['tier'], string> = {
-  grand: 'Grand Prize',
   first: 'First Prize',
   second: 'Second Prize',
   third: 'Third Prize',
@@ -265,22 +261,28 @@ const defaultTierName: Record<PrizeTierForm['tier'], string> = {
 
 const buildConfigForm = (config: LuckyDrawConfig | null): ConfigFormState => ({
   prizeTiers: config?.prizeTiers?.length
-    ? config.prizeTiers.map((tier) => ({
-      tier: tier.tier,
-      name: tier.name || defaultTierName[tier.tier],
-      count: tier.count || 1,
-      description: tier.description || '',
-    }))
+    ? config.prizeTiers
+        // Filter out 'grand' tier if it exists (for backward compatibility)
+        .filter((tier) => {
+          const validTiers: PrizeTier[] = ['first', 'second', 'third', 'consolation'];
+          return validTiers.includes(tier.tier as PrizeTier);
+        })
+        .map((tier) => ({
+          tier: tier.tier as PrizeTier,
+          name: tier.name || defaultTierName[tier.tier as PrizeTier],
+          count: tier.count || 1,
+          description: tier.description || '',
+        }))
     : [{
-      tier: 'grand',
-      name: defaultTierName.grand,
+      tier: 'first',
+      name: 'First Prize',
       count: 1,
       description: '',
     }],
   maxEntriesPerUser: config?.maxEntriesPerUser ?? 1,
   requirePhotoUpload: config?.requirePhotoUpload ?? true,
   preventDuplicateWinners: config?.preventDuplicateWinners ?? true,
-  animationStyle: config?.animationStyle ?? 'spinning_wheel',
+  animationStyle: config?.animationStyle ?? 'countdown',
   animationDuration: config?.animationDuration ?? 8,
   showSelfie: config?.showSelfie ?? true,
   showFullName: config?.showFullName ?? true,
@@ -290,7 +292,7 @@ const buildConfigForm = (config: LuckyDrawConfig | null): ConfigFormState => ({
 
 const createPrizeTier = (existing: PrizeTierForm[]): PrizeTierForm => {
   const used = new Set(existing.map((tier) => tier.tier));
-  const nextTier = prizeTierOptions.find((option) => !used.has(option.value))?.value || 'consolation';
+  const nextTier = prizeTierOptions.find((option) => !used.has(option.value))?.value || 'first';
 
   return {
     tier: nextTier,
@@ -312,6 +314,7 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
   const [config, setConfig] = useState<LuckyDrawConfig | null>(null);
   const [entries, setEntries] = useState<LuckyDrawEntry[]>([]);
   const [entriesTotal, setEntriesTotal] = useState(0);
+  const [drawEntries, setDrawEntries] = useState<LuckyDrawEntry[]>([]);
   const [drawHistory, setDrawHistory] = useState<LuckyDrawHistoryItem[]>([]);
   const [winners, setWinners] = useState<Winner[]>([]);
   const [participants, setParticipants] = useState<LuckyDrawParticipant[]>([]);
@@ -440,10 +443,10 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
     }
   };
 
-  const fetchEntries = async () => {
-    try {
-      const response = await fetch(
-        `/api/events/${eventId}/lucky-draw/entries?limit=${entriesPageSize}&offset=${entriesPage * entriesPageSize}`,
+    const fetchEntries = async () => {
+      try {
+        const response = await fetch(
+          `/api/events/${eventId}/lucky-draw/entries?limit=${entriesPageSize}&offset=${entriesPage * entriesPageSize}`,
         {
           credentials: 'include',
         }
@@ -460,8 +463,30 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
     } catch (err) {
       console.error('[LUCKY_DRAW_ADMIN] Failed to fetch entries:', err);
       setError('Failed to load entries');
-    }
-  };
+      }
+    };
+
+    const fetchDrawEntries = async () => {
+      try {
+        const limit = Math.max(entriesTotal, entriesPageSize, 1);
+        const response = await fetch(
+          `/api/events/${eventId}/lucky-draw/entries?limit=${limit}&offset=0`,
+          {
+            credentials: 'include',
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          setDrawEntries(data.data || []);
+        } else {
+          setDrawEntries([]);
+        }
+      } catch (err) {
+        console.error('[LUCKY_DRAW_ADMIN] Failed to fetch draw entries:', err);
+        setDrawEntries([]);
+      }
+    };
 
   const fetchDraws = async () => {
     try {
@@ -694,10 +719,11 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
 
       const data = await response.json();
 
-      if (response.ok) {
-        // Set winners and show modal
-        setWinners(data.data.winners);
-        setShowWinnerModal(true);
+        if (response.ok) {
+          // Set winners and show modal
+          setWinners(data.data.winners);
+          await fetchDrawEntries();
+          setShowWinnerModal(true);
 
         // Refresh data to update status
         await fetchAllData();
@@ -820,11 +846,14 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
       formData.append('is_anonymous', 'false');
       formData.append('join_lucky_draw', 'false'); // Don't auto-join, we'll create manual entry
 
-      const response = await fetch(`/api/events/${eventId}/photos`, {
-        method: 'POST',
-        credentials: 'include',
-        body: formData,
-      });
+        const response = await fetch(`/api/events/${eventId}/photos`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'x-admin-upload': 'true',
+          },
+          body: formData,
+        });
 
       const data = await response.json();
 
@@ -1813,21 +1842,23 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
       </div>
 
       {/* Winner Modal */}
-      {showWinnerModal && (
-        <WinnerModal
-          winners={winners}
-          animationStyle={config?.animationStyle || 'spinning_wheel'}
-          animationDuration={config?.animationDuration || 8}
-          showSelfie={config?.showSelfie ?? true}
-          showFullName={config?.showFullName ?? true}
-          confettiAnimation={config?.confettiAnimation ?? true}
-          entries={entries}
-          onClose={() => {
-            setShowWinnerModal(false);
-            setWinners([]);
-          }}
-        />
-      )}
+        {showWinnerModal && (
+          <WinnerModal
+            winners={winners}
+            animationStyle={config?.animationStyle || 'countdown'}
+            animationDuration={config?.animationDuration || 8}
+            showSelfie={config?.showSelfie ?? true}
+            showFullName={config?.showFullName ?? true}
+            confettiAnimation={config?.confettiAnimation ?? true}
+            playSound={config?.playSound ?? false}
+            entries={drawEntries.length > 0 ? drawEntries : entries}
+            onClose={() => {
+              setShowWinnerModal(false);
+              setWinners([]);
+              setDrawEntries([]);
+            }}
+          />
+        )}
     </div>
   );
 }
@@ -1997,11 +2028,12 @@ function DrawStatsCard({
 
 interface WinnerModalProps {
   winners: Winner[];
-  animationStyle: 'slot_machine' | 'spinning_wheel' | 'card_shuffle' | 'drum_roll' | 'random_fade';
+  animationStyle: 'countdown';
   animationDuration: number;
   showSelfie: boolean;
   showFullName: boolean;
   confettiAnimation: boolean;
+  playSound: boolean;
   entries: LuckyDrawEntry[];
   onClose: () => void;
 }
@@ -2013,6 +2045,7 @@ function WinnerModal({
   showSelfie,
   showFullName,
   confettiAnimation,
+  playSound,
   entries,
   onClose,
 }: WinnerModalProps) {
@@ -2105,6 +2138,7 @@ function WinnerModal({
                   prizeName={currentWinner?.prizeName}
                   entries={entries}
                   onComplete={handleAnimationComplete}
+                  playSound={playSound}
                 />
               </div>
             )}
@@ -2136,11 +2170,26 @@ function WinnerModal({
             <h2 className="text-2xl font-bold text-center text-gray-900 dark:text-gray-100 mb-6">
               🎉 Draw Complete!
             </h2>
-
             <div className="space-y-4 mb-8">
-              {winners.map((winner, idx) => (
-                <WinnerCard key={winner.id} winner={winner} rank={idx + 1} />
-              ))}
+              {[...winners]
+                .sort((a, b) => {
+                  if (Number.isFinite(a.selectionOrder) && Number.isFinite(b.selectionOrder)) {
+                    return a.selectionOrder - b.selectionOrder;
+                  }
+                  const tierRank = {
+                    grand: 0,
+                    first: 1,
+                    second: 2,
+                    third: 3,
+                    consolation: 4,
+                  } as const;
+                  const aRank = tierRank[a.prizeTier] ?? 99;
+                  const bRank = tierRank[b.prizeTier] ?? 99;
+                  return aRank - bRank;
+                })
+                .map((winner, idx) => (
+                  <WinnerCard key={winner.id} winner={winner} rank={idx + 1} />
+                ))}
             </div>
 
             <button
@@ -2190,21 +2239,39 @@ function WinnerDisplay({
 }) {
   useEffect(() => {
     // Trigger confetti on mount
-    if (confettiAnimation && typeof window !== 'undefined' && 'confetti' in window) {
-      window.confetti?.({
-        particleCount: 200,
-        spread: 0.8,
-        origin: { x: 0.5, y: 0.5 },
-        colors: [
-          '#8B5CF6', // Purple
-          '#EC4899', // Pink
-          '#F59E0B', // Amber
-          '#10B981', // Emerald
-        ],
-        disableScroll: true,
-        disableReducedMotion: false,
+    if (confettiAnimation) {
+      const duration = 2000;
+      const animationEnd = Date.now() + duration;
+      const defaults = {
+        startVelocity: 30,
+        spread: 360,
+        ticks: 60,
         zIndex: 9999,
-      });
+      };
+
+      const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
+
+      const interval = setInterval(() => {
+        const timeLeft = animationEnd - Date.now();
+
+        if (timeLeft <= 0) {
+          return clearInterval(interval);
+        }
+
+        const particleCount = 50;
+        const colors = ['#8B5CF6', '#EC4899', '#F59E0B', '#10B981', '#6366f1'];
+
+        confetti({
+          ...defaults,
+          particleCount,
+          colors,
+          origin: { x: randomInRange(0.2, 0.8), y: Math.random() * 0.3 + 0.1 },
+          angle: randomInRange(0, 360),
+          spread: randomInRange(50, 70),
+        });
+      }, 200);
+
+      return () => clearInterval(interval);
     }
   }, [confettiAnimation]);
 

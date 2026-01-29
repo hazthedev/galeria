@@ -1,5 +1,5 @@
 -- ============================================
--- MOMENTIQUE - Migration 0009: Photo Moderation Logs
+-- Gatherly - Migration 0009: Photo Moderation Logs
 -- ============================================
 -- Adds moderation audit logging for photo approve/reject/delete actions
 

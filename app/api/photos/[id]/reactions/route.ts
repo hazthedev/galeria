@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Photo Reactions API Route
+// Gatherly - Photo Reactions API Route
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';

@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Guest Event Page (Shareable Link)
+// Gatherly - Guest Event Page (Shareable Link)
 // ============================================
 // Public event page for guests - no authentication required
 
@@ -28,6 +28,8 @@ import {
 import clsx from 'clsx';
 import type { IEvent, IPhoto } from '@/lib/types';
 import { getClientFingerprint } from '@/lib/fingerprint';
+import { Recaptcha } from '@/components/auth/Recaptcha';
+import { useLuckyDraw } from '@/lib/realtime/client';
 
 // ============================================
 // TYPES
@@ -47,14 +49,25 @@ function GuestNameModal({
   isOpen,
   onSubmit,
   eventName,
+  initialName,
+  initialAnonymous,
 }: {
   isOpen: boolean;
   onSubmit: (name: string, isAnonymous: boolean) => void;
   eventName: string;
+  initialName?: string;
+  initialAnonymous?: boolean;
 }) {
   const [name, setName] = useState('');
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setName(initialName || '');
+    setIsAnonymous(!!initialAnonymous);
+    setError('');
+  }, [isOpen, initialName, initialAnonymous]);
 
   const handleSubmit = () => {
     if (!isAnonymous && !name.trim()) {
@@ -172,6 +185,11 @@ export default function GuestEventPage() {
   const [joinLuckyDraw, setJoinLuckyDraw] = useState(true);
   const [hasJoinedDraw, setHasJoinedDraw] = useState(false);
   const fingerprint = useMemo(() => getClientFingerprint(), []);
+  const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
+  const [recaptchaError, setRecaptchaError] = useState<string | null>(null);
+  const { winner, isDrawing } = useLuckyDraw(resolvedEventId || '');
+  const [showDrawOverlay, setShowDrawOverlay] = useState(false);
+  const [showWinnerOverlay, setShowWinnerOverlay] = useState(false);
 
   // Guest name state (persisted)
   const [guestName, setGuestName] = useState<string>('');
@@ -216,6 +234,8 @@ export default function GuestEventPage() {
     // If anonymous, can't join lucky draw
     if (anonymous) {
       setJoinLuckyDraw(false);
+    } else if (!hasJoinedDraw) {
+      setJoinLuckyDraw(true);
     }
 
     // Save to localStorage
@@ -246,6 +266,21 @@ export default function GuestEventPage() {
     localStorage.setItem(storageKey, JSON.stringify(loves));
     setUserLoves(loves);
   };
+
+  useEffect(() => {
+    if (isDrawing) {
+      setShowDrawOverlay(true);
+      setShowWinnerOverlay(false);
+    }
+  }, [isDrawing]);
+
+  useEffect(() => {
+    if (!winner) return;
+    setShowDrawOverlay(false);
+    setShowWinnerOverlay(true);
+    const timeout = setTimeout(() => setShowWinnerOverlay(false), 12000);
+    return () => clearTimeout(timeout);
+  }, [winner]);
 
   // Handle love reaction on double-click with heart burst animation
   const handleLoveReaction = async (photoId: string) => {
@@ -319,12 +354,17 @@ export default function GuestEventPage() {
   // Download photo
   const handleDownloadPhoto = async (photo: IPhoto) => {
     try {
-      const response = await fetch(photo.images.full_url || photo.images.original_url);
+      const response = await fetch(`/api/photos/${photo.id}/download`);
+      if (!response.ok) {
+        throw new Error('Download failed');
+      }
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `photo-${photo.id}.jpg`;
+      const contentDisposition = response.headers.get('content-disposition') || '';
+      const filenameMatch = contentDisposition.match(/filename="([^"]+)"/);
+      a.download = filenameMatch ? filenameMatch[1] : `photo-${photo.id}.jpg`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -332,6 +372,12 @@ export default function GuestEventPage() {
     } catch (err) {
       console.error('[GUEST_EVENT] Download error:', err);
     }
+  };
+
+  const handleDownloadAll = () => {
+    const targetEventId = resolvedEventId || eventId;
+    if (!targetEventId) return;
+    window.location.href = `/api/events/${targetEventId}/download`;
   };
 
   // Check if input looks like a UUID (8-4-4-4-12 format)
@@ -460,6 +506,10 @@ export default function GuestEventPage() {
       setUploadError('Please enter your name first');
       return;
     }
+    if ((isAnonymous || !guestName.trim()) && !recaptchaToken) {
+      setUploadError('Please complete the CAPTCHA');
+      return;
+    }
 
     setIsUploading(true);
     setUploadError(null);
@@ -476,6 +526,9 @@ export default function GuestEventPage() {
       }
       if (joinLuckyDraw && !isAnonymous) {
         formData.append('join_lucky_draw', 'true');
+      }
+      if (recaptchaToken) {
+        formData.append('recaptchaToken', recaptchaToken);
       }
 
       const response = await fetch(`/api/events/${resolvedEventId}/photos`, {
@@ -512,6 +565,8 @@ export default function GuestEventPage() {
         setShowUploadModal(false);
         setSelectedFiles([]);
         setCaption('');
+        setRecaptchaToken(null);
+        setRecaptchaError(null);
       }, 1500);
     } catch (err) {
       console.error('[GUEST_EVENT] Upload error:', err);
@@ -576,7 +631,74 @@ export default function GuestEventPage() {
         isOpen={showGuestModal}
         onSubmit={handleGuestModalSubmit}
         eventName={event.name}
+        initialName={guestName}
+        initialAnonymous={isAnonymous}
       />
+
+      {/* Lucky Draw Overlays */}
+      {showDrawOverlay && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-2xl dark:bg-gray-800">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                Lucky Draw
+              </h3>
+              <button
+                onClick={() => setShowDrawOverlay(false)}
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="flex flex-col items-center gap-3">
+              <Loader2 className="h-10 w-10 animate-spin text-violet-600" />
+              <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                The lucky draw is starting...
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Stay tuned for the winner announcement.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showWinnerOverlay && winner && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-2xl dark:bg-gray-800">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                Winner Announced
+              </h3>
+              <button
+                onClick={() => setShowWinnerOverlay(false)}
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="flex flex-col items-center gap-3">
+              {winner.selfie_url ? (
+                <img
+                  src={winner.selfie_url}
+                  alt="Winner"
+                  className="h-24 w-24 rounded-full object-cover border-4 border-yellow-400 shadow-lg"
+                />
+              ) : (
+                <div className="flex h-24 w-24 items-center justify-center rounded-full bg-yellow-100 text-yellow-700">
+                  <Trophy className="h-10 w-10" />
+                </div>
+              )}
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Prize Tier {winner.prize_tier}
+              </p>
+              <p className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                {winner.participant_name || 'Anonymous'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-gray-200 bg-white/80 backdrop-blur-sm dark:border-gray-700 dark:bg-gray-900/80">
@@ -593,11 +715,26 @@ export default function GuestEventPage() {
               )}
             </div>
             <div className="flex items-center gap-2">
-              {guestName && (
+              {(guestName || isAnonymous) && (
                 <span className="hidden sm:block text-sm text-gray-600 dark:text-gray-400">
                   Hi, {isAnonymous ? 'Anonymous' : guestName}!
                 </span>
               )}
+              {canDownload && (
+                <button
+                  onClick={handleDownloadAll}
+                  className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800"
+                >
+                  <Download className="h-4 w-4" />
+                  Download all
+                </button>
+              )}
+              <button
+                onClick={() => setShowGuestModal(true)}
+                className="inline-flex items-center rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800"
+              >
+                {isAnonymous || !guestName ? 'Add name' : 'Edit name'}
+              </button>
               <button
                 onClick={handleShare}
                 className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-violet-600 to-pink-600 px-4 py-2 text-sm font-medium text-white hover:from-violet-700 hover:to-pink-700"
@@ -661,7 +798,11 @@ export default function GuestEventPage() {
         {/* Upload CTA */}
         <div className="mb-8">
           <button
-            onClick={() => setShowUploadModal(true)}
+            onClick={() => {
+              setShowUploadModal(true);
+              setRecaptchaToken(null);
+              setRecaptchaError(null);
+            }}
             className="w-full rounded-2xl border-2 border-dashed border-gray-300 bg-white p-8 text-center hover:border-violet-400 hover:bg-violet-50 dark:border-gray-600 dark:bg-gray-800 dark:hover:border-violet-500 dark:hover:bg-violet-900/20 transition-colors"
           >
             <Upload className="mx-auto mb-3 h-10 w-10 text-violet-600 dark:text-violet-400" />
@@ -714,7 +855,7 @@ export default function GuestEventPage() {
                           e.stopPropagation();
                           handleDownloadPhoto(photo);
                         }}
-                        className="absolute top-2 left-2 flex h-8 w-8 items-center justify-center rounded-full bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
+                        className="absolute top-2 left-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
                         title="Download photo"
                       >
                         <Download className="h-4 w-4" />
@@ -741,7 +882,7 @@ export default function GuestEventPage() {
                     )}
 
                     {/* Overlay on hover */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
                       <div className="absolute bottom-0 left-0 right-0 p-2 text-white">
                         {photo.caption && (
                           <p className="text-xs line-clamp-2">{photo.caption}</p>
@@ -829,6 +970,8 @@ export default function GuestEventPage() {
                   setUploadError(null);
                   setUploadSuccess(false);
                   setCaption('');
+                  setRecaptchaToken(null);
+                  setRecaptchaError(null);
                 }}
                 className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                 disabled={isUploading}
@@ -980,6 +1123,31 @@ export default function GuestEventPage() {
                   </div>
                 )}
 
+                {(isAnonymous || !guestName.trim()) && (
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-gray-600 dark:bg-gray-800">
+                    <Recaptcha
+                      onVerified={(token) => {
+                        setRecaptchaToken(token);
+                        setRecaptchaError(null);
+                      }}
+                      onExpired={() => {
+                        setRecaptchaToken(null);
+                      }}
+                      onError={(err) => setRecaptchaError(err)}
+                    />
+                    {recaptchaToken && (
+                      <p className="mt-2 text-xs text-green-600 dark:text-green-400">
+                        CAPTCHA verified
+                      </p>
+                    )}
+                    {!recaptchaToken && recaptchaError && (
+                      <p className="mt-2 text-xs text-red-600 dark:text-red-400">
+                        {recaptchaError}
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 {/* Submit Button */}
                 {selectedFiles.length > 0 && (
                   <button
@@ -1003,7 +1171,11 @@ export default function GuestEventPage() {
       {/* Floating Camera Button */}
       {event?.settings?.features?.photo_upload_enabled !== false && (
         <button
-          onClick={() => setShowUploadModal(true)}
+          onClick={() => {
+            setShowUploadModal(true);
+            setRecaptchaToken(null);
+            setRecaptchaError(null);
+          }}
           className="fixed bottom-6 right-6 z-40 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-violet-600 to-pink-600 text-white shadow-2xl hover:from-violet-700 hover:to-pink-700 transition-all hover:scale-110 active:scale-95"
           aria-label="Quick photo upload"
         >

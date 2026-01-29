@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Photo Delete API Route
+// Gatherly - Photo Delete API Route
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';

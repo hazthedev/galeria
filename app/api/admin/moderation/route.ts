@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Admin Moderation Settings API
+// Gatherly - Admin Moderation Settings API
 // ============================================
 // Super-admin only endpoints for managing AI content moderation
 

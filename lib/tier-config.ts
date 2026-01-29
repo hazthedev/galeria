@@ -54,6 +54,17 @@ export const ENTERPRISE_TIER_FEATURES: ITenantFeatures = {
   advanced_analytics: true,
 };
 
+export const TESTER_TIER_FEATURES: ITenantFeatures = {
+  lucky_draw: true,
+  photo_reactions: true,
+  video_uploads: true,
+  custom_templates: true,
+  api_access: true,
+  sso: true,
+  white_label: true,
+  advanced_analytics: true,
+};
+
 // ============================================
 // TIER LIMIT DEFINITIONS
 // ============================================
@@ -91,6 +102,15 @@ export const ENTERPRISE_TIER_LIMITS: ITenantLimits = {
   max_admins: -1, // Unlimited
   max_photos_per_event: -1, // Unlimited
   max_draw_entries_per_event: -1, // Unlimited
+  custom_features: [],
+};
+
+export const TESTER_TIER_LIMITS: ITenantLimits = {
+  max_events_per_month: -1,
+  max_storage_gb: -1,
+  max_admins: -1,
+  max_photos_per_event: -1,
+  max_draw_entries_per_event: -1,
   custom_features: [],
 };
 
@@ -139,6 +159,14 @@ export const TIER_CONFIGS: Record<SubscriptionTier, ITierConfig> = {
     displayName: 'Enterprise',
     description: 'Custom solutions for large organizations',
     priceMonthly: -1, // Contact sales
+  },
+  tester: {
+    tier: 'tester',
+    features: TESTER_TIER_FEATURES,
+    limits: TESTER_TIER_LIMITS,
+    displayName: 'Tester',
+    description: 'Unlimited access for internal testing',
+    priceMonthly: 0,
   },
 };
 

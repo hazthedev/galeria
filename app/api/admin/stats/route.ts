@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Supervisor Stats API
+// Gatherly - Supervisor Stats API
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';

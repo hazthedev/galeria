@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Event Card Component
+// Gatherly - Event Card Component
 // ============================================
 
 'use client';

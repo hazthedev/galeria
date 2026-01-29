@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Register Form Component
+// Gatherly - Register Form Component
 // ============================================
 // Registration form with email, password, and name validation
 

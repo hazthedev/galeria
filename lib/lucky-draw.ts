@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Lucky Draw Core Logic
+// Gatherly - Lucky Draw Core Logic
 // ============================================
 // Core lucky draw functionality including draw execution algorithm and entry management
 

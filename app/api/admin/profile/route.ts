@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Super Admin Profile API
+// Gatherly - Super Admin Profile API
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';

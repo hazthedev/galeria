@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - File Upload Validator
+// Gatherly - File Upload Validator
 // ============================================
 // Security-focused file validation with:
 // - Magic byte verification (not just extension)
@@ -312,7 +312,7 @@ export async function validateUploadedImage(
 // TIER-SPECIFIC VALIDATION
 // ============================================
 
-export type SubscriptionTier = 'free' | 'pro' | 'premium' | 'enterprise';
+export type SubscriptionTier = 'free' | 'pro' | 'premium' | 'enterprise' | 'tester';
 
 const TIER_LIMITS: Record<SubscriptionTier, ValidationOptions> = {
   free: {
@@ -340,6 +340,13 @@ const TIER_LIMITS: Record<SubscriptionTier, ValidationOptions> = {
     maxSizeBytes: 100 * 1024 * 1024, // 100MB
     maxWidth: 15000,
     maxHeight: 15000,
+    allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/gif', 'image/tiff'],
+    allowAnimated: true,
+  },
+  tester: {
+    maxSizeBytes: 200 * 1024 * 1024, // 200MB
+    maxWidth: 20000,
+    maxHeight: 20000,
     allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/gif', 'image/tiff'],
     allowAnimated: true,
   },

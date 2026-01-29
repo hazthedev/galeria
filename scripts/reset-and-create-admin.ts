@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Quick Reset & Admin Creation
+// Gatherly - Quick Reset & Admin Creation
 // ============================================
 
 import { Pool } from 'pg';

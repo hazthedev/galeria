@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Login Form Component
+// Gatherly - Login Form Component
 // ============================================
 // Login form with email and password validation
 

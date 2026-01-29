@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Lucky Draw Participants API
+// Gatherly - Lucky Draw Participants API
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';

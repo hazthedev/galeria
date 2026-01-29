@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Supervisor Events Management
+// Gatherly - Supervisor Events Management
 // ============================================
 
 'use client';

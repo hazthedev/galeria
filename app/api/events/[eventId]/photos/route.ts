@@ -1,9 +1,9 @@
 // ============================================
-// MOMENTIQUE - Photo Upload API Route
+// Gatherly - Photo Upload API Route
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getTenantId, getTenantContextFromHeaders } from '@/lib/tenant';
+import { getTenantId } from '@/lib/tenant';
 import { getTenantDb } from '@/lib/db';
 import { uploadImageToStorage, validateImageFile, validateUploadedImage, getTierValidationOptions } from '@/lib/images';
 import { generatePhotoId } from '@/lib/utils';
@@ -16,7 +16,9 @@ import { checkUploadRateLimit } from '@/lib/rate-limit';
 import { validateRecaptchaForUpload, isRecaptchaRequiredForUploads } from '@/lib/recaptcha';
 import { isModerationEnabled } from '@/lib/moderation/auto-moderate';
 import { queuePhotoScan } from '@/jobs/scan-content';
-import type { DeviceType, SubscriptionTier } from '@/lib/types';
+import type { DeviceType } from '@/lib/types';
+import { resolveUserTier } from '@/lib/subscription';
+import { applyCacheHeaders, CACHE_PROFILES } from '@/lib/cache/strategy';
 
 // ============================================
 // POST /api/events/:eventId/photos - Upload photo
@@ -37,6 +39,7 @@ export async function POST(
     }
 
     const db = getTenantDb(tenantId);
+    const subscriptionTier = await resolveUserTier(headers, tenantId, 'free');
 
     // Verify event exists and is active
     const event = await db.findOne<{
@@ -100,6 +103,11 @@ export async function POST(
       }
     }
 
+    const isAdminUploadHeader = headers.get('x-admin-upload') === 'true';
+    if (isAdminUploadHeader) {
+      console.log('[RATE_LIMIT] Skipping for admin upload');
+    } else {
+
     // Check rate limits (IP, fingerprint, event, burst protection)
     const rateLimitResult = await checkUploadRateLimit(
       uploadIpAddress,
@@ -127,6 +135,7 @@ export async function POST(
 
       return response;
     }
+    }
 
     // ============================================
     // RECAPTCHA VERIFICATION (Anonymous Uploads)
@@ -134,19 +143,56 @@ export async function POST(
     // Check if user is authenticated
     const isAuthenticated = !!uploadUserId;
     const requiresRecaptcha = isRecaptchaRequiredForUploads(undefined, isAuthenticated);
+    const contentType = headers.get('content-type') || '';
+
+    let jsonBody: any | null = null;
+    let formData: FormData | null = null;
+
+    // Parse body once (request body can only be consumed once)
+    if (contentType.includes('application/json')) {
+      jsonBody = await request.json();
+    } else {
+      try {
+        formData = await request.formData();
+      } catch (parseError) {
+        console.error('[PHOTO_UPLOAD] Failed to parse FormData:', parseError);
+        return NextResponse.json(
+          { error: 'Failed to parse form data', code: 'PARSE_ERROR', details: parseError instanceof Error ? parseError.message : 'Unknown' },
+          { status: 400 }
+        );
+      }
+    }
 
     if (!isAuthenticated && requiresRecaptcha) {
-      // Check for reCAPTCHA token in request body
-      const contentType = headers.get('content-type') || '';
+      const isAdminUpload = headers.get('x-admin-upload') === 'true';
+      const contributorName =
+        jsonBody?.contributor_name ??
+        jsonBody?.contributorName ??
+        formData?.get('contributor_name') ??
+        formData?.get('contributorName');
+      const isAnonymousRaw =
+        jsonBody?.is_anonymous ??
+        jsonBody?.isAnonymous ??
+        formData?.get('is_anonymous') ??
+        formData?.get('isAnonymous');
+      const isAnonymous =
+        isAnonymousRaw === true || isAnonymousRaw === 'true';
+      const hasName =
+        typeof contributorName === 'string' && contributorName.trim().length > 0;
+      const isNamedGuest = !isAnonymous && hasName;
 
+      if (isAdminUpload) {
+        console.log('[RECAPTCHA] Skipping for admin upload');
+      } else if (isNamedGuest) {
+        console.log('[RECAPTCHA] Skipping for named guest upload');
+      } else {
+      // Check for reCAPTCHA token in request body
       let recaptchaToken: string | undefined;
 
       // Extract token from either JSON or form data
-      if (contentType.includes('application/json')) {
-        const body = await request.json();
-        recaptchaToken = body.recaptchaToken;
-      } else {
-        const formData = await request.formData();
+      if (jsonBody) {
+        recaptchaToken = jsonBody.recaptchaToken;
+      } else if (formData) {
         recaptchaToken = formData.get('recaptchaToken') as string | undefined;
       }
 
@@ -182,6 +228,7 @@ export async function POST(
         ip: uploadIpAddress,
         fingerprint: uploadFingerprint,
       });
+      }
     }
 
     const resolveEffectiveLimits = async () => {
@@ -201,13 +248,11 @@ export async function POST(
       return { maxPerUser, maxTotalRaw };
     };
 
-    const contentType = headers.get('content-type') || '';
-
     // ============================================
     // DIRECT UPLOAD METADATA (JSON)
     // ============================================
     if (contentType.includes('application/json')) {
-      const body = await request.json();
+      const body = jsonBody || {};
       const {
         photoId,
         key,
@@ -262,11 +307,8 @@ export async function POST(
         );
       }
 
-      // Check photo limits (skip for admins)
-      if (userRole !== 'super_admin') {
-        const tenantContext = getTenantContextFromHeaders(headers);
-        const subscriptionTier = (tenantContext?.tenant?.subscription_tier || 'free') as SubscriptionTier;
-
+      // Check photo limits (skip for admins or admin uploads)
+      if (userRole !== 'super_admin' && !isAdminUploadHeader) {
         const tierLimitResult = await checkPhotoLimit(eventId, tenantId, subscriptionTier);
         if (!tierLimitResult.allowed) {
           return NextResponse.json(
@@ -396,14 +438,10 @@ export async function POST(
       }, { status: 201 });
     }
 
-    // Parse multipart form data
-    let formData: FormData;
-    try {
-      formData = await request.formData();
-    } catch (parseError) {
-      console.error('[PHOTO_UPLOAD] Failed to parse FormData:', parseError);
+    // Parse multipart form data (already parsed above)
+    if (!formData) {
       return NextResponse.json(
-        { error: 'Failed to parse form data', code: 'PARSE_ERROR', details: parseError instanceof Error ? parseError.message : 'Unknown' },
+        { error: 'Failed to parse form data', code: 'PARSE_ERROR' },
         { status: 400 }
       );
     }
@@ -434,8 +472,6 @@ export async function POST(
 
     for (const file of uploadFiles) {
       // Get tier-based validation options
-      const tenantContext = getTenantContextFromHeaders(headers);
-      const subscriptionTier = (tenantContext?.tenant?.subscription_tier || 'free') as SubscriptionTier;
       const validationOptions = getTierValidationOptions(subscriptionTier);
 
       // Use comprehensive validation with magic byte check
@@ -485,12 +521,9 @@ export async function POST(
       userId = `guest_${fingerprint || 'anonymous'}`;
     }
 
-    // Check photo limits (skip for admins)
-    if (userRole !== 'super_admin') {
+    // Check photo limits (skip for admins or admin uploads)
+    if (userRole !== 'super_admin' && !isAdminUploadHeader) {
       // First check tenant tier limit
-      const tenantContext = getTenantContextFromHeaders(headers);
-      const subscriptionTier = (tenantContext?.tenant?.subscription_tier || 'free') as SubscriptionTier;
-
       const tierLimitResult = await checkPhotoLimit(eventId, tenantId, subscriptionTier);
       if (!tierLimitResult.allowed) {
         return NextResponse.json(
@@ -556,9 +589,6 @@ export async function POST(
       const photoId = generatePhotoId();
 
       // Get tier for processing options
-      const tenantContext = getTenantContextFromHeaders(headers);
-      const subscriptionTier = (tenantContext?.tenant?.subscription_tier || 'free') as SubscriptionTier;
-
       const images = await uploadImageToStorage(
         eventId,
         photoId,
@@ -741,7 +771,7 @@ export async function GET(
       photoStatuses: photos.map((p: any) => ({ id: p.id, status: p.status })),
     });
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       data: photos,
       pagination: {
         limit,
@@ -749,6 +779,14 @@ export async function GET(
         total,
       },
     });
+
+    if (!isModerator && filter.status === 'approved') {
+      applyCacheHeaders(response, CACHE_PROFILES.photosPublic);
+    } else {
+      applyCacheHeaders(response, CACHE_PROFILES.apiPrivate);
+    }
+
+    return response;
   } catch (error) {
     console.error('[API] Photo list error:', error);
     return NextResponse.json(

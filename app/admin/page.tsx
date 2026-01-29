@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Supervisor Dashboard Overview
+// Gatherly - Supervisor Dashboard Overview
 // ============================================
 
 'use client';
@@ -10,7 +10,6 @@ import {
     Users,
     Calendar,
     Image as ImageIcon,
-    Building2,
     TrendingUp,
     ArrowRight,
     Loader2,
@@ -21,7 +20,6 @@ interface DashboardStats {
     totalUsers: number;
     totalEvents: number;
     totalPhotos: number;
-    totalTenants: number;
     activeEvents: number;
     recentUsers: number;
 }
@@ -51,7 +49,6 @@ export default function SupervisorDashboardPage() {
         totalUsers: 0,
         totalEvents: 0,
         totalPhotos: 0,
-        totalTenants: 0,
         activeEvents: 0,
         recentUsers: 0,
     });
@@ -123,13 +120,6 @@ export default function SupervisorDashboardPage() {
             icon: ImageIcon,
             color: 'bg-pink-500',
             href: null
-        },
-        {
-            label: 'Total Tenants',
-            value: stats.totalTenants,
-            icon: Building2,
-            color: 'bg-amber-500',
-            href: '/admin/tenants'
         },
     ];
 
@@ -268,12 +258,12 @@ export default function SupervisorDashboardPage() {
                         </span>
                     </Link>
                     <Link
-                        href="/admin/tenants"
+                        href="/admin/settings"
                         className="flex items-center gap-3 rounded-lg border border-gray-200 p-4 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700"
                     >
-                        <Building2 className="h-5 w-5 text-amber-500" />
+                        <Shield className="h-5 w-5 text-emerald-500" />
                         <span className="font-medium text-gray-900 dark:text-white">
-                            Manage Tenants
+                            Platform Settings
                         </span>
                     </Link>
                 </div>
@@ -336,11 +326,6 @@ export default function SupervisorDashboardPage() {
                                         <p className="text-xs text-gray-600 dark:text-gray-300">
                                             {details.detail}
                                         </p>
-                                        {item.tenantName && (
-                                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                                                Tenant: {item.tenantName}
-                                            </p>
-                                        )}
                                         {item.reason && (
                                             <p className="text-xs text-gray-500 dark:text-gray-400">
                                                 Reason: {item.reason}

@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Register API Endpoint
+// Gatherly - Register API Endpoint
 // ============================================
 // POST /api/auth/register
 // Registers a new user, creates their tenant, and creates session
@@ -147,6 +147,7 @@ export async function POST(request: NextRequest) {
       password_hash: passwordHash,
       name: trimmedName,
       role: 'organizer', // First user is organizer of their tenant
+      subscription_tier: 'free',
       email_verified: false, // Phase 3: implement email verification
       created_at: now,
       updated_at: now,

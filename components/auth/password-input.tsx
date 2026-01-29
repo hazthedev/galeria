@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Password Input Component
+// Gatherly - Password Input Component
 // ============================================
 // Password input with visibility toggle and strength indicator
 

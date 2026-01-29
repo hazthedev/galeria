@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Events API Routes
+// Gatherly - Events API Routes
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -12,6 +12,7 @@ import { generateUniqueShortCode } from '@/lib/short-code';
 import { checkEventLimit } from '@/lib/limit-check';
 import { getSystemSettings } from '@/lib/system-settings';
 import type { IEvent, IEventCreate, SubscriptionTier } from '@/lib/types';
+import { resolveUserTier } from '@/lib/subscription';
 
 // ============================================
 // GET /api/events - List events
@@ -188,7 +189,7 @@ export async function POST(request: NextRequest) {
       const tenantContext = getTenantContextFromHeaders(headers);
       if (tenantContext) {
         // Get subscription tier from tenant context
-        const subscriptionTier = (tenantContext.tenant.subscription_tier || 'free') as SubscriptionTier;
+        const subscriptionTier = await resolveUserTier(headers, tenantId, 'free');
 
         // Check if event limit is reached
         const limitResult = await checkEventLimit(tenantId, subscriptionTier);

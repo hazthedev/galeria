@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Redis Client Singleton
+// Gatherly - Redis Client Singleton
 // ============================================
 // Multi-tenant Redis with automatic reconnection, connection pooling
 // Used for: Session storage, rate limiting, WebSocket pub/sub

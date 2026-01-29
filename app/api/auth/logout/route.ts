@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Logout API Endpoint
+// Gatherly - Logout API Endpoint
 // ============================================
 // POST /api/auth/logout
 // Invalidates user session and clears cookie

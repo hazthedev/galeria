@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Register Page
+// Gatherly - Register Page
 // ============================================
 // User registration page
 

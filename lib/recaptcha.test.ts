@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - reCAPTCHA Tests
+// Gatherly - reCAPTCHA Tests
 // ============================================
 // Run with: npx tsx lib/recaptcha.test.ts
 

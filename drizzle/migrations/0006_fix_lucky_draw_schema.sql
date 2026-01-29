@@ -1,5 +1,5 @@
 -- ============================================
--- MOMENTIQUE - Lucky Draw Schema Fixes
+-- Gatherly - Lucky Draw Schema Fixes
 -- ============================================
 -- Align column names and constraints with application logic.
 

@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Password Validation
+// Gatherly - Password Validation
 // ============================================
 // Password strength validation and security checks
 // Includes common password detection, entropy calculation, and requirements

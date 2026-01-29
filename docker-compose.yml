@@ -1,5 +1,5 @@
 # ============================================
-# MOMENTIQUE - Docker Compose Configuration
+# Gatherly - Docker Compose Configuration
 # ============================================
 # Development environment with PostgreSQL 15, Redis, and optional admin tools.
 #

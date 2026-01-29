@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Supervisor Users Management
+// Gatherly - Supervisor Users Management
 // ============================================
 
 'use client';
@@ -23,6 +23,7 @@ interface User {
     email: string;
     name: string;
     role: 'guest' | 'organizer' | 'super_admin';
+    subscription_tier?: 'free' | 'pro' | 'premium' | 'enterprise' | 'tester';
     tenant_id: string;
     created_at: string;
     last_login_at?: string;
@@ -91,6 +92,26 @@ export default function SupervisorUsersPage() {
         }
     };
 
+    const handleTierChange = async (userId: string, newTier: string) => {
+        try {
+            const response = await fetch(`/api/admin/users/${userId}`, {
+                method: 'PATCH',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ subscription_tier: newTier }),
+            });
+
+            if (response.ok) {
+                toast.success('User tier updated');
+                fetchUsers();
+            } else {
+                toast.error('Failed to update user tier');
+            }
+        } catch (error) {
+            toast.error('Failed to update user tier');
+        }
+    };
+
     const handleDeleteUser = async (userId: string) => {
         if (!confirm('Are you sure you want to delete this user?')) return;
 
@@ -137,7 +158,7 @@ export default function SupervisorUsersPage() {
                         User Management
                     </h1>
                     <p className="text-gray-600 dark:text-gray-400">
-                        Manage all users across tenants
+                        Manage all users
                     </p>
                 </div>
             </div>
@@ -193,6 +214,9 @@ export default function SupervisorUsersPage() {
                                     Role
                                 </th>
                                 <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
+                                    Tier
+                                </th>
+                                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
                                     Joined
                                 </th>
                                 <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
@@ -226,6 +250,19 @@ export default function SupervisorUsersPage() {
                                             <option value="guest">Guest</option>
                                             <option value="organizer">Organizer</option>
                                             <option value="super_admin">Super Admin</option>
+                                        </select>
+                                    </td>
+                                    <td className="px-4 py-3 text-sm text-gray-500">
+                                        <select
+                                            value={user.subscription_tier || 'free'}
+                                            onChange={(e) => handleTierChange(user.id, e.target.value)}
+                                            className="rounded-full px-2 py-1 text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200"
+                                        >
+                                            <option value="free">Free</option>
+                                            <option value="pro">Pro</option>
+                                            <option value="premium">Premium</option>
+                                            <option value="enterprise">Enterprise</option>
+                                            <option value="tester">Tester</option>
                                         </select>
                                     </td>
                                     <td className="px-4 py-3 text-sm text-gray-500">

@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Short Code Generation
+// Gatherly - Short Code Generation
 // ============================================
 // Generate memorable short codes for event sharing
 

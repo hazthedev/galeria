@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Moderation Logs API Route
+// Gatherly - Moderation Logs API Route
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';

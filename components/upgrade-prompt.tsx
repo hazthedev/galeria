@@ -69,7 +69,7 @@ export function UpgradePrompt({
                     </div>
                     <div className="flex items-center gap-2">
                         <a
-                            href="/upgrade"
+                            href="/organizer/billing"
                             className="bg-white text-violet-600 px-4 py-2 rounded-lg font-medium hover:bg-gray-100 transition-colors"
                         >
                             Upgrade Now
@@ -98,7 +98,7 @@ export function UpgradePrompt({
                         <h4 className="font-medium text-gray-900 dark:text-gray-100">{title}</h4>
                         <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{message}</p>
                         <a
-                            href="/upgrade"
+                            href="/organizer/billing"
                             className="inline-block mt-3 text-sm font-medium text-violet-600 dark:text-violet-400 hover:underline"
                         >
                             View upgrade options →
@@ -144,7 +144,7 @@ export function UpgradePrompt({
 
                     <div className="flex gap-3">
                         <a
-                            href="/upgrade"
+                            href="/organizer/billing"
                             className="flex-1 bg-gradient-to-r from-violet-600 to-pink-600 text-white px-4 py-3 rounded-lg font-medium text-center hover:opacity-90 transition-opacity"
                         >
                             Upgrade Now

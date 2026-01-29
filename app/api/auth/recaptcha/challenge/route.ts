@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Fallback Challenge API
+// Gatherly - Fallback Challenge API
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';

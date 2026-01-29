@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Event Admin Dashboard Page
+// Gatherly - Event Admin Dashboard Page
 // ============================================
 
 'use client';

@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Image Processor Tests
+// Gatherly - Image Processor Tests
 // ============================================
 // Run with: npx tsx lib/upload/image-processor.test.ts
 

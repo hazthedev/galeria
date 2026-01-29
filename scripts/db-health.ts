@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Database Health Check
+// Gatherly - Database Health Check
 // ============================================
 // This script checks the health and status of the PostgreSQL database.
 //
@@ -206,7 +206,7 @@ async function performHealthChecks(): Promise<HealthResult> {
 
 function printHealthResults(result: HealthResult): void {
   console.log('╔════════════════════════════════════════════════════════╗');
-  console.log('║         MOMENTIQUE DATABASE HEALTH CHECK               ║');
+  console.log('║         Gatherly DATABASE HEALTH CHECK               ║');
   console.log('╚════════════════════════════════════════════════════════╝');
   console.log('');
 

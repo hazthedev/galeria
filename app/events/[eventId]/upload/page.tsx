@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Photo Upload Page
+// Gatherly - Photo Upload Page
 // ============================================
 
 'use client';

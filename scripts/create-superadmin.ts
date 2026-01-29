@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Create Superadmin User
+// Gatherly - Create Superadmin User
 // ============================================
 
 import { Pool } from 'pg';

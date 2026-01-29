@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Super Admin Profile
+// Gatherly - Super Admin Profile
 // ============================================
 
 'use client';

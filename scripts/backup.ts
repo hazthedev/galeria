@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Database Backup
+// Gatherly - Database Backup
 // ============================================
 // This script creates a timestamped backup of the database.
 //
@@ -45,7 +45,7 @@ function parseConnectionString(connStr: string) {
 async function createBackup() {
   try {
     console.log('╔════════════════════════════════════════════════════════╗');
-    console.log('║         MOMENTIQUE DATABASE BACKUP                    ║');
+    console.log('║         Gatherly DATABASE BACKUP                    ║');
     console.log('╚════════════════════════════════════════════════════════╝');
     console.log('');
 

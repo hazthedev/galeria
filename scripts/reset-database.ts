@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Database Reset (Development Only)
+// Gatherly - Database Reset (Development Only)
 // ============================================
 // This script drops and recreates the database, then runs migrations and seeds.
 //
@@ -245,7 +245,7 @@ async function resetDatabase() {
   const startTime = Date.now();
 
   console.log('╔════════════════════════════════════════════════════════╗');
-  console.log('║     MOMENTIQUE DATABASE RESET (DEVELOPMENT ONLY)       ║');
+  console.log('║     Gatherly DATABASE RESET (DEVELOPMENT ONLY)       ║');
   console.log('╚════════════════════════════════════════════════════════╝');
   console.log('');
   console.log('[RESET] ⚠️  WARNING: This will DELETE ALL DATA!');

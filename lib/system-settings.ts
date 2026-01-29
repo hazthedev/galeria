@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - System Settings
+// Gatherly - System Settings
 // ============================================
 
 import { getTenantDb } from './db';

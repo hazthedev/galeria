@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Photo Rejection API Route
+// Gatherly - Photo Rejection API Route
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';

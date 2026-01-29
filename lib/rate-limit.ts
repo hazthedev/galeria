@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Rate Limiting
+// Gatherly - Rate Limiting
 // ============================================
 // Redis-based rate limiting for API endpoints and authentication
 // Implements sliding window and token bucket algorithms

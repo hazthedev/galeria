@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Event Form Component
+// Gatherly - Event Form Component
 // ============================================
 
 'use client';

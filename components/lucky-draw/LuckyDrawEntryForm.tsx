@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Lucky Draw Entry Form
+// Gatherly - Lucky Draw Entry Form
 // ============================================
 
 'use client';
@@ -9,24 +9,11 @@ import { X } from 'lucide-react';
 import Image from 'next/image';
 import { useLuckyDraw } from '@/lib/realtime/client';
 import { cn } from '@/lib/utils';
+import confetti from 'canvas-confetti';
 
 // ============================================
 // TYPE DECLARATIONS
 // ============================================
-
-declare global {
-  interface Window {
-    confetti?: (options: {
-      particleCount: number;
-      spread: number;
-      origin: { x: number; y: number };
-      colors?: string[];
-      disableScroll?: boolean;
-      disableReducedMotion?: boolean;
-      zIndex?: number;
-    }) => void;
-  }
-}
 
 interface LuckyDrawEntryFormProps {
   eventId: string;
@@ -332,24 +319,39 @@ export function WinnerDisplay({ winner }: WinnerDisplayProps) {
   const [showConfetti] = useState(true);
 
   useEffect(() => {
-    // Trigger confetti
-    if (typeof window !== 'undefined' && 'confetti' in window) {
-      window.confetti?.({
-        particleCount: 200,
-        spread: 0.8,
-        origin: { x: 0.5, y: 0.5 },
-        colors: [
-          '#8B5CF6', // Purple
-          '#EC4899', // Pink
-          '#F59E0B', // Amber
-          '#10B981', // Emerald
-          '#6366f1', // Indigo
-        ],
-        disableScroll: true,
-        disableReducedMotion: false,
-        zIndex: 9999,
+    // Trigger confetti animation
+    const duration = 3000;
+    const animationEnd = Date.now() + duration;
+    const defaults = {
+      startVelocity: 30,
+      spread: 360,
+      ticks: 60,
+      zIndex: 9999,
+    };
+
+    const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
+
+    const interval = setInterval(() => {
+      const timeLeft = animationEnd - Date.now();
+
+      if (timeLeft <= 0) {
+        return clearInterval(interval);
+      }
+
+      const particleCount = 50;
+      const colors = ['#8B5CF6', '#EC4899', '#F59E0B', '#10B981', '#6366f1'];
+
+      confetti({
+        ...defaults,
+        particleCount,
+        colors,
+        origin: { x: randomInRange(0.2, 0.8), y: Math.random() * 0.3 + 0.1 },
+        angle: randomInRange(0, 360),
+        spread: randomInRange(50, 70),
       });
-    }
+    }, 250);
+
+    return () => clearInterval(interval);
   }, []);
 
   return (

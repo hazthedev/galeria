@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - reCAPTCHA v3 Component
+// Gatherly - reCAPTCHA v3 Component
 // ============================================
 // Client-side reCAPTCHA v3 component with fallback challenge
 
@@ -235,17 +235,19 @@ export function Recaptcha({
   if (state.useFallback) {
     return (
       <div className={`recaptcha-fallback ${className}`}>
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-gray-900 dark:bg-yellow-900/30 dark:border-yellow-800 dark:text-yellow-100">
           <p className="text-sm text-yellow-800 mb-3">
             {state.error || 'Please complete this security check:'}
           </p>
           <div className="flex items-center gap-3">
-            <span className="text-lg font-semibold">{state.fallbackQuestion}</span>
+            <span className="text-lg font-semibold text-gray-900 dark:text-yellow-100">
+              {state.fallbackQuestion}
+            </span>
             <input
               type="number"
               value={state.userAnswer}
               onChange={(e) => setState((prev) => ({ ...prev, userAnswer: e.target.value }))}
-              className="w-24 px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+              className="w-24 px-3 py-2 border border-gray-300 rounded text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 dark:border-yellow-700 dark:bg-yellow-50 dark:text-gray-900"
               disabled={state.verifying}
               placeholder="?"
             />
@@ -258,7 +260,7 @@ export function Recaptcha({
             </button>
           </div>
           {state.error && (
-            <p className="text-red-600 text-sm mt-2">{state.error}</p>
+            <p className="text-red-700 dark:text-red-300 text-sm mt-2">{state.error}</p>
           )}
         </div>
       </div>

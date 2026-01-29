@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Short Code Resolution API
+// Gatherly - Short Code Resolution API
 // ============================================
 // Resolve short codes to event IDs
 

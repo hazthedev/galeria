@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Supervisor Recent Activity API
+// Gatherly - Supervisor Recent Activity API
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';

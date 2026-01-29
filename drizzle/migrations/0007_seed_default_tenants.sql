@@ -1,5 +1,5 @@
 -- ============================================
--- MOMENTIQUE - Seed Default Tenants
+-- Gatherly - Seed Default Tenants
 -- ============================================
 -- Migration: 0007_seed_default_tenants
 --

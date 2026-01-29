@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Admin Login Form Component
+// Gatherly - Admin Login Form Component
 // ============================================
 // Login form specifically for administrators with role validation
 

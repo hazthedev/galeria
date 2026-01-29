@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - TypeScript Type Definitions
+// Gatherly - TypeScript Type Definitions
 // ============================================
 
 // ============================================
@@ -10,7 +10,7 @@ export type TenantType = 'master' | 'white_label' | 'demo';
 
 export type TenantStatus = 'active' | 'suspended' | 'trial';
 
-export type SubscriptionTier = 'free' | 'pro' | 'premium' | 'enterprise';
+export type SubscriptionTier = 'free' | 'pro' | 'premium' | 'enterprise' | 'tester';
 
 export interface ITenantBranding {
   primary_color: string;
@@ -121,6 +121,7 @@ export interface IUser {
   password_hash?: string;
   name: string;
   role: UserRole;
+  subscription_tier?: SubscriptionTier;
   email_verified: boolean;
   avatar_url?: string;
   created_at: Date;
@@ -133,12 +134,14 @@ export interface IUserCreate {
   password: string;
   name: string;
   tenant_id?: string;
+  subscription_tier?: SubscriptionTier;
 }
 
 export interface IUserUpdate {
   name?: string;
   avatar_url?: string;
   email?: string;
+  subscription_tier?: SubscriptionTier;
 }
 
 // ============================================
@@ -310,12 +313,7 @@ export interface ILuckyDrawEntryCreate {
   agreed_to_display: boolean;
 }
 
-export type AnimationStyle =
-  | 'slot_machine'
-  | 'spinning_wheel'
-  | 'card_shuffle'
-  | 'drum_roll'
-  | 'random_fade';
+export type AnimationStyle = 'countdown';
 
 export interface ILuckyDrawConfig {
   number_of_winners: number;
@@ -331,7 +329,7 @@ export interface ILuckyDrawConfig {
 // LUCKY DRAW TYPES (Phase 5)
 // ============================================
 
-export type PrizeTier = 'grand' | 'first' | 'second' | 'third' | 'consolation';
+export type PrizeTier = 'first' | 'second' | 'third' | 'consolation';
 
 export type DrawStatus = 'scheduled' | 'completed' | 'cancelled';
 

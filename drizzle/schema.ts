@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Drizzle Schema Definitions
+// Gatherly - Drizzle Schema Definitions
 // ============================================
 // This file defines the PostgreSQL database schema using Drizzle ORM.
 // It matches the TypeScript interfaces in lib/types.ts.
@@ -25,7 +25,7 @@ import { sql } from 'drizzle-orm';
 // Enums matching TypeScript types from lib/types.ts
 export const tenantTypeEnum = pgEnum('tenant_type', ['master', 'white_label', 'demo']);
 export const tenantStatusEnum = pgEnum('tenant_status', ['active', 'suspended', 'trial']);
-export const subscriptionTierEnum = pgEnum('subscription_tier', ['free', 'pro', 'premium', 'enterprise']);
+export const subscriptionTierEnum = pgEnum('subscription_tier', ['free', 'pro', 'premium', 'enterprise', 'tester']);
 export const userRoleEnum = pgEnum('user_role', ['guest', 'organizer', 'super_admin']);
 export const eventTypeEnum = pgEnum('event_type', ['birthday', 'wedding', 'corporate', 'other']);
 export const eventStatusEnum = pgEnum('event_status', ['draft', 'active', 'ended', 'archived']);
@@ -167,6 +167,7 @@ export const users = pgTable('users', {
   passwordHash: text('password_hash'), // NULL for OAuth-only users
   name: text('name').notNull(),
   role: userRoleEnum('role').notNull().default('guest'),
+  subscriptionTier: subscriptionTierEnum('subscription_tier').notNull().default('free'),
   emailVerified: boolean('email_verified').notNull().default(false),
   avatarUrl: text('avatar_url'),
   createdAt: timestamp('created_at').notNull().defaultNow(),

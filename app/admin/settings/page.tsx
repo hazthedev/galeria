@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Supervisor Settings
+// Gatherly - Supervisor Settings
 // ============================================
 
 'use client';

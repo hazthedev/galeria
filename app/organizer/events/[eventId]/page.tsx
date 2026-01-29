@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Event Detail Page
+// Gatherly - Event Detail Page
 // ============================================
 
 'use client';

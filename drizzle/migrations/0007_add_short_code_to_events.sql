@@ -1,5 +1,5 @@
 -- ============================================
--- MOMENTIQUE - Add Short Code to Events
+-- Gatherly - Add Short Code to Events
 -- ============================================
 -- Adds short_code column for memorable shareable links
 

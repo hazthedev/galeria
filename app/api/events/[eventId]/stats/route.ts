@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Event Stats API Route
+// Gatherly - Event Stats API Route
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';

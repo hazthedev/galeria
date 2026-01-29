@@ -14,6 +14,7 @@ import {
     User,
     LogOut,
     Plus,
+    CreditCard,
     Menu,
     X
 } from 'lucide-react';
@@ -24,6 +25,7 @@ import { useEffect, useState } from 'react';
 const SIDEBAR_ITEMS = [
     { href: '/organizer', label: 'Dashboard', icon: LayoutDashboard, exact: true },
     { href: '/organizer/events/new', label: 'Create Event', icon: Plus },
+    { href: '/organizer/billing', label: 'Billing & Plan', icon: CreditCard },
 ];
 
 export default function OrganizerLayout({

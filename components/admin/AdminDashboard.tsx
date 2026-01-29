@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Admin Dashboard Component
+// Gatherly - Admin Dashboard Component
 // ============================================
 // Event management, moderation, and analytics
 

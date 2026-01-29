@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Lucky Draw History API
+// Gatherly - Lucky Draw History API
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';

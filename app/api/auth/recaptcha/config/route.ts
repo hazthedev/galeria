@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - reCAPTCHA Configuration API
+// Gatherly - reCAPTCHA Configuration API
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';

@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Supervisor Users API
+// Gatherly - Supervisor Users API
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
 
         // Get users
         const usersResult = await db.query(
-            `SELECT id, email, name, role, tenant_id, created_at, last_login_at 
+            `SELECT id, email, name, role, tenant_id, subscription_tier, created_at, last_login_at 
        FROM users 
        WHERE ${whereClause}
        ORDER BY created_at DESC 

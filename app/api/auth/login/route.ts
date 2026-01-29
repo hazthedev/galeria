@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Login API Endpoint
+// Gatherly - Login API Endpoint
 // ============================================
 // POST /api/auth/login
 // Authenticates user with email and password, creates session

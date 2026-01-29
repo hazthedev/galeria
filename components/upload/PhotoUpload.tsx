@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Drag & Drop Photo Upload Component
+// Gatherly - Drag & Drop Photo Upload Component
 // ============================================
 
 'use client';

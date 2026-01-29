@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Secure Image Processor
+// Gatherly - Secure Image Processor
 // ============================================
 // Security-focused image processing with:
 // - Complete EXIF/metadata stripping
@@ -109,6 +109,14 @@ const TIER_PROCESSING_LIMITS: Record<SubscriptionTier, ProcessingOptions> = {
     jpegQuality: 95,
     webpQuality: 95,
     stripMetadata: false, // Enterprise may keep metadata
+  },
+  tester: {
+    maxWidth: 20000,
+    maxHeight: 20000,
+    outputFormat: 'webp',
+    jpegQuality: 95,
+    webpQuality: 95,
+    stripMetadata: false,
   },
 };
 

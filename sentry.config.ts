@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Sentry Configuration
+// Gatherly - Sentry Configuration
 // ============================================
 // Error tracking, performance monitoring, and security monitoring
 

@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Main Lucky Draw Component
+// Gatherly - Main Lucky Draw Component
 // ============================================
 
 'use client';
@@ -7,6 +7,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { X, Sparkles, Trophy } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import confetti from 'canvas-confetti';
+import { playSound, playDrumRoll, playRevealSound, stopDrumRoll } from '@/lib/sounds';
 
 // ============================================
 // TYPES
@@ -336,12 +338,14 @@ export function LuckyDraw({
   onStart,
   onWinnerAnnounced,
   onComplete,
+  config,
 }: {
   isOrganizer?: boolean;
   winners?: Winner[];
   onStart?: () => void;
   onWinnerAnnounced?: (winner: Winner) => void;
   onComplete?: () => void;
+  config?: AnimationConfig;
 }) {
   const [showDraw, setShowDraw] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
@@ -353,9 +357,16 @@ export function LuckyDraw({
   const [isAnimating, setIsAnimating] = useState(false);
   const [revealPhase, setRevealPhase] = useState<'idle' | 'animating' | 'revealed' | 'complete'>('idle');
 
-  // Config State
-  const [animationStyle] = useState<AnimationConfig['style']>('spinning_wheel');
-  const [duration] = useState(8);
+  // Config State - use props or fallback to defaults
+  const animationConfig = config || {
+    style: 'spinning_wheel' as AnimationConfig['style'],
+    duration: 8,
+    showSelfie: true,
+    showName: true,
+    playSound: false,
+    confetti: true,
+    numberOfWinners: 1,
+  };
 
   useEffect(() => {
     if (winners.length > 0 && revealPhase === 'idle') {
@@ -386,15 +397,81 @@ export function LuckyDraw({
     setIsAnimating(true);
     setShowConfetti(false);
     setRevealPhase('animating');
+
+    // Play drum roll during animation
+    if (animationConfig.playSound) {
+      playDrumRoll(animationConfig.duration);
+    }
   };
 
   const handleAnimationComplete = () => {
     setIsAnimating(false);
     setShowConfetti(true);
     setRevealPhase('revealed');
+
+    // Stop drum roll
+    if (animationConfig.playSound) {
+      stopDrumRoll();
+    }
+
+    // Trigger confetti if enabled
+    if (animationConfig.confetti) {
+      triggerConfetti();
+    }
+
+    // Play reveal sound
+    if (animationConfig.playSound) {
+      playRevealSound();
+    }
+
     if (currentWinner) {
       onWinnerAnnounced?.(currentWinner);
     }
+  };
+
+  // Confetti effect
+  const triggerConfetti = () => {
+    const duration = 3000;
+    const animationEnd = Date.now() + duration;
+    const defaults = {
+      startVelocity: 30,
+      spread: 360,
+      ticks: 60,
+      zIndex: 9999,
+    };
+
+    const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
+
+    const interval = setInterval(() => {
+      const timeLeft = animationEnd - Date.now();
+
+      if (timeLeft <= 0) {
+        return clearInterval(interval);
+      }
+
+      const particleCount = 50;
+      const colors = ['#8B5CF6', '#EC4899', '#F59E0B', '#10B981', '#6366f1'];
+
+      confetti({
+        ...defaults,
+        particleCount,
+        colors,
+        origin: { x: randomInRange(0.1, 0.3), y: Math.random() * 0.5 + 0.1 },
+        angle: randomInRange(0, 360),
+        spread: randomInRange(50, 70),
+      });
+
+      confetti({
+        ...defaults,
+        particleCount,
+        colors,
+        origin: { x: randomInRange(0.7, 0.9), y: Math.random() * 0.5 + 0.1 },
+        angle: randomInRange(0, 360),
+        spread: randomInRange(50, 70),
+      });
+    }, 250);
+
+    setTimeout(() => clearInterval(interval), duration);
   };
 
   const advanceQueue = () => {
@@ -432,7 +509,7 @@ export function LuckyDraw({
     card_shuffle: CardShuffleAnimation,
     drum_roll: DrumRollAnimation,
     random_fade: RandomFadeAnimation,
-  }[animationStyle];
+  }[animationConfig.style];
 
   return (
     <div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-50 flex items-center justify-center">
@@ -473,7 +550,7 @@ export function LuckyDraw({
         {revealPhase === 'animating' && (
           <div className="flex items-center justify-center mb-8">
             <AnimationComponent
-              duration={duration}
+              duration={animationConfig.duration}
               onComplete={handleAnimationComplete}
             />
           </div>
@@ -482,12 +559,14 @@ export function LuckyDraw({
         {revealPhase === 'revealed' && currentWinner && (
           <div className="mt-8 text-center animate-in fade-in zoom-in duration-500">
             <p className="text-sm text-gray-600 mb-2">Winner of {currentWinner.prize_tier}:</p>
-            {currentWinner.selfie_url && (
+            {animationConfig.showSelfie && currentWinner.selfie_url && (
               <img src={currentWinner.selfie_url} alt="Winner" className="w-32 h-32 rounded-full mx-auto mb-4 object-cover border-4 border-yellow-400 shadow-xl" />
             )}
-            <h3 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600 mb-4">
-              {currentWinner.participant_name}
-            </h3>
+            {animationConfig.showName && (
+              <h3 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600 mb-4">
+                {currentWinner.participant_name}
+              </h3>
+            )}
 
             <button
               onClick={advanceQueue}

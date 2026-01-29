@@ -1,5 +1,5 @@
 -- ============================================
--- MOMENTIQUE - System Settings
+-- Gatherly - System Settings
 -- ============================================
 -- Migration: 0010_system_settings
 

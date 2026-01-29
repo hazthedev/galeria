@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Event Photos Page
+// Gatherly - Event Photos Page
 // ============================================
 
 'use client';
@@ -48,6 +48,8 @@ export default function EventPhotosPage() {
     (searchParams.get('status') as PhotoStatus) || 'all'
   );
   const [isModerator, setIsModerator] = useState(false);
+  const [selectedPhotoIds, setSelectedPhotoIds] = useState<string[]>([]);
+  const [isExporting, setIsExporting] = useState(false);
   const photosCacheRef = useRef<Record<PhotoStatus, IPhoto[]>>({
     all: [],
     pending: [],
@@ -68,6 +70,7 @@ export default function EventPhotosPage() {
     photosCacheRef.current = { all: [], pending: [], approved: [], rejected: [] };
     photosLoadedRef.current = { all: false, pending: false, approved: false, rejected: false };
     setPhotos([]);
+    setSelectedPhotoIds([]);
     setIsLoading(true);
     setIsEventLoading(true);
   }, [eventId]);
@@ -179,6 +182,7 @@ export default function EventPhotosPage() {
 
   const handleStatusChange = (status: PhotoStatus) => {
     setActiveStatus(status);
+    setSelectedPhotoIds([]);
     // Update URL without reloading
     const url = new URL(window.location.href);
     if (status === 'all') {
@@ -192,6 +196,49 @@ export default function EventPhotosPage() {
   const handleReaction = async (photoId: string, emoji: string) => {
     // Reaction is handled by PhotoGallery component
     // This is just a placeholder callback
+  };
+
+  const handleExportSelected = async () => {
+    if (!selectedPhotoIds.length) return;
+    try {
+      setIsExporting(true);
+      const response = await fetch(`/api/events/${eventId}/photos/export`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photoIds: selectedPhotoIds }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || 'Failed to export photos');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const contentDisposition = response.headers.get('content-disposition') || '';
+      const filenameMatch = contentDisposition.match(/filename="([^"]+)"/);
+      link.download = filenameMatch ? filenameMatch[1] : `event-${eventId}-photos.zip`;
+      document.body.appendChild(link);
+      link.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(link);
+    } catch (err) {
+      console.error('[PHOTOS_PAGE] Export error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to export photos');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleSelectAll = () => {
+    setSelectedPhotoIds(photos.map((photo) => photo.id));
+  };
+
+  const handleClearSelection = () => {
+    setSelectedPhotoIds([]);
   };
 
   const statusTabs = [
@@ -285,14 +332,42 @@ export default function EventPhotosPage() {
             <p className="mt-2 text-sm font-medium text-red-800 dark:text-red-300">{error}</p>
           </div>
         ) : (
-          <PhotoGallery
-            isModerator={isModerator}
-            photos={photos}
-            onReaction={handleReaction}
-            onPhotoUpdate={handlePhotoUpdate}
-            allowDownload
-            onPhotoDelete={handlePhotoDelete}
-          />
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={handleSelectAll}
+                className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+                disabled={!photos.length}
+              >
+                Select all
+              </button>
+              <button
+                onClick={handleClearSelection}
+                className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+                disabled={!selectedPhotoIds.length}
+              >
+                Clear selection
+              </button>
+              <button
+                onClick={handleExportSelected}
+                className="rounded-lg bg-violet-600 px-3 py-2 text-xs font-medium text-white hover:bg-violet-700 disabled:opacity-60"
+                disabled={!selectedPhotoIds.length || isExporting}
+              >
+                {isExporting ? 'Preparing ZIP...' : `Download selected (${selectedPhotoIds.length})`}
+              </button>
+            </div>
+            <PhotoGallery
+              isModerator={isModerator}
+              photos={photos}
+              onReaction={handleReaction}
+              onPhotoUpdate={handlePhotoUpdate}
+              allowDownload
+              onPhotoDelete={handlePhotoDelete}
+              selectable
+              selectedPhotoIds={selectedPhotoIds}
+              onSelectionChange={setSelectedPhotoIds}
+            />
+          </div>
         )}
       </div>
     </div>

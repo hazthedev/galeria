@@ -1,5 +1,5 @@
 -- ============================================
--- MOMENTIQUE - PostgreSQL Initialization
+-- Gatherly - PostgreSQL Initialization
 -- ============================================
 -- This script runs automatically when the PostgreSQL container is first created.
 -- It sets up essential extensions and configuration.

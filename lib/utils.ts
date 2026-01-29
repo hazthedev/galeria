@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Utility Functions
+// Gatherly - Utility Functions
 // ============================================
 
 import { type ClassValue, clsx } from 'clsx';

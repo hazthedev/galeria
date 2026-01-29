@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Lucky Draw API Routes
+// Gatherly - Lucky Draw API Routes
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';

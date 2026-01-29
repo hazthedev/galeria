@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Database Migration Runner
+// Gatherly - Database Migration Runner
 // ============================================
 // This script applies pending database migrations.
 //
@@ -65,7 +65,7 @@ async function runMigrations() {
 
   try {
     console.log('========================================================');
-    console.log('         MOMENTIQUE DATABASE MIGRATIONS');
+    console.log('         Gatherly DATABASE MIGRATIONS');
     console.log('========================================================');
     console.log('');
 

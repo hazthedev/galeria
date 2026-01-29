@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Event Stats Component
+// Gatherly - Event Stats Component
 // ============================================
 
 'use client';

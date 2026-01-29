@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Admin System Settings API
+// Gatherly - Admin System Settings API
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';

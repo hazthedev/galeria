@@ -59,7 +59,7 @@ async function rollback() {
 
   try {
     console.log('========================================================');
-    console.log('       MOMENTIQUE DATABASE MIGRATION ROLLBACK');
+    console.log('       Gatherly DATABASE MIGRATION ROLLBACK');
     console.log('========================================================');
     console.log('');
 

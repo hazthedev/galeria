@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Add short_code column to events
+// Gatherly - Add short_code column to events
 // ============================================
 
 import pg from 'pg';

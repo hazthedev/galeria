@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Protected Route Component
+// Gatherly - Protected Route Component
 // ============================================
 // Client-side route protection wrapper
 

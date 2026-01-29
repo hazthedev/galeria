@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Admin Login Page
+// Gatherly - Admin Login Page
 // ============================================
 // Dedicated login page for superadmins
 

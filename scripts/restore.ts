@@ -63,7 +63,7 @@ async function restore() {
 
   try {
     console.log('╔════════════════════════════════════════════════════════╗');
-    console.log('║         MOMENTIQUE DATABASE RESTORE                   ║');
+    console.log('║         Gatherly DATABASE RESTORE                   ║');
     console.log('╚════════════════════════════════════════════════════════╝');
     console.log('');
 

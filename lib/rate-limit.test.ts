@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Rate Limiter Tests
+// Gatherly - Rate Limiter Tests
 // ============================================
 // Run with: npx tsx lib/rate-limit.test.ts
 

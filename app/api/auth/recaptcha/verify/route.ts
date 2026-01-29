@@ -1,11 +1,12 @@
 // ============================================
-// MOMENTIQUE - reCAPTCHA Verification API
+// Gatherly - reCAPTCHA Verification API
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyRecaptchaToken, generateMathChallenge, storeChallenge, verifyChallenge } from '@/lib/recaptcha';
-import { getTenantContextFromHeaders } from '@/lib/tenant';
+import { getTenantId } from '@/lib/tenant';
 import type { SubscriptionTier } from '@/lib/types';
+import { resolveUserTier } from '@/lib/subscription';
 
 /**
  * POST /api/auth/recaptcha/verify
@@ -23,19 +24,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get tenant context for custom thresholds
+    // Resolve user tier for custom thresholds
     const headers = request.headers;
-    const tenantContext = getTenantContextFromHeaders(headers);
-    const subscriptionTier = (tenantContext?.tenant?.subscription_tier || 'free') as SubscriptionTier;
+    let tenantId = getTenantId(headers);
+    if (!tenantId) {
+      tenantId = '00000000-0000-0000-0000-000000000001';
+    }
+    const subscriptionTier = await resolveUserTier(headers, tenantId, 'free');
 
     // Configure threshold based on tier
     // Higher tiers may have more lenient thresholds
-    const tierThresholds: Record<SubscriptionTier, number> = {
-      free: 0.5,
-      pro: 0.4,
-      premium: 0.3,
-      enterprise: 0.3,
-    };
+      const tierThresholds: Record<SubscriptionTier, number> = {
+        free: 0.5,
+        pro: 0.4,
+        premium: 0.3,
+        enterprise: 0.3,
+        tester: 0.2,
+      };
 
     const result = await verifyRecaptchaToken(token);
 

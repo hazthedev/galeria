@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - File Validator Tests
+// Gatherly - File Validator Tests
 // ============================================
 // Run with: npx tsx lib/upload/validator.test.ts
 

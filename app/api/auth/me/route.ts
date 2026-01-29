@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Current User API Endpoint
+// Gatherly - Current User API Endpoint
 // ============================================
 // GET /api/auth/me
 // Returns the current authenticated user's information

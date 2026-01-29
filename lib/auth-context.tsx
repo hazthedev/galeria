@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Authentication Context
+// Gatherly - Authentication Context
 // ============================================
 // Client-side authentication state management
 

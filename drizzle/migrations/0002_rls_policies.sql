@@ -1,5 +1,5 @@
 -- ============================================
--- MOMENTIQUE - Row-Level Security (RLS) Policies
+-- Gatherly - Row-Level Security (RLS) Policies
 -- ============================================
 -- Migration: 0002_rls_policies
 --

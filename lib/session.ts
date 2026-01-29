@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Session Management
+// Gatherly - Session Management
 // ============================================
 // Redis-based session storage for multi-tenant authentication
 // Features: sliding expiration, device tracking, security validation

@@ -1,5 +1,5 @@
 -- ============================================
--- MOMENTIQUE - Lucky Draw Migration
+-- Gatherly - Lucky Draw Migration
 -- ============================================
 -- Adds database tables for lucky draw functionality
 -- Supports automatic entries on photo upload, configurable prize tiers, and winner tracking

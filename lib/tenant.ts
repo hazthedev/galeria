@@ -455,7 +455,7 @@ interface ICreateTenantInput {
   contact_email: string;
   domain?: string;
   subdomain?: string;
-  subscription_tier?: 'free' | 'pro' | 'premium' | 'enterprise';
+  subscription_tier?: 'free' | 'pro' | 'premium' | 'enterprise' | 'tester';
 }
 
 /**
@@ -614,16 +614,26 @@ function getDefaultFeatures(tier: string) {
       white_label: true,
       advanced_analytics: true,
     },
-    enterprise: {
-      lucky_draw: true,
-      photo_reactions: true,
-      video_uploads: true,
-      custom_templates: true,
-      api_access: true,
-      sso: true,
-      white_label: true,
-      advanced_analytics: true,
-    },
+      enterprise: {
+        lucky_draw: true,
+        photo_reactions: true,
+        video_uploads: true,
+        custom_templates: true,
+        api_access: true,
+        sso: true,
+        white_label: true,
+        advanced_analytics: true,
+      },
+      tester: {
+        lucky_draw: true,
+        photo_reactions: true,
+        video_uploads: true,
+        custom_templates: true,
+        api_access: true,
+        sso: true,
+        white_label: true,
+        advanced_analytics: true,
+      },
   };
 
   return defaults[tier as keyof typeof defaults] || defaults.free;
@@ -658,14 +668,22 @@ function getDefaultLimits(tier: string) {
       max_draw_entries_per_event: 1000,
       custom_features: [],
     },
-    enterprise: {
-      max_events_per_month: -1, // Unlimited
-      max_storage_gb: -1, // Unlimited
-      max_admins: -1, // Unlimited
-      max_photos_per_event: -1, // Unlimited
-      max_draw_entries_per_event: -1, // Unlimited
-      custom_features: [],
-    },
+      enterprise: {
+        max_events_per_month: -1, // Unlimited
+        max_storage_gb: -1, // Unlimited
+        max_admins: -1, // Unlimited
+        max_photos_per_event: -1, // Unlimited
+        max_draw_entries_per_event: -1, // Unlimited
+        custom_features: [],
+      },
+      tester: {
+        max_events_per_month: -1,
+        max_storage_gb: -1,
+        max_admins: -1,
+        max_photos_per_event: -1,
+        max_draw_entries_per_event: -1,
+        custom_features: [],
+      },
   };
 
   return defaults[tier as keyof typeof defaults] || defaults.free;

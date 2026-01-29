@@ -1,5 +1,5 @@
 -- ============================================
--- MOMENTIQUE - Unique Constraints Migration
+-- Gatherly - Unique Constraints Migration
 -- ============================================
 -- Migration: 0003_add_unique_constraints
 --

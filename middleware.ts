@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Next.js Middleware
+// Gatherly - Next.js Middleware
 // ============================================
 // Tenant resolution and authentication
 

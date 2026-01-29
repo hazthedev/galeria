@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Database Configuration
+// Gatherly - Database Configuration
 // ============================================
 // Multi-tenant PostgreSQL with Row-Level Security
 

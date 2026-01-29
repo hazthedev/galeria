@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - reCAPTCHA v3 Validation
+// Gatherly - reCAPTCHA v3 Validation
 // ============================================
 // Google reCAPTCHA v3 for bot protection on anonymous uploads
 // Score: 0.0 (bot) to 1.0 (human)

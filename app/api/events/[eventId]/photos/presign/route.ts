@@ -1,16 +1,16 @@
 // ============================================
-// MOMENTIQUE - Photo Upload Presign API Route
+// Gatherly - Photo Upload Presign API Route
 // ============================================
 // POST /api/events/:eventId/photos/presign
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getTenantId, getTenantContextFromHeaders } from '@/lib/tenant';
+import { getTenantId } from '@/lib/tenant';
 import { getTenantDb } from '@/lib/db';
 import { getPresignedUploadUrl } from '@/lib/images';
 import { getSystemSettings } from '@/lib/system-settings';
 import { generatePhotoId } from '@/lib/utils';
 import { checkPhotoLimit } from '@/lib/limit-check';
-import type { SubscriptionTier } from '@/lib/types';
+import { resolveUserTier } from '@/lib/subscription';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -96,8 +96,7 @@ export async function POST(
     }
 
     // Tier limit check (best-effort guard before upload)
-    const tenantContext = getTenantContextFromHeaders(headers);
-    const subscriptionTier = (tenantContext?.tenant?.subscription_tier || 'free') as SubscriptionTier;
+    const subscriptionTier = await resolveUserTier(headers, tenantId, 'free');
     const tierLimitResult = await checkPhotoLimit(eventId, tenantId, subscriptionTier);
     if (!tierLimitResult.allowed) {
       return NextResponse.json(

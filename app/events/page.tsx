@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - Events Page (Redirect)
+// Gatherly - Events Page (Redirect)
 // ============================================
 // This page now redirects to the unified Dashboard
 

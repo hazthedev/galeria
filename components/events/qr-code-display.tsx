@@ -1,5 +1,5 @@
 // ============================================
-// MOMENTIQUE - QR Code Display Component
+// Gatherly - QR Code Display Component
 // ============================================
 
 'use client';

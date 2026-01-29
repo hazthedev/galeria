@@ -1,5 +1,5 @@
 -- ============================================
--- MOMENTIQUE - Tenant Context Functions
+-- Gatherly - Tenant Context Functions
 -- ============================================
 -- Migration: 0001_tenant_context_functions
 --
