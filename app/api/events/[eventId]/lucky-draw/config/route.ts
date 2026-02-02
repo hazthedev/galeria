@@ -49,8 +49,13 @@ export async function GET(
       );
     }
 
-    // Get latest config (most recent, regardless of status)
-    const config = await getLatestConfig(tenantId, eventId);
+    const { searchParams } = new URL(request.url);
+    const activeOnly = searchParams.get('active') === 'true';
+
+    // Get latest config (most recent, regardless of status) or active scheduled config
+    const config = activeOnly
+      ? await getActiveConfig(tenantId, eventId)
+      : await getLatestConfig(tenantId, eventId);
 
     if (!config) {
       return NextResponse.json({

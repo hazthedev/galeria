@@ -14,6 +14,7 @@ export function FloatingParticles() {
         type: 'heart' | 'star' | 'sparkle';
     }>>([]);
 
+    /* eslint-disable react-hooks/set-state-in-effect */
     useEffect(() => {
         // Generate random particles only on client
         const newParticles = Array.from({ length: 12 }, (_, i) => ({
@@ -26,6 +27,7 @@ export function FloatingParticles() {
         }));
         setParticles(newParticles);
     }, []);
+    /* eslint-enable react-hooks/set-state-in-effect */
 
     // Render nothing on server, particles appear after hydration
     if (particles.length === 0) return null;

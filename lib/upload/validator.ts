@@ -416,7 +416,8 @@ export async function isAnimatedImage(buffer: Buffer): Promise<boolean> {
     try {
       const metadata = await sharp(buffer, { failOnError: false }).metadata();
       // WebP animation is indicated by extended format
-      return metadata.format === 'webp' && (metadata as any).pages !== undefined && (metadata as any).pages > 1;
+      const metadataWithPages = metadata as sharp.Metadata & { pages?: number };
+      return metadata.format === 'webp' && metadataWithPages.pages !== undefined && metadataWithPages.pages > 1;
     } catch {
       return false;
     }

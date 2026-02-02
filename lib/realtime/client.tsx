@@ -5,6 +5,8 @@
 
 'use client';
 
+/* eslint-disable react-hooks/set-state-in-effect */
+
 import { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
 import { RealtimeChannel, RealtimePresenceState } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
@@ -113,6 +115,7 @@ export function usePhotoGallery(eventId: string) {
     const [photos, setPhotos] = useState<IPhoto[]>([]);
     const [stats, setStats] = useState<IEventStats | null>(null);
     const [userCount, setUserCount] = useState(0);
+    const [channel, setChannel] = useState<RealtimeChannel | null>(null);
     const { connected, fingerprint } = useRealtime();
     const channelRef = useRef<RealtimeChannel | null>(null);
 
@@ -187,9 +190,11 @@ export function usePhotoGallery(eventId: string) {
         });
 
         channelRef.current = channel;
+        setChannel(channel);
 
         return () => {
             supabase.removeChannel(channel);
+            setChannel(null);
         };
     }, [eventId, fingerprint]);
 
@@ -222,7 +227,7 @@ export function usePhotoGallery(eventId: string) {
         }
     };
 
-    return { photos, stats, userCount, addReaction, broadcastNewPhoto, refreshGallery, channel: channelRef.current };
+    return { photos, stats, userCount, addReaction, broadcastNewPhoto, refreshGallery, channel };
 }
 
 /**
@@ -232,6 +237,7 @@ export function useLuckyDraw(eventId: string) {
     const [entries] = useState<ILuckyDrawEntry[]>([]);
     const [winner, setWinner] = useState<IWinner | null>(null);
     const [isDrawing, setIsDrawing] = useState(false);
+    const [channel, setChannel] = useState<RealtimeChannel | null>(null);
     const { fingerprint } = useRealtime();
     const channelRef = useRef<RealtimeChannel | null>(null);
 
@@ -277,9 +283,11 @@ export function useLuckyDraw(eventId: string) {
 
         channel.subscribe();
         channelRef.current = channel;
+        setChannel(channel);
 
         return () => {
             supabase.removeChannel(channel);
+            setChannel(null);
         };
     }, [eventId, fingerprint]);
 
@@ -309,7 +317,7 @@ export function useLuckyDraw(eventId: string) {
         });
     }, []);
 
-    return { entries, winner, isDrawing, submitEntry, broadcastDrawStart, broadcastWinner, channel: channelRef.current };
+    return { entries, winner, isDrawing, submitEntry, broadcastDrawStart, broadcastWinner, channel };
 }
 
 /**
@@ -318,6 +326,7 @@ export function useLuckyDraw(eventId: string) {
 export function useAdminDashboard(eventId: string) {
     const [stats, setStats] = useState<IEventStats | null>(null);
     const [userCount, setUserCount] = useState(0);
+    const [channel, setChannel] = useState<RealtimeChannel | null>(null);
     const [recentActivity, setRecentActivity] = useState<{
         type: 'upload' | 'lucky_draw_entry' | 'reaction';
         photo_id?: string;
@@ -375,9 +384,11 @@ export function useAdminDashboard(eventId: string) {
         });
 
         channelRef.current = channel;
+        setChannel(channel);
 
         return () => {
             supabase.removeChannel(channel);
+            setChannel(null);
         };
     }, [eventId]);
 
@@ -426,7 +437,7 @@ export function useAdminDashboard(eventId: string) {
         broadcastWinner,
         moderatePhoto,
         deletePhoto,
-        channel: channelRef.current,
+        channel,
     };
 }
 

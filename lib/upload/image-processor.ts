@@ -532,7 +532,8 @@ export async function verifyExifStripped(buffer: Buffer): Promise<boolean> {
     }
 
     // Check for GPS data specifically
-    if ((metadata as any).gps && Object.keys((metadata as any).gps).length > 0) {
+    const gps = (metadata as { gps?: Record<string, unknown> }).gps;
+    if (gps && Object.keys(gps).length > 0) {
       return false;
     }
 
@@ -562,7 +563,8 @@ export async function getSafeImageInfo(buffer: Buffer): Promise<{
       format: metadata.format || 'unknown',
       size: buffer.length,
       hasExif: !!metadata.exif && metadata.exif.length > 0,
-      hasGps: !!(metadata as any).gps && Object.keys((metadata as any).gps).length > 0,
+      hasGps: !!(metadata as { gps?: Record<string, unknown> }).gps &&
+        Object.keys((metadata as { gps?: Record<string, unknown> }).gps || {}).length > 0,
     };
   } catch {
     return {

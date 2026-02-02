@@ -96,7 +96,7 @@ async function createImageWithMetadata(): Promise<Buffer> {
 // TEST CASES
 // ============================================
 
-async function runAllTests() {
+export async function runAllTests() {
   console.log('\n═════════════════════════════════════════════════════════════');
   console.log('         IMAGE PROCESSOR TEST SUITE');
   console.log('═════════════════════════════════════════════════════════════\n');
@@ -496,11 +496,18 @@ async function runAllTests() {
 // RUN TESTS
 // ============================================
 
-runAllTests()
-  .then((success) => {
-    process.exit(success ? 0 : 1);
-  })
-  .catch((error) => {
-    console.error('Test suite error:', error);
-    process.exit(1);
+if (process.env.JEST_WORKER_ID) {
+  test('image processor test suite', async () => {
+    const success = await runAllTests();
+    expect(success).toBe(true);
   });
+} else {
+  runAllTests()
+    .then((success) => {
+      process.exit(success ? 0 : 1);
+    })
+    .catch((error) => {
+      console.error('Test suite error:', error);
+      process.exit(1);
+    });
+}

@@ -6,14 +6,11 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-// Configure middleware to use Node.js runtime (required for database access)
-export const runtime = 'nodejs';
-
 /**
- * Next.js middleware
+ * Next.js proxy
  * Runs on every request (except static files)
  */
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const hostname = request.headers.get('host') || '';
   const url = request.nextUrl;
 
@@ -65,18 +62,3 @@ export async function middleware(request: NextRequest) {
   return NextResponse.next();
 }
 
-/**
- * Configure which paths the middleware should run on
- */
-export const config = {
-  matcher: [
-    /*
-     * Match all request paths except:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - Files with extensions (images, fonts, etc.)
-     */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\..*).*)',
-  ],
-};

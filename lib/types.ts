@@ -100,11 +100,6 @@ export interface ISystemSettings {
         anonymous_allowed: boolean;
         guest_download_enabled: boolean;
       };
-      limits: {
-        max_photos_per_user: number;
-        max_total_photos: number;
-        max_draw_entries: number;
-      };
     };
   };
 }
@@ -157,6 +152,7 @@ export interface IEventTheme {
   primary_color: string;
   secondary_color: string;
   background: string;
+  surface_color?: string;
   logo_url?: string;
   frame_template: string;
   photo_card_style?: string;
@@ -181,6 +177,21 @@ export interface IEventSettings {
   theme: IEventTheme;
   features: IEventFeatures;
   limits: IEventLimits;
+  security?: {
+    upload_rate_limits: {
+      per_ip_hourly: number;
+      per_fingerprint_hourly: number;
+      burst_per_ip_minute: number;
+      per_event_daily: number;
+    };
+  };
+}
+
+export interface IUploadRateLimitOverrides {
+  per_ip_hourly?: number;
+  per_fingerprint_hourly?: number;
+  burst_per_ip_minute?: number;
+  per_event_daily?: number;
 }
 
 export interface IEvent {
@@ -315,7 +326,7 @@ export interface ILuckyDrawEntryCreate {
   agreed_to_display: boolean;
 }
 
-export type AnimationStyle = 'countdown';
+export type AnimationStyle = 'slot';
 
 export interface ILuckyDrawConfig {
   number_of_winners: number;

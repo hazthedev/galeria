@@ -9,6 +9,7 @@ import { Upload, X, Image as ImageIcon, Loader2, AlertCircle, Camera } from 'luc
 import { validateImageFile, formatFileSize, getImageDimensions } from '@/lib/utils';
 import { getClientFingerprint } from '@/lib/fingerprint';
 import { usePhotoGallery } from '@/lib/realtime/client';
+import type { IPhoto } from '@/lib/types';
 
 // ============================================
 // TYPES
@@ -16,7 +17,7 @@ import { usePhotoGallery } from '@/lib/realtime/client';
 
 interface PhotoUploadProps {
   eventId: string;
-  onSuccess?: (photo: any) => void;
+  onSuccess?: (photo: IPhoto) => void;
   onError?: (error: string) => void;
   maxFiles?: number;
   disabled?: boolean;

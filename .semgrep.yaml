@@ -10,10 +10,9 @@ rules:
   - id: momentique-no-raw-sql
     patterns:
       - pattern: db.query($QUERY, ...)
-        metavariable: $QUERY:
-          patterns:
-            - pattern-regex: "SELECT|INSERT|UPDATE|DELETE"
-              metavariable-pattern: $QUERY
+      - metavariable-regex:
+          metavariable: $QUERY
+          regex: "(SELECT|INSERT|UPDATE|DELETE)"
     message: Avoid raw SQL queries - use parameterized methods (findOne, findMany, insert, update)
     languages: [typescript, javascript]
     severity: ERROR
@@ -130,13 +129,10 @@ rules:
   # ============================================
   - id: momentique-missing-token-verification
     patterns:
-      - pattern: function $FUNC($REQ, $RES) {...}
-        metavariable: $FUNC:
-          patterns:
-            - pattern: headers.get("authorization")
-        metavariable: $REQ:
-          patterns:
-            - pattern: NextRequest
+      - pattern: $REQ.headers.get("authorization")
+      - metavariable-pattern:
+          metavariable: $REQ
+          pattern: NextRequest
     message: Authorization header extracted but token not verified
     languages: [typescript]
     severity: WARNING
@@ -156,14 +152,11 @@ rules:
   - id: momentique-api-route-no-rate-limit
     patterns:
       - pattern: async function $FUNC($REQ, $RES) {...}
-        metavariable: $FUNC:
-          patterns:
-            - pattern: verifyAccessToken($TOKEN)
-        metavariable: $REQ:
-          patterns:
-            - pattern: NextRequest
-        not:
-          - pattern: rateLimit
+      - pattern: verifyAccessToken($TOKEN)
+      - metavariable-pattern:
+          metavariable: $REQ
+          pattern: NextRequest
+      - pattern-not: rateLimit
     message: API route with authentication but no rate limiting
     languages: [typescript]
     severity: WARNING
@@ -185,9 +178,9 @@ rules:
   - id: momentique-expose-stack-trace
     patterns:
       - pattern: console.error($ERR)
-        metavariable: $ERR:
-          patterns:
-            - pattern: Error
+      - metavariable-pattern:
+          metavariable: $ERR
+          pattern: Error
     message: Potential stack trace exposure in production - use proper logging
     languages: [typescript, javascript]
     severity: INFO
@@ -201,7 +194,7 @@ rules:
 
   - id: momentique-expose-error-details
     patterns:
-      - pattern: res.json({ error: err.message })
+      - pattern: "res.json({ error: err.message })"
     message: Exposing detailed error messages to client - sanitize error responses
     languages: [typescript, javascript]
     severity: WARNING
@@ -219,14 +212,11 @@ rules:
   - id: momentique-missing-tenant-check
     patterns:
       - pattern: async function $FUNC($REQ, $RES) {...}
-        metavariable: $FUNC:
-          patterns:
-            - pattern: $DB.findOne(...)
-        metavariable: $REQ:
-          patterns:
-            - pattern: NextRequest
-        not:
-          - pattern: getTenantId(...)
+      - pattern: $DB.findOne(...)
+      - metavariable-pattern:
+          metavariable: $REQ
+          pattern: NextRequest
+      - pattern-not: getTenantId(...)
     message: Database query without tenant context check - potential data leakage
     languages: [typescript]
     severity: ERROR
@@ -245,9 +235,9 @@ rules:
   - id: momentique-unsafe-file-upload
     patterns:
       - pattern: fs.writeFile($PATH, $DATA)
-        metavariable: $PATH:
-          patterns:
-            - pattern-regex: "(filename|file\\.name)"
+      - metavariable-regex:
+          metavariable: $PATH
+          regex: "(filename|file\\.name)"
     message: File upload using user-provided filename - use generated UUID
     languages: [typescript, javascript]
     severity: ERROR
@@ -266,9 +256,9 @@ rules:
   - id: momentique-open-redirect
     patterns:
       - pattern: redirect($URL)
-        metavariable: $URL:
-          patterns:
-            - pattern: req.query
+      - metavariable-pattern:
+          metavariable: $URL
+          pattern: req.query
     message: Open redirect vulnerability - validate redirect URLs
     languages: [typescript, javascript]
     severity: ERROR
@@ -287,7 +277,7 @@ tests:
   - id: momentique-test-security-headers
     patterns:
       - pattern: response.headers.set("x-tenant-id", ...)
-    message: Good: Tenant ID is being set for multi-tenant isolation
+    message: "Good: Tenant ID is being set for multi-tenant isolation"
     languages: [typescript]
     severity: INFO
 

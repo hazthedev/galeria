@@ -4,7 +4,9 @@
 // Redis-based rate limiting for API endpoints and authentication
 // Implements sliding window and token bucket algorithms
 
+import crypto from 'crypto';
 import { getRedisClient } from './redis';
+import type { IUploadRateLimitOverrides } from './types';
 
 // ============================================
 // CONFIGURATION
@@ -148,6 +150,7 @@ export interface IRateLimitError {
   windowSeconds: number;
 }
 
+
 // ============================================
 // SLIDING WINDOW RATE LIMITING
 // ============================================
@@ -182,7 +185,7 @@ export async function checkRateLimit(
 
     // If allowed, add current request
     if (allowed) {
-      await redis.zadd(key, now, `${now}-${Math.random()}`);
+      await redis.zadd(key, now, `${now}-${crypto.randomBytes(6).toString('hex')}`);
       // Set expiry on the key (cleanup old entries)
       await redis.expire(key, config.windowSeconds);
     }
@@ -601,21 +604,39 @@ export async function checkUploadRateLimit(
   ipAddress: string,
   fingerprint: string | null,
   eventId: string,
-  userId?: string
+  userId?: string,
+  overrides?: IUploadRateLimitOverrides
 ): Promise<IUploadRateLimitResult> {
   try {
+    const uploadPerIp = {
+      ...RATE_LIMIT_CONFIGS.uploadPerIp,
+      maxRequests: overrides?.per_ip_hourly ?? RATE_LIMIT_CONFIGS.uploadPerIp.maxRequests,
+    };
+    const uploadPerFingerprint = {
+      ...RATE_LIMIT_CONFIGS.uploadPerFingerprint,
+      maxRequests: overrides?.per_fingerprint_hourly ?? RATE_LIMIT_CONFIGS.uploadPerFingerprint.maxRequests,
+    };
+    const uploadBurstPerIp = {
+      ...RATE_LIMIT_CONFIGS.uploadBurstPerIp,
+      maxRequests: overrides?.burst_per_ip_minute ?? RATE_LIMIT_CONFIGS.uploadBurstPerIp.maxRequests,
+    };
+    const uploadPerEvent = {
+      ...RATE_LIMIT_CONFIGS.uploadPerEvent,
+      maxRequests: overrides?.per_event_daily ?? RATE_LIMIT_CONFIGS.uploadPerEvent.maxRequests,
+    };
+
     // Run all rate limit checks in parallel for efficiency
     const checks = await Promise.all([
       // IP-based limits
-      checkRateLimit(ipAddress, RATE_LIMIT_CONFIGS.uploadPerIp),
-      checkRateLimit(ipAddress, RATE_LIMIT_CONFIGS.uploadBurstPerIp),
+      checkRateLimit(ipAddress, uploadPerIp),
+      checkRateLimit(ipAddress, uploadBurstPerIp),
 
       // Fingerprint-based limits (if provided)
-      fingerprint ? checkRateLimit(fingerprint, RATE_LIMIT_CONFIGS.uploadPerFingerprint) : null,
+      fingerprint ? checkRateLimit(fingerprint, uploadPerFingerprint) : null,
       fingerprint ? checkRateLimit(fingerprint, RATE_LIMIT_CONFIGS.uploadBurstPerFingerprint) : null,
 
       // Event-based limit
-      checkRateLimit(eventId, RATE_LIMIT_CONFIGS.uploadPerEvent),
+      checkRateLimit(eventId, uploadPerEvent),
 
       // User-based limit (if authenticated)
       userId ? checkRateLimit(userId, RATE_LIMIT_CONFIGS.uploadPerUser) : null,
@@ -715,16 +736,30 @@ export async function checkUploadRateLimit(
 export async function getUploadRateLimitStatus(
   ipAddress: string,
   fingerprint: string | null,
-  eventId: string
+  eventId: string,
+  overrides?: IUploadRateLimitOverrides
 ): Promise<{
   ipHourly: { used: number; limit: number; resetAt: Date };
   ipBurst: { used: number; limit: number; resetAt: Date };
   eventDaily: { used: number; limit: number; resetAt: Date };
 }> {
+  const uploadPerIp = {
+    ...RATE_LIMIT_CONFIGS.uploadPerIp,
+    maxRequests: overrides?.per_ip_hourly ?? RATE_LIMIT_CONFIGS.uploadPerIp.maxRequests,
+  };
+  const uploadBurstPerIp = {
+    ...RATE_LIMIT_CONFIGS.uploadBurstPerIp,
+    maxRequests: overrides?.burst_per_ip_minute ?? RATE_LIMIT_CONFIGS.uploadBurstPerIp.maxRequests,
+  };
+  const uploadPerEvent = {
+    ...RATE_LIMIT_CONFIGS.uploadPerEvent,
+    maxRequests: overrides?.per_event_daily ?? RATE_LIMIT_CONFIGS.uploadPerEvent.maxRequests,
+  };
+
   const [ipHourlyStatus, ipBurstStatus, eventStatus] = await Promise.all([
-    getRateLimitStatus(ipAddress, RATE_LIMIT_CONFIGS.uploadPerIp),
-    getRateLimitStatus(ipAddress, RATE_LIMIT_CONFIGS.uploadBurstPerIp),
-    getRateLimitStatus(eventId, RATE_LIMIT_CONFIGS.uploadPerEvent),
+    getRateLimitStatus(ipAddress, uploadPerIp),
+    getRateLimitStatus(ipAddress, uploadBurstPerIp),
+    getRateLimitStatus(eventId, uploadPerEvent),
   ]);
 
   return {

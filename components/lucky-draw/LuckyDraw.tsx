@@ -368,6 +368,7 @@ export function LuckyDraw({
     numberOfWinners: 1,
   };
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (winners.length > 0 && revealPhase === 'idle') {
       // Sort winners: Lowest Prize (Consolation) -> Highest Prize (Grand)
@@ -376,6 +377,7 @@ export function LuckyDraw({
       setDisplayQueue([...winners].reverse());
     }
   }, [winners, revealPhase]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleStartDraw = () => {
     setShowDraw(true);

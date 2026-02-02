@@ -39,7 +39,7 @@ export function generateSlug(text: string): string {
  */
 export function generateUniqueSlug(base: string): string {
   const slug = generateSlug(base);
-  const suffix = Math.random().toString(36).substring(2, 8);
+  const suffix = randomString(6);
   return `${slug}-${suffix}`;
 }
 
@@ -426,9 +426,10 @@ export function capitalize(str: string): string {
  */
 export function randomString(length: number): string {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  const charArray = chars.split('');
   let result = '';
   for (let i = 0; i < length; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
+    result += charArray[secureRandom(0, charArray.length)];
   }
   return result;
 }
@@ -560,7 +561,7 @@ export function chunk<T>(array: T[], size: number): T[][] {
 export function shuffle<T>(array: T[]): T[] {
   const shuffled = [...array];
   for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = secureRandom(0, i + 1);
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
   return shuffled;
@@ -570,7 +571,7 @@ export function shuffle<T>(array: T[]): T[] {
  * Get random element from array
  */
 export function randomElement<T>(array: T[]): T {
-  return array[Math.floor(Math.random() * array.length)];
+  return secureRandomChoice(array);
 }
 
 // ============================================
@@ -628,8 +629,10 @@ export async function retry<T>(
  */
 export function secureRandom(min: number, max: number): number {
   const range = max - min;
-  const bytes = crypto.randomBytes(4);
-  const randomUint32 = bytes.readUInt32BE(0);
+  if (range <= 0) {
+    return min;
+  }
+  const randomUint32 = getRandomUint32();
   return min + (randomUint32 % range);
 }
 
@@ -639,4 +642,15 @@ export function secureRandom(min: number, max: number): number {
 export function secureRandomChoice<T>(array: T[]): T {
   const index = secureRandom(0, array.length);
   return array[index];
+}
+
+function getRandomUint32(): number {
+  if (typeof globalThis.crypto !== 'undefined' && 'getRandomValues' in globalThis.crypto) {
+    const bytes = new Uint32Array(1);
+    globalThis.crypto.getRandomValues(bytes);
+    return bytes[0] ?? 0;
+  }
+
+  const bytes = crypto.randomBytes(4);
+  return bytes.readUInt32BE(0);
 }

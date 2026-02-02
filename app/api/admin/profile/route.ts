@@ -14,7 +14,7 @@ export async function PATCH(request: NextRequest) {
             return auth;
         }
 
-        const body = await request.json();
+        const body = (await request.json()) as { name?: string; password?: string };
         const { name, password } = body;
 
         // Validation
@@ -26,8 +26,8 @@ export async function PATCH(request: NextRequest) {
         }
 
         const db = getTenantDb(auth.user.tenant_id);
-        const updates: any[] = [];
-        const values: any[] = [];
+        const updates: string[] = [];
+        const values: string[] = [];
         let paramIndex = 1;
 
         if (name) {

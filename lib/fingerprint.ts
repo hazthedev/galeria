@@ -14,11 +14,25 @@ export function getClientFingerprint(): string | null {
     return existing;
   }
 
-  const fallback = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  const fallback = createFallbackId();
   const generated = typeof crypto !== 'undefined' && 'randomUUID' in crypto
     ? crypto.randomUUID()
     : fallback;
 
   window.localStorage.setItem(STORAGE_KEY, generated);
   return generated;
+}
+
+function createFallbackId(): string {
+  const now = Date.now().toString(36);
+  const perf = typeof performance !== 'undefined' ? Math.floor(performance.now()).toString(36) : '0';
+
+  if (typeof crypto !== 'undefined' && 'getRandomValues' in crypto) {
+    const bytes = new Uint8Array(8);
+    crypto.getRandomValues(bytes);
+    const randomHex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+    return `${now}-${perf}-${randomHex}`;
+  }
+
+  return `${now}-${perf}`;
 }

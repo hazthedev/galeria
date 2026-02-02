@@ -30,6 +30,7 @@ import type { IEvent, IPhoto } from '@/lib/types';
 import { getClientFingerprint } from '@/lib/fingerprint';
 import { Recaptcha } from '@/components/auth/Recaptcha';
 import { useLuckyDraw } from '@/lib/realtime/client';
+import { SlotMachineAnimation } from '@/components/lucky-draw/SlotMachineAnimation';
 
 // ============================================
 // TYPES
@@ -120,6 +121,44 @@ function mergePhotos(approved: IPhoto[], pending: IPhoto[], rejected: IPhoto[]):
   return Array.from(merged.values());
 }
 
+function formatDrawNumber(entryId?: string | null) {
+  if (!entryId) return '----';
+  const clean = entryId.replace(/-/g, '');
+  if (!clean) return '----';
+  return clean.slice(-4).toUpperCase().padStart(4, '0');
+}
+
+function formatEntryNumbers(entryIds: Array<string | null | undefined>) {
+  const formatted = entryIds
+    .filter((id): id is string => typeof id === 'string' && id.length > 0)
+    .map((id) => formatDrawNumber(id))
+    .filter((value) => value !== '----');
+  return formatted;
+}
+
+function hexToRgb(hex: string) {
+  const cleaned = hex.replace('#', '');
+  if (cleaned.length !== 6) return null;
+  const r = parseInt(cleaned.slice(0, 2), 16);
+  const g = parseInt(cleaned.slice(2, 4), 16);
+  const b = parseInt(cleaned.slice(4, 6), 16);
+  if (Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) return null;
+  return { r, g, b };
+}
+
+function isColorDark(hex: string) {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return false;
+  const luminance = (0.2126 * rgb.r + 0.7152 * rgb.g + 0.0722 * rgb.b) / 255;
+  return luminance < 0.5;
+}
+
+function hexToRgba(hex: string, alpha: number) {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return `rgba(0,0,0,${alpha})`;
+  return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
+}
+
 // ============================================
 // GUEST NAME MODAL COMPONENT
 // ============================================
@@ -130,6 +169,15 @@ function GuestNameModal({
   eventName,
   initialName,
   initialAnonymous,
+  themeGradient,
+  themeSurface,
+  themeSecondary,
+  secondaryText,
+  surfaceText,
+  surfaceMuted,
+  surfaceBorder,
+  inputBackground,
+  inputBorder,
   allowAnonymous = true,
 }: {
   isOpen: boolean;
@@ -137,18 +185,29 @@ function GuestNameModal({
   eventName: string;
   initialName?: string;
   initialAnonymous?: boolean;
+  themeGradient?: string;
+  themeSurface: string;
+  themeSecondary: string;
+  secondaryText: string;
+  surfaceText: string;
+  surfaceMuted: string;
+  surfaceBorder: string;
+  inputBackground: string;
+  inputBorder: string;
   allowAnonymous?: boolean;
 }) {
   const [name, setName] = useState('');
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [error, setError] = useState('');
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!isOpen) return;
     setName(initialName || '');
     setIsAnonymous(allowAnonymous ? !!initialAnonymous : false);
     setError('');
   }, [isOpen, initialName, initialAnonymous, allowAnonymous]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleSubmit = () => {
     if (!isAnonymous && !name.trim()) {
@@ -162,22 +221,28 @@ function GuestNameModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-800 animate-in fade-in zoom-in duration-200">
+      <div
+        className="w-full max-w-md rounded-2xl p-6 shadow-2xl animate-in fade-in zoom-in duration-200"
+        style={{ backgroundColor: themeSurface, color: surfaceText, borderColor: surfaceBorder }}
+      >
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-pink-500">
+          <div
+            className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full"
+            style={{ backgroundColor: themeSecondary }}
+          >
             <User className="h-8 w-8 text-white" />
           </div>
-          <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+          <h2 className="text-xl font-bold" style={{ color: surfaceText }}>
             Welcome to {eventName}!
           </h2>
-          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+          <p className="mt-2 text-sm" style={{ color: surfaceMuted }}>
             Please enter your name to get started
           </p>
         </div>
 
         <div className="space-y-4">
           <div>
-            <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label className="mb-2 block text-sm font-medium" style={{ color: surfaceText }}>
               Your Name
             </label>
             <input
@@ -190,17 +255,24 @@ function GuestNameModal({
               placeholder="John Doe"
               disabled={isAnonymous}
               className={clsx(
-                "w-full rounded-lg border px-4 py-3 text-sm focus:ring-2 focus:ring-violet-500 dark:bg-gray-700 dark:text-gray-100",
-                isAnonymous
-                  ? "border-gray-200 bg-gray-100 text-gray-400 dark:border-gray-600"
-                  : "border-gray-300 bg-white dark:border-gray-600"
+                "w-full rounded-lg border px-4 py-3 text-sm focus:ring-2 focus:ring-violet-500",
+                isAnonymous ? "text-gray-400" : ""
               )}
+              style={{
+                backgroundColor: inputBackground,
+                borderColor: inputBorder,
+                color: surfaceText,
+                opacity: isAnonymous ? 0.7 : 1,
+              }}
               maxLength={100}
             />
           </div>
 
           {allowAnonymous ? (
-            <label className="flex items-center gap-3 cursor-pointer rounded-lg border border-gray-200 p-3 hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700">
+            <label
+              className="flex items-center gap-3 cursor-pointer rounded-lg border p-3"
+              style={{ borderColor: inputBorder, backgroundColor: inputBackground }}
+            >
               <input
                 type="checkbox"
                 checked={isAnonymous}
@@ -208,38 +280,43 @@ function GuestNameModal({
                   setIsAnonymous(e.target.checked);
                   setError('');
                 }}
-                className="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+                className="h-4 w-4 rounded focus:ring-2"
+                style={{ borderColor: inputBorder, color: themeSecondary }}
               />
               <div>
-                <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                <span className="text-sm font-medium" style={{ color: surfaceText }}>
                   Stay Anonymous
                 </span>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Your name won't be shown on photos
+                <p className="text-xs" style={{ color: surfaceMuted }}>
+                  Your name won&apos;t be shown on photos
                 </p>
               </div>
             </label>
           ) : (
-            <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs text-gray-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300">
+            <div
+              className="rounded-lg border p-3 text-xs"
+              style={{ borderColor: surfaceBorder, backgroundColor: inputBackground, color: surfaceMuted }}
+            >
               Anonymous uploads are disabled for this event.
             </div>
           )}
 
           {isAnonymous && (
-            <div className="rounded-lg bg-amber-50 p-3 dark:bg-amber-900/20">
-              <p className="text-xs text-amber-800 dark:text-amber-300">
-                ⚠️ Anonymous users cannot participate in the lucky draw
+            <div className="rounded-lg p-3" style={{ backgroundColor: hexToRgba('#F59E0B', 0.15) }}>
+              <p className="text-xs" style={{ color: '#F59E0B' }}>
+                ?????? Anonymous users cannot participate in the lucky draw
               </p>
             </div>
           )}
 
           {error && (
-            <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+            <p className="text-sm" style={{ color: '#EF4444' }}>{error}</p>
           )}
 
           <button
             onClick={handleSubmit}
-            className="w-full rounded-lg bg-gradient-to-r from-violet-600 to-pink-600 py-3 text-sm font-semibold text-white hover:from-violet-700 hover:to-pink-700 transition-all"
+            className="w-full rounded-lg py-3 text-sm font-semibold transition-all"
+            style={{ backgroundColor: themeSecondary, color: secondaryText }}
           >
             Continue
           </button>
@@ -281,6 +358,8 @@ export default function GuestEventPage() {
   const [moderationNoticeType, setModerationNoticeType] = useState<'approved' | 'rejected' | null>(null);
   const [joinLuckyDraw, setJoinLuckyDraw] = useState(true);
   const [hasJoinedDraw, setHasJoinedDraw] = useState(false);
+  const [luckyDrawNumbers, setLuckyDrawNumbers] = useState<string[]>([]);
+  const [hasActiveLuckyDrawConfig, setHasActiveLuckyDrawConfig] = useState<boolean | null>(null);
   const fingerprint = useMemo(() => getClientFingerprint(), []);
   const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
   const [recaptchaError, setRecaptchaError] = useState<string | null>(null);
@@ -304,6 +383,21 @@ export default function GuestEventPage() {
   const moderationRequired = event?.settings?.features?.moderation_required || false;
   const luckyDrawEnabled = event?.settings?.features?.lucky_draw_enabled !== false;
   const photoCardStyle = event?.settings?.theme?.photo_card_style || 'vacation';
+  const themePrimary = event?.settings?.theme?.primary_color || '#8B5CF6';
+  const themeSecondary = event?.settings?.theme?.secondary_color || '#EC4899';
+  const themeBackground = event?.settings?.theme?.background || '#F9FAFB';
+  const isGradientBackground = themeBackground.includes('gradient');
+  const themeSurface = isGradientBackground ? '#FFFFFF' : themeBackground;
+  const themeGradient = themePrimary;
+  const surfaceIsDark = isColorDark(themeSurface);
+  const surfaceText = surfaceIsDark ? '#F8FAFC' : '#0F172A';
+  const surfaceMuted = surfaceIsDark ? '#CBD5F5' : '#475569';
+  const surfaceBorder = surfaceIsDark ? 'rgba(255,255,255,0.12)' : 'rgba(15,23,42,0.12)';
+  const inputBackground = surfaceIsDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.04)';
+  const inputBorder = themePrimary;
+  const headerBackground = hexToRgba(themeSurface, 0.88);
+  const primaryText = isColorDark(themePrimary) ? '#F8FAFC' : '#0F172A';
+  const secondaryText = isColorDark(themeSecondary) ? '#F8FAFC' : '#0F172A';
 
   // Selected files for upload (preview before submit)
   const [selectedFiles, setSelectedFiles] = useState<SelectedFile[]>([]);
@@ -338,6 +432,42 @@ export default function GuestEventPage() {
   }, [resolvedEventId, allowAnonymous]);
 
   useEffect(() => {
+    if (!resolvedEventId) return;
+    const storageKey = `lucky_draw_numbers_${resolvedEventId}`;
+    const saved = localStorage.getItem(storageKey);
+    if (!saved) return;
+    try {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) {
+        const numbers = parsed.filter((value) => typeof value === 'string');
+        setLuckyDrawNumbers(numbers);
+        if (numbers.length > 0) {
+          setHasJoinedDraw(true);
+          setJoinLuckyDraw(false);
+        }
+      }
+    } catch {
+      // ignore malformed storage
+    }
+  }, [resolvedEventId]);
+
+  useEffect(() => {
+    if (!resolvedEventId) return;
+    const storageKey = `lucky_draw_joined_${resolvedEventId}`;
+    const saved = localStorage.getItem(storageKey);
+    if (saved === 'true') {
+      setHasJoinedDraw(true);
+      setJoinLuckyDraw(false);
+    }
+  }, [resolvedEventId]);
+
+  useEffect(() => {
+    if (hasJoinedDraw && joinLuckyDraw) {
+      setJoinLuckyDraw(false);
+    }
+  }, [hasJoinedDraw, joinLuckyDraw]);
+
+  useEffect(() => {
     if (!allowAnonymous && isAnonymous) {
       setIsAnonymous(false);
     }
@@ -348,6 +478,31 @@ export default function GuestEventPage() {
       setJoinLuckyDraw(false);
     }
   }, [luckyDrawEnabled, joinLuckyDraw]);
+
+  useEffect(() => {
+    if (!resolvedEventId || !luckyDrawEnabled) return;
+    const loadLuckyDrawConfig = async () => {
+      try {
+        const response = await fetch(`/api/events/${resolvedEventId}/lucky-draw/config?active=true`);
+        const data = await response.json();
+        const active = !!data?.data;
+        setHasActiveLuckyDrawConfig(active);
+        if (!active) {
+          setJoinLuckyDraw(false);
+        }
+      } catch (err) {
+        console.debug('[GUEST_EVENT] Lucky draw config fetch failed:', err);
+        setHasActiveLuckyDrawConfig(null);
+      }
+    };
+    loadLuckyDrawConfig();
+  }, [resolvedEventId, luckyDrawEnabled]);
+
+  useEffect(() => {
+    if (hasActiveLuckyDrawConfig === false && joinLuckyDraw) {
+      setJoinLuckyDraw(false);
+    }
+  }, [hasActiveLuckyDrawConfig, joinLuckyDraw]);
 
   // Handle guest modal submit
   const handleGuestModalSubmit = (name: string, anonymous: boolean) => {
@@ -957,6 +1112,10 @@ export default function GuestEventPage() {
       const data = await response.json();
 
       if (!response.ok) {
+        const code = typeof data?.code === 'string' ? data.code : '';
+        if (code === 'TIER_LIMIT_REACHED' || code === 'EVENT_LIMIT_REACHED') {
+          throw new Error('Photo uploads are full for this event.');
+        }
         throw new Error(data.error || 'Failed to upload photo');
       }
 
@@ -982,9 +1141,37 @@ export default function GuestEventPage() {
         setUploadSuccessMessage('Photo uploaded successfully!');
       }
 
+      const entryIds = uploadedPhotos.map((photo: IPhoto & { lucky_draw_entry_id?: string | null }) =>
+        photo.lucky_draw_entry_id
+      );
+      const formattedEntryNumbers = formatEntryNumbers(entryIds);
+
       // If successfully joined the draw, mark as joined
       if (joinLuckyDraw && !isAnonymous) {
         setHasJoinedDraw(true);
+        setJoinLuckyDraw(false);
+        if (resolvedEventId) {
+          const joinedKey = `lucky_draw_joined_${resolvedEventId}`;
+          localStorage.setItem(joinedKey, 'true');
+        }
+        if (formattedEntryNumbers.length > 0) {
+          const list = formattedEntryNumbers.join(', ');
+          setUploadSuccessMessage(
+            formattedEntryNumbers.length === 1
+              ? `Your lucky draw number is ${list}.`
+              : `Your lucky draw numbers are ${list}.`
+          );
+          setLuckyDrawNumbers((prev) => {
+            const next = Array.from(new Set([...prev, ...formattedEntryNumbers]));
+            if (resolvedEventId) {
+              const storageKey = `lucky_draw_numbers_${resolvedEventId}`;
+              localStorage.setItem(storageKey, JSON.stringify(next));
+            }
+            return next;
+          });
+        } else {
+          setUploadSuccessMessage('You are in the lucky draw. Your number will appear shortly.');
+        }
       }
 
       // Show success and reset
@@ -1059,7 +1246,7 @@ export default function GuestEventPage() {
   });
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen" style={{ background: themeBackground }}>
       {/* Guest Name Modal */}
       <GuestNameModal
         isOpen={showGuestModal}
@@ -1067,30 +1254,43 @@ export default function GuestEventPage() {
         eventName={event.name}
         initialName={guestName}
         initialAnonymous={isAnonymous}
+        themeGradient={themeGradient}
+        themeSurface={themeSurface}
+        themeSecondary={themeSecondary}
+        secondaryText={secondaryText}
+        surfaceText={surfaceText}
+        surfaceMuted={surfaceMuted}
+        surfaceBorder={surfaceBorder}
+        inputBackground={inputBackground}
+        inputBorder={inputBorder}
         allowAnonymous={allowAnonymous}
       />
 
       {/* Lucky Draw Overlays */}
       {showDrawOverlay && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-2xl dark:bg-gray-800">
+          <div
+            className="w-full max-w-sm rounded-2xl p-6 text-center shadow-2xl"
+            style={{ backgroundColor: themeSurface, color: surfaceText, borderColor: surfaceBorder }}
+          >
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              <h3 className="text-lg font-semibold" style={{ color: surfaceText }}>
                 Lucky Draw
               </h3>
               <button
                 onClick={() => setShowDrawOverlay(false)}
-                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                className="hover:opacity-80"
+                style={{ color: surfaceMuted }}
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
             <div className="flex flex-col items-center gap-3">
               <Loader2 className="h-10 w-10 animate-spin text-violet-600" />
-              <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+              <p className="text-sm font-medium" style={{ color: surfaceText }}>
                 The lucky draw is starting...
               </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
+              <p className="text-xs" style={{ color: surfaceMuted }}>
                 Stay tuned for the winner announcement.
               </p>
             </div>
@@ -1100,77 +1300,94 @@ export default function GuestEventPage() {
 
       {showWinnerOverlay && winner && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-2xl dark:bg-gray-800">
+          <div
+            className="w-full max-w-2xl rounded-2xl p-6 text-center shadow-2xl"
+            style={{ backgroundColor: themeSurface, color: surfaceText, borderColor: surfaceBorder }}
+          >
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              <h3 className="text-lg font-semibold" style={{ color: surfaceText }}>
                 Winner Announced
               </h3>
               <button
                 onClick={() => setShowWinnerOverlay(false)}
-                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                className="hover:opacity-80"
+                style={{ color: surfaceMuted }}
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <div className="flex flex-col items-center gap-3">
-              {winner.selfie_url ? (
-                <img
-                  src={winner.selfie_url}
-                  alt="Winner"
-                  className="h-24 w-24 rounded-full object-cover border-4 border-yellow-400 shadow-lg"
-                />
-              ) : (
-                <div className="flex h-24 w-24 items-center justify-center rounded-full bg-yellow-100 text-yellow-700">
-                  <Trophy className="h-10 w-10" />
-                </div>
-              )}
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Prize Tier {winner.prize_tier}
-              </p>
-              <p className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                {winner.participant_name || 'Anonymous'}
-              </p>
-            </div>
+            <SlotMachineAnimation
+              durationSeconds={5}
+              numberString={formatDrawNumber(winner.entry_id)}
+              participantName={winner.participant_name || 'Anonymous'}
+              photoUrl={winner.selfie_url}
+              prizeName={`Prize Tier ${winner.prize_tier}`}
+              showSelfie
+              showFullName
+            />
           </div>
         </div>
       )}
 
       {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-gray-200 bg-white/80 backdrop-blur-sm dark:border-gray-700 dark:bg-gray-900/80">
+      <header
+        className="sticky top-0 z-50 border-b backdrop-blur-sm"
+        style={{ backgroundColor: headerBackground, borderColor: surfaceBorder }}
+      >
         <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-col gap-1">
-              <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+              <h1 className="text-xl font-bold" style={{ color: surfaceText }}>
                 {event.name}
               </h1>
               <div className="flex flex-wrap items-center gap-2 text-sm">
                 {event.custom_hashtag && (
-                  <span className="text-violet-600 dark:text-violet-400">
+                  <span style={{ color: surfaceMuted }}>
                     #{event.custom_hashtag}
                   </span>
                 )}
                 {(guestName || isAnonymous) && (
-                  <span className="text-gray-600 dark:text-gray-400">
+                  <span style={{ color: surfaceMuted }}>
                     Hi, {isAnonymous ? 'Anonymous' : guestName}!
                   </span>
                 )}
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap sm:justify-end">
+              {luckyDrawEnabled && (
+                <a
+                  href="#lucky-draw"
+                  className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium"
+                  style={{
+                    backgroundColor: themeSecondary,
+                    color: secondaryText,
+                    borderColor: surfaceBorder,
+                  }}
+                >
+                  <Trophy className="h-4 w-4" />
+                  Lucky Draw
+                </a>
+              )}
               {canDownload && (
                 <>
                   {selectedCount > 0 && (
                     <>
                       <button
                         onClick={handleDownloadSelectedIndividually}
-                        className="inline-flex items-center gap-2 rounded-lg border border-violet-300 bg-violet-50 px-3 py-2 text-xs font-medium text-violet-700 hover:bg-violet-100 dark:border-violet-500/60 dark:bg-violet-900/30 dark:text-violet-200 dark:hover:bg-violet-900/50"
+                        className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium"
+                        style={{
+                          backgroundColor: themeSecondary,
+                          color: secondaryText,
+                          borderColor: surfaceBorder,
+                        }}
                       >
                         <Download className="h-4 w-4" />
                         Download selected ({selectedCount})
                       </button>
                       <button
                         onClick={handleDownloadSelected}
-                        className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800"
+                        className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium"
+                        style={{ color: surfaceText, borderColor: surfaceBorder }}
                       >
                         <Download className="h-4 w-4" />
                         Download ZIP ({selectedCount})
@@ -1179,7 +1396,8 @@ export default function GuestEventPage() {
                   )}
                   <button
                     onClick={handleDownloadAll}
-                    className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800"
+                    className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium"
+                    style={{ color: surfaceText, borderColor: surfaceBorder }}
                   >
                     <Download className="h-4 w-4" />
                     Download all
@@ -1188,13 +1406,15 @@ export default function GuestEventPage() {
               )}
               <button
                 onClick={() => setShowGuestModal(true)}
-                className="inline-flex items-center rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800"
+                className="inline-flex items-center rounded-lg border px-3 py-2 text-xs font-medium"
+                style={{ color: surfaceText, borderColor: themeSecondary }}
               >
                 {isAnonymous || !guestName ? 'Add name' : 'Edit name'}
               </button>
               <button
                 onClick={handleShare}
-                className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-violet-600 to-pink-600 px-4 py-2 text-sm font-medium text-white hover:from-violet-700 hover:to-pink-700 sm:w-auto"
+                className="flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white sm:w-auto"
+                style={{ backgroundColor: themeSecondary, color: secondaryText }}
               >
                 <Share2 className="h-4 w-4" />
                 Share
@@ -1205,49 +1425,115 @@ export default function GuestEventPage() {
       </header>
 
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        {luckyDrawEnabled && (
+          <section
+            id="lucky-draw"
+            className="mb-8 rounded-2xl border p-6 shadow-sm sm:p-8 scroll-mt-24"
+            style={{ backgroundColor: themeSurface, borderColor: themePrimary, color: surfaceText }}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2" style={{ color: themeSecondary }}>
+                  <Trophy className="h-5 w-5" />
+                  <span className="text-sm font-semibold uppercase tracking-wide">Lucky Draw</span>
+                </div>
+                <h2 className="mt-2 text-2xl font-bold" style={{ color: surfaceText }}>
+                  Your Entry Numbers
+                </h2>
+                <p className="mt-2 text-sm" style={{ color: surfaceMuted }}>
+                  Join the lucky draw when you upload a photo to get your entry number.
+                </p>
+              </div>
+              <div
+                className="hidden sm:flex h-12 w-12 items-center justify-center rounded-full"
+                style={{ backgroundColor: themeSecondary, color: secondaryText }}
+              >
+                <Trophy className="h-6 w-6" />
+              </div>
+            </div>
+
+            <div className="mt-6">
+              {luckyDrawNumbers.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {luckyDrawNumbers.map((number, index) => (
+                    <span
+                      key={`${number}-${index}`}
+                      className="rounded-full px-4 py-2 text-sm font-semibold shadow-sm ring-1"
+                      style={{
+                        backgroundColor: themeSecondary,
+                        color: secondaryText,
+                        borderColor: surfaceBorder,
+                      }}
+                    >
+                      #{number}
+                    </span>
+                  ))}
+                </div>
+              ) : hasJoinedDraw ? (
+                <div
+                  className="rounded-lg border p-4 text-sm"
+                  style={{ backgroundColor: themeSurface, borderColor: surfaceBorder, color: surfaceMuted }}
+                >
+                  You are in the draw. Your lucky draw number will appear shortly.
+                </div>
+              ) : (
+                <div
+                  className="rounded-lg border p-4 text-sm"
+                  style={{ backgroundColor: themeSurface, borderColor: surfaceBorder, color: surfaceMuted }}
+                >
+                  Join the lucky draw when you upload your photo to get your entry number.
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
         {/* Event Details Card */}
-        <div className="mb-8 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-8">
+        <div
+          className="mb-8 rounded-2xl border p-6 shadow-sm sm:p-8"
+          style={{ backgroundColor: themeSurface, borderColor: themePrimary, color: surfaceText }}
+        >
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             <div className="flex items-start gap-3">
-              <Calendar className="mt-1 h-5 w-5 flex-shrink-0 text-violet-600 dark:text-violet-400" />
+              <Calendar className="mt-1 h-5 w-5 flex-shrink-0" style={{ color: themeSecondary }} />
               <div>
-                <p className="text-xs font-medium text-gray-600 dark:text-gray-400">Date</p>
-                <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{formattedDate}</p>
+                <p className="text-xs font-medium" style={{ color: surfaceMuted }}>Date</p>
+                <p className="text-sm font-semibold" style={{ color: surfaceText }}>{formattedDate}</p>
               </div>
             </div>
 
             {event.location && (
               <div className="flex items-start gap-3">
-                <MapPin className="mt-1 h-5 w-5 flex-shrink-0 text-violet-600 dark:text-violet-400" />
+                <MapPin className="mt-1 h-5 w-5 flex-shrink-0" style={{ color: themeSecondary }} />
                 <div>
-                  <p className="text-xs font-medium text-gray-600 dark:text-gray-400">Location</p>
-                  <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{event.location}</p>
+                  <p className="text-xs font-medium" style={{ color: surfaceMuted }}>Location</p>
+                  <p className="text-sm font-semibold" style={{ color: surfaceText }}>{event.location}</p>
                 </div>
               </div>
             )}
 
             {event.expected_guests && (
               <div className="flex items-start gap-3">
-                <Users className="mt-1 h-5 w-5 flex-shrink-0 text-violet-600 dark:text-violet-400" />
+                <Users className="mt-1 h-5 w-5 flex-shrink-0" style={{ color: themeSecondary }} />
                 <div>
-                  <p className="text-xs font-medium text-gray-600 dark:text-gray-400">Guests</p>
-                  <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{event.expected_guests}</p>
+                  <p className="text-xs font-medium" style={{ color: surfaceMuted }}>Guests</p>
+                  <p className="text-sm font-semibold" style={{ color: surfaceText }}>{event.expected_guests}</p>
                 </div>
               </div>
             )}
 
             <div className="flex items-start gap-3">
-              <ImageIcon className="mt-1 h-5 w-5 flex-shrink-0 text-violet-600 dark:text-violet-400" />
+              <ImageIcon className="mt-1 h-5 w-5 flex-shrink-0" style={{ color: themeSecondary }} />
               <div>
-                <p className="text-xs font-medium text-gray-600 dark:text-gray-400">Photos</p>
-                <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{mergedPhotos.length}</p>
+                <p className="text-xs font-medium" style={{ color: surfaceMuted }}>Photos</p>
+                <p className="text-sm font-semibold" style={{ color: surfaceText }}>{mergedPhotos.length}</p>
               </div>
             </div>
           </div>
 
           {event.description && (
-            <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-              <p className="text-sm text-gray-700 dark:text-gray-300">{event.description}</p>
+            <div className="mt-6 pt-6 border-t" style={{ borderColor: themePrimary }}>
+              <p className="text-sm" style={{ color: surfaceMuted }}>{event.description}</p>
             </div>
           )}
         </div>
@@ -1272,13 +1558,14 @@ export default function GuestEventPage() {
               setRecaptchaToken(null);
               setRecaptchaError(null);
             }}
-            className="w-full rounded-2xl border-2 border-dashed border-gray-300 bg-white p-8 text-center hover:border-violet-400 hover:bg-violet-50 dark:border-gray-600 dark:bg-gray-800 dark:hover:border-violet-500 dark:hover:bg-violet-900/20 transition-colors"
+            className="w-full rounded-2xl border-2 border-dashed p-8 text-center transition-colors"
+            style={{ backgroundColor: themeSurface, borderColor: themePrimary, color: surfaceText }}
           >
-            <Upload className="mx-auto mb-3 h-10 w-10 text-violet-600 dark:text-violet-400" />
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            <Upload className="mx-auto mb-3 h-10 w-10" style={{ color: themeSecondary }} />
+            <h3 className="text-lg font-semibold" style={{ color: surfaceText }}>
               Share Your Photos
             </h3>
-            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+            <p className="mt-1 text-sm" style={{ color: surfaceMuted }}>
               Upload your favorite moments from this event
             </p>
           </button>
@@ -1286,14 +1573,17 @@ export default function GuestEventPage() {
 
         {/* Photo Gallery */}
         <div>
-          <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">
+          <h2 className="mb-4 text-xl font-semibold" style={{ color: surfaceText }}>
             Event Photos
           </h2>
           {mergedPhotos.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-12 text-center dark:border-gray-600 dark:bg-gray-800">
-              <ImageIcon className="mx-auto mb-4 h-16 w-16 text-gray-400" />
-              <p className="text-gray-600 dark:text-gray-400">No photos yet</p>
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-500">
+            <div
+              className="rounded-2xl border border-dashed p-12 text-center"
+              style={{ backgroundColor: themeSurface, borderColor: surfaceBorder }}
+            >
+              <ImageIcon className="mx-auto mb-4 h-16 w-16" style={{ color: surfaceMuted }} />
+              <p style={{ color: surfaceText }}>No photos yet</p>
+              <p className="mt-1 text-sm" style={{ color: surfaceMuted }}>
                 Be the first to share a moment!
               </p>
             </div>
@@ -1423,14 +1713,18 @@ export default function GuestEventPage() {
               <div className="mt-6 flex items-center justify-center">
                 {hasMoreApproved && (
                   isLoadingMore ? (
-                    <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                    <div
+                      className="flex items-center gap-2 text-sm"
+                      style={{ color: 'rgb(71, 85, 105)' }}
+                    >
                       <Loader2 className="h-4 w-4 animate-spin" />
                       Loading more photos...
                     </div>
                   ) : (
                     <button
                       onClick={loadMoreApproved}
-                      className="rounded-full border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800"
+                      className="rounded-full border px-4 py-2 text-sm font-medium hover:opacity-80"
+                      style={{ borderColor: surfaceBorder, color: surfaceText, backgroundColor: inputBackground }}
                     >
                       Load 5 more
                     </button>
@@ -1446,27 +1740,35 @@ export default function GuestEventPage() {
       {/* Share Modal */}
       {showShareModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:bg-gray-800">
+          <div
+            className="w-full max-w-md rounded-2xl p-6 shadow-xl"
+            style={{ backgroundColor: themeSurface, color: surfaceText, borderColor: surfaceBorder }}
+          >
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              <h3 className="text-lg font-semibold" style={{ color: surfaceText }}>
                 Share Event
               </h3>
               <button
                 onClick={() => setShowShareModal(false)}
-                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                className="hover:opacity-80"
+                style={{ color: surfaceMuted }}
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">
+            <p className="mb-4 text-sm" style={{ color: surfaceMuted }}>
               Share this link with guests to let them view and upload photos:
             </p>
-            <div className="mb-4 flex items-center gap-2 rounded-lg border border-gray-300 bg-gray-50 p-3 dark:border-gray-600 dark:bg-gray-700">
+            <div
+              className="mb-4 flex items-center gap-2 rounded-lg border p-3"
+              style={{ borderColor: surfaceBorder, backgroundColor: inputBackground }}
+            >
               <input
                 type="text"
                 readOnly
                 value={shareUrl}
-                className="flex-1 bg-transparent text-sm text-gray-900 dark:text-gray-100 outline-none"
+                className="flex-1 bg-transparent text-sm outline-none"
+                style={{ color: surfaceText }}
               />
               <button
                 onClick={copyToClipboard}
@@ -1482,9 +1784,12 @@ export default function GuestEventPage() {
       {/* Upload Modal */}
       {showUploadModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:bg-gray-800 max-h-[90vh] overflow-y-auto">
+          <div
+            className="w-full max-w-md rounded-2xl p-6 shadow-xl max-h-[90vh] overflow-y-auto"
+            style={{ backgroundColor: themeSurface, color: surfaceText, borderColor: surfaceBorder }}
+          >
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              <h3 className="text-lg font-semibold" style={{ color: surfaceText }}>
                 Upload Photo
               </h3>
               <button
@@ -1499,7 +1804,8 @@ export default function GuestEventPage() {
                   setRecaptchaToken(null);
                   setRecaptchaError(null);
                 }}
-                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                className="hover:opacity-80"
+                style={{ color: surfaceMuted }}
                 disabled={isUploading || isOptimizing}
               >
                 <X className="h-5 w-5" />
@@ -1552,12 +1858,16 @@ export default function GuestEventPage() {
                 {/* Selected Files Preview */}
                 {selectedFiles.length > 0 && (
                   <div>
-                    <p className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <p className="mb-2 text-sm font-medium" style={{ color: surfaceText }}>
                       Selected Photos ({selectedFiles.length}/5)
                     </p>
                     <div className="grid grid-cols-3 gap-2">
                       {selectedFiles.map((file, index) => (
-                        <div key={index} className="relative aspect-square rounded-lg overflow-hidden bg-gray-100">
+                        <div
+                          key={index}
+                          className="relative aspect-square rounded-lg overflow-hidden"
+                          style={{ backgroundColor: inputBackground }}
+                        >
                           <Image
                             src={file.preview}
                             alt={file.name}
@@ -1580,7 +1890,10 @@ export default function GuestEventPage() {
                 {selectedFiles.length < 5 && (
                   <div className="grid grid-cols-2 gap-3">
                     {/* Camera Button */}
-                    <label className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed border-violet-300 bg-gradient-to-br from-violet-50 to-pink-50 p-4 transition-all hover:border-violet-400 hover:from-violet-100 hover:to-pink-100 dark:from-violet-900/20 dark:to-pink-900/20">
+                    <label
+                      className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed p-4 transition-all hover:opacity-90"
+                      style={{ borderColor: themePrimary, backgroundColor: inputBackground }}
+                    >
                       <input
                         type="file"
                         accept="image/*"
@@ -1588,14 +1901,17 @@ export default function GuestEventPage() {
                         onChange={(e) => handleFileSelect(e.target.files)}
                         className="hidden"
                       />
-                      <Camera className="h-8 w-8 text-violet-600 dark:text-violet-400" />
-                      <span className="text-xs font-semibold text-gray-900 dark:text-gray-100">
+                      <Camera className="h-8 w-8" style={{ color: themeSecondary }} />
+                      <span className="text-xs font-semibold" style={{ color: surfaceText }}>
                         Camera
                       </span>
                     </label>
 
                     {/* Gallery Button */}
-                    <label className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 p-4 transition-all hover:border-gray-400 hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-800 dark:hover:border-gray-500 dark:hover:bg-gray-700">
+                    <label
+                      className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed p-4 transition-all hover:opacity-90"
+                      style={{ borderColor: themePrimary, backgroundColor: inputBackground }}
+                    >
                       <input
                         type="file"
                         accept="image/*"
@@ -1603,21 +1919,21 @@ export default function GuestEventPage() {
                         onChange={(e) => handleFileSelect(e.target.files)}
                         className="hidden"
                       />
-                      <ImageIcon className="h-8 w-8 text-gray-600 dark:text-gray-400" />
-                      <span className="text-xs font-semibold text-gray-900 dark:text-gray-100">
+                      <ImageIcon className="h-8 w-8" style={{ color: themeSecondary }} />
+                      <span className="text-xs font-semibold" style={{ color: surfaceText }}>
                         Gallery
                       </span>
                     </label>
                   </div>
                 )}
 
-                <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
+                <p className="text-xs text-center" style={{ color: surfaceMuted }}>
                   Large photos are optimized automatically before upload
                 </p>
 
                 {/* Caption */}
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <label className="mb-2 block text-sm font-medium" style={{ color: surfaceText }}>
                     Caption (optional)
                   </label>
                   <input
@@ -1625,32 +1941,42 @@ export default function GuestEventPage() {
                     value={caption}
                     onChange={(e) => setCaption(e.target.value)}
                     placeholder="Add a caption..."
-                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm focus:border-violet-500 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                    className="w-full rounded-lg border px-4 py-2.5 text-sm focus:border-violet-500 focus:ring-violet-500"
+                    style={{ backgroundColor: inputBackground, borderColor: inputBorder, color: surfaceText }}
                     maxLength={200}
                   />
                 </div>
 
                 {/* Lucky Draw Entry */}
                 {luckyDrawEnabled && !isAnonymous && (
-                  <div className="rounded-lg border border-violet-200 bg-violet-50 p-4 dark:border-violet-800 dark:bg-violet-900/20">
+                  <div
+                    className="rounded-lg border p-4"
+                    style={{ borderColor: surfaceBorder, backgroundColor: inputBackground }}
+                  >
                     <label className="flex items-start gap-3 cursor-pointer">
                       <input
                         type="checkbox"
                         checked={joinLuckyDraw}
                         onChange={(e) => setJoinLuckyDraw(e.target.checked)}
-                        disabled={hasJoinedDraw}
-                        className="mt-0.5 h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
+                        disabled={hasJoinedDraw || hasActiveLuckyDrawConfig === false}
+                        className="mt-0.5 h-4 w-4 rounded text-violet-600 focus:ring-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
+                        style={{ borderColor: inputBorder }}
                       />
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <Trophy className="h-4 w-4 text-violet-600 dark:text-violet-400" />
-                          <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                          <span className="text-sm font-medium" style={{ color: surfaceText }}>
                             Join Lucky Draw
                           </span>
                         </div>
-                        <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
+                        <p className="mt-1 text-xs" style={{ color: surfaceMuted }}>
                           Enter this photo into the lucky draw for a chance to win prizes!
                         </p>
+                        {hasActiveLuckyDrawConfig === false && (
+                          <p className="mt-1 text-xs" style={{ color: '#F59E0B' }}>
+                            Lucky draw is not configured yet.
+                          </p>
+                        )}
                         {hasJoinedDraw && (
                           <p className="mt-1 text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
                             ✓ You have already joined the lucky draw
@@ -1670,7 +1996,10 @@ export default function GuestEventPage() {
                 )}
 
                 {(isAnonymous || !guestName.trim()) && (
-                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-gray-600 dark:bg-gray-800">
+                  <div
+                    className="rounded-lg border p-3"
+                    style={{ borderColor: surfaceBorder, backgroundColor: inputBackground }}
+                  >
                     <Recaptcha
                       onVerified={(token) => {
                         setRecaptchaToken(token);
@@ -1699,13 +2028,14 @@ export default function GuestEventPage() {
                   <button
                     onClick={handleUpload}
                     disabled={isUploading || isOptimizing}
-                    className="w-full rounded-lg bg-gradient-to-r from-violet-600 to-pink-600 py-3 text-sm font-semibold text-white hover:from-violet-700 hover:to-pink-700 transition-all disabled:opacity-50"
+                    className="w-full rounded-lg py-3 text-sm font-semibold text-white transition-all disabled:opacity-50"
+                    style={{ backgroundColor: themeSecondary, color: secondaryText }}
                   >
                     Upload {selectedFiles.length} Photo{selectedFiles.length > 1 ? 's' : ''}
                   </button>
                 )}
 
-                <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
+                <p className="text-xs text-center" style={{ color: surfaceMuted }}>
                   Up to 5 photos, max 10MB each
                 </p>
               </div>
@@ -1722,7 +2052,8 @@ export default function GuestEventPage() {
             setRecaptchaToken(null);
             setRecaptchaError(null);
           }}
-          className="fixed bottom-6 right-6 z-40 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-violet-600 to-pink-600 text-white shadow-2xl hover:from-violet-700 hover:to-pink-700 transition-all hover:scale-110 active:scale-95"
+          className="fixed bottom-6 right-6 z-40 flex h-16 w-16 items-center justify-center rounded-full text-white shadow-2xl transition-all hover:scale-110 active:scale-95"
+          style={{ backgroundImage: `linear-gradient(135deg, ${themePrimary}, ${themeSecondary})` }}
           aria-label="Quick photo upload"
         >
           <Camera className="h-8 w-8" />

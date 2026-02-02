@@ -65,6 +65,19 @@ export async function PATCH(
             values
         );
 
+        if (subscription_tier !== undefined) {
+            await db.query(
+                `UPDATE tenants
+                 SET subscription_tier = $1, updated_at = NOW()
+                 WHERE id IN (
+                   SELECT DISTINCT tenant_id
+                   FROM events
+                   WHERE organizer_id = $2
+                 )`,
+                [subscription_tier, userId]
+            );
+        }
+
         return NextResponse.json({ success: true });
     } catch (error) {
         console.error('[SUPERVISOR_USER_PATCH] Error:', error);

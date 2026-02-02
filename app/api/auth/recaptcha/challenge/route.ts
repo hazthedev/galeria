@@ -3,6 +3,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
 import { generateMathChallenge, storeChallenge, verifyChallenge, cleanupChallenge } from '@/lib/recaptcha';
 
 /**
@@ -23,7 +24,7 @@ export async function POST(request: NextRequest) {
 
       if (isValid) {
         // Generate a token that can be used instead of reCAPTCHA token
-        const fallbackToken = `fallback_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+        const fallbackToken = `fallback_${Date.now()}_${crypto.randomUUID()}`;
 
         return NextResponse.json({
           valid: true,

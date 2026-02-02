@@ -575,7 +575,7 @@ function generateSubdomain(brandName: string): string {
     .substring(0, 50);
 
   // Add random suffix to ensure uniqueness
-  const suffix = Math.random().toString(36).substring(2, 8);
+  const suffix = crypto.randomBytes(3).toString('hex');
   return `${base}-${suffix}`;
 }
 

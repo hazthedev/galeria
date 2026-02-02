@@ -12,6 +12,7 @@
  */
 
 import { Queue, Worker, Job, QueueEvents } from 'bullmq';
+import type { Redis as RedisClient } from 'ioredis';
 import { getRedisClient } from '../lib/redis';
 import { getTenantDb } from '../lib/db';
 import {
@@ -99,9 +100,9 @@ let queueEvents: QueueEvents | null = null;
  */
 function getQueue(): Queue<ScanJobData> {
   if (!scanQueue) {
-    const redis = getRedisClient();
+    const redis = getRedisClient() as RedisClient;
     scanQueue = new Queue<ScanJobData>(QUEUE_NAME, {
-      connection: redis as any,
+      connection: redis,
       defaultJobOptions: JOB_OPTIONS,
     });
 
@@ -377,11 +378,11 @@ export async function startScanWorker(): Promise<void> {
     return;
   }
 
-  const redis = getRedisClient();
+  const redis = getRedisClient() as RedisClient;
 
   // Create queue events listener
   queueEvents = new QueueEvents(QUEUE_NAME, {
-    connection: redis as any,
+    connection: redis,
   });
 
   queueEvents.on('waiting', ({ jobId }) => {
@@ -408,7 +409,7 @@ export async function startScanWorker(): Promise<void> {
       return await processScanJob(job);
     },
     {
-      connection: redis as any,
+      connection: redis,
       concurrency: CONCURRENCY,
     }
   );

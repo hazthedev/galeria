@@ -3,6 +3,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
 import { getTenantId } from '@/lib/tenant';
 import { getTenantDb } from '@/lib/db';
 import { verifyAccessToken } from '@/lib/auth';
@@ -161,7 +162,7 @@ export async function POST(
       }
 
       // Add new reaction
-      const reactionId = `reaction_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+      const reactionId = `reaction_${Date.now()}_${crypto.randomBytes(8).toString('hex')}`;
       await db.insert('photo_reactions', {
         id: reactionId,
         photo_id: photoId,
@@ -221,7 +222,7 @@ export async function POST(
       }
 
       // Add new reaction
-      const reactionId = `reaction_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+      const reactionId = `reaction_${Date.now()}_${crypto.randomBytes(8).toString('hex')}`;
       await db.insert('photo_reactions', {
         id: reactionId,
         photo_id: photoId,

@@ -5,7 +5,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Image as ImageIcon, Users, Heart, AlertCircle, TrendingUp, Loader2 } from 'lucide-react';
+import { Image as ImageIcon, Users, Heart, AlertCircle, TrendingUp, Loader2, Sparkles, Trophy } from 'lucide-react';
 import clsx from 'clsx';
 
 interface EventStatsData {
@@ -17,6 +17,10 @@ interface EventStatsData {
   uploadTimeline: { date: string; count: number }[];
   totalReactions: number;
   pendingModeration: number;
+  luckyDrawStatus: 'active' | 'not_set';
+  luckyDrawEntryCount: number;
+  tierMaxPhotosPerEvent: number;
+  tierDisplayName: string;
   topLikedPhotos: {
     id: string;
     imageUrl: string;
@@ -130,6 +134,10 @@ export function EventStats({ eventId, refreshInterval = 30000, className }: Even
 
   // Calculate max for timeline chart scaling
   const maxTimelineCount = Math.max(...stats.uploadTimeline.map(d => d.count), 1);
+  const tierLimitLabel =
+    stats.tierMaxPhotosPerEvent < 0
+      ? 'Unlimited'
+      : stats.tierMaxPhotosPerEvent.toLocaleString();
 
   return (
     <div className={clsx('space-y-6', className)}>
@@ -179,6 +187,56 @@ export function EventStats({ eventId, refreshInterval = 30000, className }: Even
               <p className="text-sm text-gray-600 dark:text-gray-400">Avg Photos Per User</p>
               <p className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
                 {stats.avgPhotosPerUser.toFixed(1)}
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+          <div className="flex items-center gap-3">
+            <ImageIcon className="h-8 w-8 text-blue-600" />
+            <div>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Photo Limit ({stats.tierDisplayName})
+              </p>
+              <p className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+                {tierLimitLabel}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Lucky Draw Status */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+          <div className="flex items-center gap-3">
+            <Users className="h-8 w-8 text-emerald-600" />
+            <div>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Tier Status</p>
+              <p className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+                {stats.tierDisplayName}
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+          <div className="flex items-center gap-3">
+            <Sparkles className="h-8 w-8 text-amber-500" />
+            <div>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Lucky Draw Status</p>
+              <p className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+                {stats.luckyDrawStatus === 'active' ? 'Configured' : 'Not set'}
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+          <div className="flex items-center gap-3">
+            <Trophy className="h-8 w-8 text-amber-500" />
+            <div>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Lucky Draw Entries</p>
+              <p className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+                {stats.luckyDrawEntryCount.toLocaleString()}
               </p>
             </div>
           </div>

@@ -1,11 +1,10 @@
 // Grant tester tier to the organizer test account.
 // Usage: node scripts/grant-organizer-tester.js
 
-const { Client } = require('pg');
-
 const EMAIL = 'organizer@gmail.com';
 
 async function main() {
+  const { Client } = await import('pg');
   if (!process.env.DATABASE_URL) {
     throw new Error('DATABASE_URL is not set');
   }

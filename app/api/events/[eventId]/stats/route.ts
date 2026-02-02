@@ -8,6 +8,9 @@ import { getTenantId } from '@/lib/tenant';
 import { getTenantDb } from '@/lib/db';
 import { verifyAccessToken } from '@/lib/auth';
 import { extractSessionId, getSession, refreshSession } from '@/lib/session';
+import { getActiveConfig } from '@/lib/lucky-draw';
+import { resolveUserTier } from '@/lib/subscription';
+import { getTierConfig } from '@/lib/tier-config';
 import type { IPhoto } from '@/lib/types';
 
 interface EventStats {
@@ -19,6 +22,10 @@ interface EventStats {
   uploadTimeline: { date: string; count: number }[];
   totalReactions: number;
   pendingModeration: number;
+  luckyDrawStatus: 'active' | 'not_set';
+  luckyDrawEntryCount: number;
+  tierMaxPhotosPerEvent: number;
+  tierDisplayName: string;
   topLikedPhotos: {
     id: string;
     imageUrl: string;
@@ -99,14 +106,20 @@ export async function GET(
         avgPhotosPerUser: 0,
         topContributors: [],
         uploadTimeline: [],
-        totalReactions: 0,
-        pendingModeration: 0,
-        topLikedPhotos: [],
-      };
-      return NextResponse.json({ data: emptyStats });
+      totalReactions: 0,
+      pendingModeration: 0,
+      luckyDrawStatus: 'not_set',
+      luckyDrawEntryCount: 0,
+      tierMaxPhotosPerEvent: 0,
+      tierDisplayName: 'Free',
+      topLikedPhotos: [],
+    };
+    return NextResponse.json({ data: emptyStats });
     }
 
     const db = getTenantDb(tenantId);
+    const subscriptionTier = await resolveUserTier(headers, tenantId, 'free');
+    let effectiveTier = subscriptionTier;
 
     // Check if event exists
     const event = await db.findOne('events', { id });
@@ -127,6 +140,16 @@ export async function GET(
         { status: 403 }
       );
     }
+
+    // Prefer tenant tier for overview (organizer owns tenant limits)
+    const tenant = await db.findOne<{ subscription_tier: EventStats['tierDisplayName'] }>(
+      'tenants',
+      { id: event.tenant_id }
+    );
+    if (tenant?.subscription_tier) {
+      effectiveTier = tenant.subscription_tier as typeof subscriptionTier;
+    }
+    const tierConfig = getTierConfig(effectiveTier);
 
     // Get all photos for this event
     const photos = await db.findMany<IPhoto>('photos', { event_id: id });
@@ -212,8 +235,26 @@ export async function GET(
       uploadTimeline,
       totalReactions,
       pendingModeration,
+      luckyDrawStatus: 'not_set',
+      luckyDrawEntryCount: 0,
+      tierMaxPhotosPerEvent: tierConfig.limits.max_photos_per_event,
+      tierDisplayName: tierConfig.displayName,
       topLikedPhotos,
     };
+
+    try {
+      const activeConfig = await getActiveConfig(tenantId, id);
+      if (activeConfig) {
+        const countResult = await db.query<{ count: bigint }>(
+          `SELECT COUNT(*) as count FROM lucky_draw_entries WHERE config_id = $1`,
+          [activeConfig.id]
+        );
+        stats.luckyDrawStatus = 'active';
+        stats.luckyDrawEntryCount = Number(countResult.rows[0]?.count || 0);
+      }
+    } catch (err) {
+      console.warn('[API] Lucky draw stats failed:', err);
+    }
 
     return NextResponse.json({ data: stats });
   } catch (error) {

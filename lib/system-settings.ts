@@ -37,11 +37,6 @@ const DEFAULT_SYSTEM_SETTINGS: ISystemSettings = {
         anonymous_allowed: true,
         guest_download_enabled: true,
       },
-      limits: {
-        max_photos_per_user: 5,
-        max_total_photos: 50,
-        max_draw_entries: 30,
-      },
     },
   },
 };
@@ -71,10 +66,6 @@ function mergeSettings(base: ISystemSettings, patch?: Partial<ISystemSettings>):
         features: {
           ...base.events.default_settings.features,
           ...(patch.events?.default_settings?.features || {}),
-        },
-        limits: {
-          ...base.events.default_settings.limits,
-          ...(patch.events?.default_settings?.limits || {}),
         },
       },
     },

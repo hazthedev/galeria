@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useId } from 'react';
 
 // ============================================
 // TYPES
@@ -57,39 +57,17 @@ export function Recaptcha({
   });
 
   const recaptchaRef = useRef<HTMLDivElement>(null);
-  const recaptchaId = useRef<string>(`g-recaptcha-${Date.now()}-${Math.random().toString(36).substring(7)}`);
+  const recaptchaId = useId();
 
   // Load reCAPTCHA site key
   const [siteKey, setSiteKey] = useState<string>('');
   const [enabled, setEnabled] = useState<boolean>(false);
 
-  useEffect(() => {
-    // Fetch site key from API
-    fetch('/api/auth/recaptcha/config')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.enabled && data.siteKey) {
-          setSiteKey(data.siteKey);
-          setEnabled(true);
-        } else {
-          // If reCAPTCHA not configured, show fallback immediately
-          setState((prev) => ({ ...prev, useFallback: true }));
-          generateFallbackChallenge();
-        }
-      })
-      .catch((err) => {
-        console.error('[RECAPTCHA] Failed to load config:', err);
-        // On error, use fallback
-        setState((prev) => ({ ...prev, useFallback: true, error: 'Failed to load CAPTCHA' }));
-        generateFallbackChallenge();
-      });
-  }, []);
-
   // Generate fallback math challenge
   const generateFallbackChallenge = () => {
-    const a = Math.floor(Math.random() * 10) + 1;
-    const b = Math.floor(Math.random() * 10) + 1;
-    const sessionId = `challenge_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+    const a = getRandomInt(1, 10);
+    const b = getRandomInt(1, 10);
+    const sessionId = `challenge_${Date.now()}_${getRandomId()}`;
 
     setState((prev) => ({
       ...prev,
@@ -108,52 +86,6 @@ export function Recaptcha({
       console.error('[RECAPTCHA] Failed to store challenge:', err);
     });
   };
-
-  // Execute reCAPTCHA when component renders
-  useEffect(() => {
-    if (!enabled || !siteKey || state.useFallback) return;
-
-    // Load reCAPTCHA script
-    const script = document.createElement('script');
-    script.src = `https://www.google.com/recaptcha/api.js?render=${siteKey}`;
-    script.async = true;
-    script.defer = true;
-
-    script.onload = () => {
-      // @ts-ignore - grecaptcha is loaded by the script
-      if (window.grecaptcha) {
-        setState((prev) => ({ ...prev, loaded: true }));
-
-        // Render the reCAPTCHA widget
-        // @ts-ignore
-        window.grecaptcha.render(recaptchaId.current, {
-          sitekey: siteKey,
-          callback: handleRecaptchaVerified,
-          'expired-callback': handleRecaptchaExpired,
-          'error-callback': handleRecaptchaError,
-        });
-      }
-    };
-
-    script.onerror = () => {
-      console.error('[RECAPTCHA] Failed to load script');
-      setState((prev) => ({
-        ...prev,
-        useFallback: true,
-        error: 'Failed to load CAPTCHA, using fallback',
-      }));
-      generateFallbackChallenge();
-    };
-
-    document.head.appendChild(script);
-
-    return () => {
-      // Cleanup
-      if (document.head.contains(script)) {
-        document.head.removeChild(script);
-      }
-    };
-  }, [enabled, siteKey, state.useFallback]);
 
   // ============================================
   // HANDLERS
@@ -220,6 +152,74 @@ export function Recaptcha({
     }
   };
 
+  useEffect(() => {
+    // Fetch site key from API
+    fetch('/api/auth/recaptcha/config')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.enabled && data.siteKey) {
+          setSiteKey(data.siteKey);
+          setEnabled(true);
+        } else {
+          // If reCAPTCHA not configured, show fallback immediately
+          setState((prev) => ({ ...prev, useFallback: true }));
+          generateFallbackChallenge();
+        }
+      })
+      .catch((err) => {
+        console.error('[RECAPTCHA] Failed to load config:', err);
+        // On error, use fallback
+        setState((prev) => ({ ...prev, useFallback: true, error: 'Failed to load CAPTCHA' }));
+        generateFallbackChallenge();
+      });
+  }, []);
+
+  // Execute reCAPTCHA when component renders
+  useEffect(() => {
+    if (!enabled || !siteKey || state.useFallback) return;
+
+    // Load reCAPTCHA script
+    const script = document.createElement('script');
+    script.src = `https://www.google.com/recaptcha/api.js?render=${siteKey}`;
+    script.async = true;
+    script.defer = true;
+
+    script.onload = () => {
+      // @ts-expect-error - grecaptcha is loaded by the script
+      if (window.grecaptcha) {
+        setState((prev) => ({ ...prev, loaded: true }));
+
+        // Render the reCAPTCHA widget
+        // @ts-expect-error - grecaptcha is loaded by the script
+        window.grecaptcha.render(recaptchaId, {
+          sitekey: siteKey,
+          callback: handleRecaptchaVerified,
+          'expired-callback': handleRecaptchaExpired,
+          'error-callback': handleRecaptchaError,
+        });
+      }
+    };
+
+    script.onerror = () => {
+      console.error('[RECAPTCHA] Failed to load script');
+      setState((prev) => ({
+        ...prev,
+        useFallback: true,
+        error: 'Failed to load CAPTCHA, using fallback',
+      }));
+      generateFallbackChallenge();
+    };
+
+    document.head.appendChild(script);
+
+    return () => {
+      // Cleanup
+      if (document.head.contains(script)) {
+        document.head.removeChild(script);
+      }
+    };
+  }, [enabled, siteKey, state.useFallback]);
+
   // ============================================
   // RENDER
   // ============================================
@@ -271,7 +271,7 @@ export function Recaptcha({
     <div className={`recaptcha-container ${className}`}>
       <div
         ref={recaptchaRef}
-        id={recaptchaId.current}
+        id={recaptchaId}
         className="g-recaptcha"
         data-sitekey={siteKey}
       />
@@ -299,9 +299,9 @@ export function useRecaptcha() {
     setError(null);
 
     try {
-      // @ts-ignore
+      // @ts-expect-error - grecaptcha is loaded by the script
       if (window.grecaptcha) {
-        // @ts-ignore
+        // @ts-expect-error - grecaptcha is loaded by the script
         const responseToken = await window.grecaptcha.execute('upload', {
           action: 'upload',
         });
@@ -348,3 +348,16 @@ export const recaptchaStyles = `
     display: block;
   }
 `;
+
+function getRandomInt(min: number, max: number): number {
+  const range = max - min + 1;
+  const bytes = new Uint32Array(1);
+  crypto.getRandomValues(bytes);
+  return min + (bytes[0] % range);
+}
+
+function getRandomId(): string {
+  const bytes = new Uint8Array(8);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+}

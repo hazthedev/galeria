@@ -5,6 +5,7 @@
 // Score: 0.0 (bot) to 1.0 (human)
 // Threshold: 0.5 (configurable per tenant)
 
+import crypto from 'crypto';
 import { getRedisClient } from './redis';
 
 // ============================================
@@ -272,13 +273,13 @@ export function generateMathChallenge(): {
   answer: number;
   sessionId: string;
 } {
-  const a = Math.floor(Math.random() * 10) + 1;
-  const b = Math.floor(Math.random() * 10) + 1;
+  const a = crypto.randomInt(1, 11);
+  const b = crypto.randomInt(1, 11);
 
   return {
     question: `${a} + ${b} = ?`,
     answer: a + b,
-    sessionId: `challenge_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`,
+    sessionId: `challenge_${Date.now()}_${crypto.randomBytes(8).toString('hex')}`,
   };
 }
 

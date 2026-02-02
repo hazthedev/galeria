@@ -3,6 +3,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
 import { getTenantId, getTenantContextFromHeaders } from '@/lib/tenant';
 import { getTenantDb } from '@/lib/db';
 import { verifyAccessToken } from '@/lib/auth';
@@ -215,7 +216,7 @@ export async function POST(request: NextRequest) {
     // If slug exists, add random suffix
     let attempts = 0;
     while (slugExists && attempts < 10) {
-      slug = `${slug}-${Math.random().toString(36).substring(2, 6)}`;
+      slug = `${slug}-${crypto.randomBytes(2).toString('hex')}`;
       slugExists = await db.findOne<IEvent>('events', { slug });
       attempts++;
     }
@@ -243,6 +244,7 @@ export async function POST(request: NextRequest) {
         primary_color: '#8B5CF6',
         secondary_color: '#EC4899',
         background: '#F9FAFB',
+        surface_color: '#1F2937',
         logo_url: undefined,
         frame_template: 'polaroid',
         photo_card_style: 'vacation',
@@ -260,6 +262,14 @@ export async function POST(request: NextRequest) {
         max_total_photos: 50,
         max_draw_entries: 30,
       },
+      security: {
+        upload_rate_limits: {
+          per_ip_hourly: 10,
+          per_fingerprint_hourly: 10,
+          burst_per_ip_minute: 5,
+          per_event_daily: 100,
+        },
+      },
     };
 
     try {
@@ -275,10 +285,6 @@ export async function POST(request: NextRequest) {
           features: {
             ...defaultSettings.features,
             ...(systemSettings.events.default_settings.features || {}),
-          },
-          limits: {
-            ...defaultSettings.limits,
-            ...(systemSettings.events.default_settings.limits || {}),
           },
         };
       }

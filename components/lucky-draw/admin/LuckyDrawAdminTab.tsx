@@ -20,6 +20,7 @@ import {
   RefreshCw,
   Copy,
   Upload,
+  type LucideIcon,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { toast } from 'sonner';
@@ -249,7 +250,7 @@ const prizeTierOptions: Array<{ value: PrizeTierForm['tier']; label: string }> =
 ];
 
 const animationStyleOptions: Array<{ value: AnimationStyle; label: string }> = [
-  { value: 'countdown', label: 'Countdown' },
+  { value: 'slot', label: 'Slot Machine' },
 ];
 
 const defaultTierName: Record<PrizeTierForm['tier'], string> = {
@@ -282,8 +283,8 @@ const buildConfigForm = (config: LuckyDrawConfig | null): ConfigFormState => ({
   maxEntriesPerUser: config?.maxEntriesPerUser ?? 1,
   requirePhotoUpload: config?.requirePhotoUpload ?? true,
   preventDuplicateWinners: config?.preventDuplicateWinners ?? true,
-  animationStyle: config?.animationStyle ?? 'countdown',
-  animationDuration: config?.animationDuration ?? 8,
+  animationStyle: config?.animationStyle ?? 'slot',
+  animationDuration: config?.animationDuration ?? 5,
   showSelfie: config?.showSelfie ?? true,
   showFullName: config?.showFullName ?? true,
   playSound: config?.playSound ?? true,
@@ -1749,7 +1750,7 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
   // SUB-TAB NAVIGATION
   // ============================================
 
-  const subTabs: { id: SubTab; label: string; icon: any }[] = [
+  const subTabs: { id: SubTab; label: string; icon: LucideIcon }[] = [
     { id: 'config', label: 'Configuration', icon: Settings },
     { id: 'entries', label: 'Entries', icon: Users },
     { id: 'participants', label: 'Participants', icon: Users },
@@ -1845,7 +1846,7 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
         {showWinnerModal && (
           <WinnerModal
             winners={winners}
-            animationStyle={config?.animationStyle || 'countdown'}
+            animationStyle={config?.animationStyle || 'slot'}
             animationDuration={config?.animationDuration || 8}
             showSelfie={config?.showSelfie ?? true}
             showFullName={config?.showFullName ?? true}
@@ -1877,13 +1878,6 @@ function DrawConfigSummary({ config }: { config: LuckyDrawConfig }) {
       </h3>
 
       <div className="space-y-4">
-        <div>
-          <p className="text-sm text-gray-600 dark:text-gray-400">Animation Style</p>
-          <p className="text-sm font-medium text-gray-900 dark:text-gray-100 capitalize">
-            {config.animationStyle.replace('_', ' ')}
-          </p>
-        </div>
-
         <div>
           <p className="text-sm text-gray-600 dark:text-gray-400">Max Entries Per User</p>
           <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
@@ -1970,12 +1964,6 @@ function DrawConfigCard({ config, onEdit }: { config: LuckyDrawConfig; onEdit: (
           </span>
         </div>
 
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-gray-600 dark:text-gray-400">Animation</span>
-          <span className="text-sm font-medium text-gray-900 dark:text-gray-100 capitalize">
-            {config.animationStyle.replace('_', ' ')}
-          </span>
-        </div>
       </div>
     </div>
   );
@@ -2028,7 +2016,7 @@ function DrawStatsCard({
 
 interface WinnerModalProps {
   winners: Winner[];
-  animationStyle: 'countdown';
+  animationStyle: AnimationStyle;
   animationDuration: number;
   showSelfie: boolean;
   showFullName: boolean;
@@ -2075,18 +2063,27 @@ function WinnerModal({
     setShowWinner(true);
   };
 
+  const formatDrawNumber = (entryId?: string | null) => {
+    if (!entryId) return '----';
+    const clean = entryId.replace(/-/g, '');
+    if (!clean) return '----';
+    return clean.slice(-4).toUpperCase().padStart(4, '0');
+  };
+
   const skipToEnd = () => {
     setShowAllWinners(true);
     setIsAnimating(false);
   };
 
   // Reset modal when reopened
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     setCurrentIndex(0);
     setIsAnimating(false);
     setShowWinner(false);
     setShowAllWinners(false);
   }, [winners.length]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
@@ -2136,6 +2133,10 @@ function WinnerModal({
                   durationSeconds={animationDuration}
                   participantName={currentWinner?.participantName}
                   prizeName={currentWinner?.prizeName}
+                  photoUrl={currentWinner?.selfieUrl}
+                  numberString={formatDrawNumber(currentWinner?.entryId)}
+                  showSelfie={showSelfie}
+                  showFullName={showFullName}
                   entries={entries}
                   onComplete={handleAnimationComplete}
                   playSound={playSound}
@@ -2194,7 +2195,7 @@ function WinnerModal({
 
             <button
               onClick={onClose}
-              className="w-full flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-6 py-3 text-base font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
+              className="w-full flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-6 py-3 text-base font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
             >
               Close
             </button>

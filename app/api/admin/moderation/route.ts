@@ -89,7 +89,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     if (Object.keys(moderationUpdates).length > 0) {
-      updates.moderation = moderationUpdates as any;
+      updates.moderation = moderationUpdates as ISystemSettings['moderation'];
     }
 
     // Update settings

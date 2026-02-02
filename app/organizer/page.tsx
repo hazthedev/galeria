@@ -196,7 +196,7 @@ export default function DashboardPage() {
                         )}!
                     </h1>
                     <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                        Here's what's happening with your events.
+                        Here&apos;s what&apos;s happening with your events.
                     </p>
                 </div>
 

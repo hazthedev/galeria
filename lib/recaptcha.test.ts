@@ -16,6 +16,7 @@ import {
   shouldRenderRecaptcha,
   RATE_LIMIT_CONFIGS,
 } from './recaptcha';
+import { closeRedis } from './redis';
 
 // ============================================
 // TEST UTILITIES
@@ -28,6 +29,7 @@ interface TestResult {
 }
 
 const results: { name: string; result: TestResult }[] = [];
+const isJest = Boolean(process.env.JEST_WORKER_ID);
 
 async function runTest(name: string, testFn: () => Promise<TestResult>) {
   process.stdout.write(`  Testing: ${name}... `);
@@ -68,7 +70,7 @@ async function cleanupKeys(keys: string[]) {
 // TEST CASES
 // ============================================
 
-async function runAllTests() {
+export async function runAllTests() {
   console.log('\n═════════════════════════════════════════════════════════════');
   console.log('         RECAPTCHA v3 TEST SUITE');
   console.log('═════════════════════════════════════════════════════════════\n');
@@ -478,6 +480,10 @@ async function runAllTests() {
 
   console.log('═════════════════════════════════════════════════════════════\n');
 
+  if (isJest) {
+    await closeRedis();
+  }
+
   return failed === 0;
 }
 
@@ -500,11 +506,18 @@ async function checkRedisAvailable(): Promise<boolean> {
 // RUN TESTS
 // ============================================
 
-runAllTests()
-  .then((success) => {
-    process.exit(success ? 0 : 1);
-  })
-  .catch((error) => {
-    console.error('Test suite error:', error);
-    process.exit(1);
-  });
+if (process.env.JEST_WORKER_ID) {
+  test('recaptcha test suite', async () => {
+    const success = await runAllTests();
+    expect(success).toBe(true);
+  }, 30000);
+} else {
+  runAllTests()
+    .then((success) => {
+      process.exit(success ? 0 : 1);
+    })
+    .catch((error) => {
+      console.error('Test suite error:', error);
+      process.exit(1);
+    });
+}

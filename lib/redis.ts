@@ -40,6 +40,7 @@ function parseHostPort(value: string): { host: string; port: number } {
 // ============================================
 
 let redisClient: RedisType | null = null;
+const logRedisEvents = !process.env.JEST_WORKER_ID;
 
 /**
  * Get or create the Redis client singleton
@@ -90,23 +91,33 @@ export function getRedisClient(): RedisType {
 
     // Event listeners for monitoring
     redisClient.on('connect', () => {
-      console.log('[REDIS] Connecting to Redis...');
+      if (logRedisEvents) {
+        console.log('[REDIS] Connecting to Redis...');
+      }
     });
 
     redisClient.on('ready', () => {
-      console.log('[REDIS] Redis connection ready');
+      if (logRedisEvents) {
+        console.log('[REDIS] Redis connection ready');
+      }
     });
 
     redisClient.on('error', (err) => {
-      console.error('[REDIS] Connection error:', err.message);
+      if (logRedisEvents) {
+        console.error('[REDIS] Connection error:', err.message);
+      }
     });
 
     redisClient.on('close', () => {
-      console.log('[REDIS] Connection closed');
+      if (logRedisEvents) {
+        console.log('[REDIS] Connection closed');
+      }
     });
 
     redisClient.on('reconnecting', () => {
-      console.log('[REDIS] Reconnecting...');
+      if (logRedisEvents) {
+        console.log('[REDIS] Reconnecting...');
+      }
     });
   }
 

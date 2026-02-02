@@ -40,11 +40,6 @@ const DEFAULT_SETTINGS: ISystemSettings = {
         anonymous_allowed: true,
         guest_download_enabled: true,
       },
-      limits: {
-        max_photos_per_user: 5,
-        max_total_photos: 50,
-        max_draw_entries: 30,
-      },
     },
   },
 };
@@ -81,10 +76,6 @@ const mergeSettings = (
         features: {
           ...base.events.default_settings.features,
           ...(patch.events?.default_settings?.features || {}),
-        },
-        limits: {
-          ...base.events.default_settings.limits,
-          ...(patch.events?.default_settings?.limits || {}),
         },
       },
     },
@@ -510,36 +501,6 @@ export default function SupervisorSettingsPage() {
           </div>
         </section>
 
-        <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Default Event Limits</h2>
-          <p className="mt-1 text-sm text-gray-500">Limits applied to new events.</p>
-          <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-            {Object.entries(settings.events.default_settings.limits).map(([key, value]) => (
-              <label key={key} className="flex items-center justify-between gap-2 text-xs text-gray-600 dark:text-gray-300">
-                <span>{key.replace(/_/g, ' ')}</span>
-                <input
-                  type="number"
-                  value={value as number}
-                  onChange={(e) =>
-                    setSettings((prev) => ({
-                      ...prev,
-                      events: {
-                        default_settings: {
-                          ...prev.events.default_settings,
-                          limits: {
-                            ...prev.events.default_settings.limits,
-                            [key]: parseInt(e.target.value || '0', 10),
-                          },
-                        },
-                      },
-                    }))
-                  }
-                  className="w-28 rounded border border-gray-300 px-2 py-1 text-xs focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900"
-                />
-              </label>
-            ))}
-          </div>
-        </section>
       </div>
     </div>
   );

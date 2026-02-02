@@ -4,7 +4,7 @@
 // Password strength validation and security checks
 // Includes common password detection, entropy calculation, and requirements
 
-import { timingSafeEqual } from 'crypto';
+import { randomInt, timingSafeEqual } from 'crypto';
 
 // ============================================
 // CONFIGURATION
@@ -297,21 +297,21 @@ export function generatePassword(
 
   // Ensure required character types are included
   if (requirements.requireLowercase) {
-    password += lowercase[Math.floor(Math.random() * lowercase.length)];
+    password += lowercase[randomIndex(lowercase.length)];
   }
 
   if (requirements.requireUppercase) {
-    password += uppercase[Math.floor(Math.random() * uppercase.length)];
+    password += uppercase[randomIndex(uppercase.length)];
     charset += uppercase;
   }
 
   if (requirements.requireNumbers) {
-    password += numbers[Math.floor(Math.random() * numbers.length)];
+    password += numbers[randomIndex(numbers.length)];
     charset += numbers;
   }
 
   if (requirements.requireSpecialChars) {
-    password += special[Math.floor(Math.random() * special.length)];
+    password += special[randomIndex(special.length)];
     charset += special;
   }
 
@@ -321,11 +321,16 @@ export function generatePassword(
   if (!requirements.requireSpecialChars) charset += special;
 
   while (password.length < length) {
-    password += charset[Math.floor(Math.random() * charset.length)];
+    password += charset[randomIndex(charset.length)];
   }
 
   // Shuffle the password
-  return password.split('').sort(() => Math.random() - 0.5).join('');
+  const shuffled = password.split('');
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = randomIndex(i + 1);
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled.join('');
 }
 
 // ============================================
@@ -351,6 +356,10 @@ export function passwordsMatch(password: string, confirmPassword: string): boole
   } catch {
     return false;
   }
+}
+
+function randomIndex(maxExclusive: number): number {
+  return randomInt(0, maxExclusive);
 }
 
 /**

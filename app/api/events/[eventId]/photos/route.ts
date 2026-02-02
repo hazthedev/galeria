@@ -16,7 +16,7 @@ import { checkUploadRateLimit } from '@/lib/rate-limit';
 import { validateRecaptchaForUpload, isRecaptchaRequiredForUploads } from '@/lib/recaptcha';
 import { isModerationEnabled } from '@/lib/moderation/auto-moderate';
 import { queuePhotoScan } from '@/jobs/scan-content';
-import type { DeviceType } from '@/lib/types';
+import type { DeviceType, IPhoto, SubscriptionTier } from '@/lib/types';
 import { resolveUserTier } from '@/lib/subscription';
 import { applyCacheHeaders, CACHE_PROFILES } from '@/lib/cache/strategy';
 
@@ -40,6 +40,16 @@ export async function POST(
 
     const db = getTenantDb(tenantId);
     const subscriptionTier = await resolveUserTier(headers, tenantId, 'free');
+    const tenantTierHeader = headers.get('x-tenant-tier');
+    const allowedTiers = new Set(['free', 'pro', 'premium', 'enterprise', 'tester']);
+    const effectiveTenantTier = tenantTierHeader && allowedTiers.has(tenantTierHeader)
+      ? (tenantTierHeader as SubscriptionTier)
+      : null;
+    let effectiveTenantTierFallback: SubscriptionTier | null = null;
+    if (!effectiveTenantTier) {
+      const tenant = await db.findOne<{ subscription_tier: SubscriptionTier }>('tenants', { id: tenantId });
+      effectiveTenantTierFallback = tenant?.subscription_tier || null;
+    }
 
     // Verify event exists and is active
     const event = await db.findOne<{
@@ -55,6 +65,14 @@ export async function POST(
         limits: {
           max_photos_per_user: number;
           max_total_photos: number;
+        };
+        security?: {
+          upload_rate_limits?: {
+            per_ip_hourly?: number;
+            per_fingerprint_hourly?: number;
+            burst_per_ip_minute?: number;
+            per_event_daily?: number;
+          };
         };
       };
     }>('events', { id: eventId });
@@ -104,16 +122,27 @@ export async function POST(
     }
 
     const isAdminUploadHeader = headers.get('x-admin-upload') === 'true';
+    let tenantTierFromDb: SubscriptionTier | null = null;
+    if (!uploadUserId) {
+      const tenant = await db.findOne<{ subscription_tier: SubscriptionTier }>('tenants', { id: tenantId });
+      tenantTierFromDb = tenant?.subscription_tier || null;
+    }
+
+    const effectiveSubscriptionTier: SubscriptionTier = uploadUserId
+      ? subscriptionTier
+      : (tenantTierFromDb || effectiveTenantTier || effectiveTenantTierFallback || subscriptionTier);
     if (isAdminUploadHeader) {
       console.log('[RATE_LIMIT] Skipping for admin upload');
     } else {
 
     // Check rate limits (IP, fingerprint, event, burst protection)
+    const uploadRateLimitOverrides = event.settings?.security?.upload_rate_limits;
     const rateLimitResult = await checkUploadRateLimit(
       uploadIpAddress,
       uploadFingerprint || null,
       eventId,
-      uploadUserId
+      uploadUserId,
+      uploadRateLimitOverrides
     );
 
     if (!rateLimitResult.allowed) {
@@ -145,12 +174,12 @@ export async function POST(
     const requiresRecaptcha = isRecaptchaRequiredForUploads(undefined, isAuthenticated);
     const contentType = headers.get('content-type') || '';
 
-    let jsonBody: any | null = null;
+    let jsonBody: Record<string, unknown> | null = null;
     let formData: FormData | null = null;
 
     // Parse body once (request body can only be consumed once)
     if (contentType.includes('application/json')) {
-      jsonBody = await request.json();
+      jsonBody = (await request.json()) as Record<string, unknown>;
     } else {
       try {
         formData = await request.formData();
@@ -166,13 +195,13 @@ export async function POST(
     if (!isAuthenticated && requiresRecaptcha) {
       const isAdminUpload = headers.get('x-admin-upload') === 'true';
       const contributorName =
-        jsonBody?.contributor_name ??
-        jsonBody?.contributorName ??
-        formData?.get('contributor_name') ??
-        formData?.get('contributorName');
+        getStringValue(jsonBody?.['contributor_name']) ??
+        getStringValue(jsonBody?.['contributorName']) ??
+        getStringValue(formData?.get('contributor_name')) ??
+        getStringValue(formData?.get('contributorName'));
       const isAnonymousRaw =
-        jsonBody?.is_anonymous ??
-        jsonBody?.isAnonymous ??
+        jsonBody?.['is_anonymous'] ??
+        jsonBody?.['isAnonymous'] ??
         formData?.get('is_anonymous') ??
         formData?.get('isAnonymous');
       const isAnonymous =
@@ -191,7 +220,7 @@ export async function POST(
 
       // Extract token from either JSON or form data
       if (jsonBody) {
-        recaptchaToken = jsonBody.recaptchaToken;
+        recaptchaToken = getStringValue(jsonBody?.['recaptchaToken']);
       } else if (formData) {
         recaptchaToken = formData.get('recaptchaToken') as string | undefined;
       }
@@ -232,16 +261,11 @@ export async function POST(
     }
 
     const resolveEffectiveLimits = async () => {
-      const systemSettings = await getSystemSettings().catch(() => null);
-      const systemLimits = systemSettings?.events?.default_settings?.limits;
-
       const maxPerUser =
-        systemLimits?.max_photos_per_user ??
         event.settings?.limits?.max_photos_per_user ??
         100;
 
       const maxTotalRaw =
-        systemLimits?.max_total_photos ??
         event.settings?.limits?.max_total_photos ??
         1000;
 
@@ -253,19 +277,25 @@ export async function POST(
     // ============================================
     if (contentType.includes('application/json')) {
       const body = jsonBody || {};
-      const {
-        photoId,
-        key,
-        width,
-        height,
-        fileSize,
-        caption,
-        contributorName,
-        isAnonymous = false,
-        joinLuckyDraw = false,
-      } = body || {};
+      const photoId = getStringValue(body['photoId']);
+      const key = getStringValue(body['key']);
+      const width = getNumberValue(body['width']);
+      const height = getNumberValue(body['height']);
+      const fileSize = getNumberValue(body['fileSize']);
+      const caption = getStringValue(body['caption']);
+      const contributorName =
+        getStringValue(body['contributorName']) ??
+        getStringValue(body['contributor_name']);
+      const isAnonymous =
+        getBooleanValue(body['isAnonymous']) ??
+        getBooleanValue(body['is_anonymous']) ??
+        false;
+      const joinLuckyDraw =
+        getBooleanValue(body['joinLuckyDraw']) ??
+        getBooleanValue(body['join_lucky_draw']) ??
+        false;
 
-      if (!photoId || !key || !width || !height || !fileSize) {
+      if (!photoId || !key || width === undefined || height === undefined || fileSize === undefined) {
         return NextResponse.json(
           { error: 'Missing required fields', code: 'VALIDATION_ERROR' },
           { status: 400 }
@@ -309,7 +339,7 @@ export async function POST(
 
       // Check photo limits (skip for admins or admin uploads)
       if (userRole !== 'super_admin' && !isAdminUploadHeader) {
-        const tierLimitResult = await checkPhotoLimit(eventId, tenantId, subscriptionTier);
+        const tierLimitResult = await checkPhotoLimit(eventId, tenantId, effectiveSubscriptionTier);
         if (!tierLimitResult.allowed) {
           return NextResponse.json(
             {
@@ -394,10 +424,12 @@ export async function POST(
         approved_at: event.settings.features.moderation_required ? undefined : new Date(),
       });
 
+      let luckyDrawEntryId: string | null = null;
       if (event.settings.features.lucky_draw_enabled && joinLuckyDraw) {
         try {
           const entryName = isAnonymous ? undefined : contributorName || undefined;
-          await createEntryFromPhoto(tenantId, eventId, photo.id, userId, entryName);
+          const entry = await createEntryFromPhoto(tenantId, eventId, photo.id, userId, entryName);
+          luckyDrawEntryId = entry?.id || null;
         } catch (entryError) {
           console.warn('[API] Lucky draw entry skipped:', entryError);
         }
@@ -433,6 +465,7 @@ export async function POST(
           is_anonymous: photo.is_anonymous,
           status: photo.status,
           created_at: photo.created_at,
+          lucky_draw_entry_id: luckyDrawEntryId,
         }],
         message: 'Photo uploaded successfully',
       }, { status: 201 });
@@ -473,7 +506,7 @@ export async function POST(
     for (const file of uploadFiles) {
       // Get tier-based validation options
       const validationOptions = {
-        ...getTierValidationOptions(subscriptionTier),
+        ...getTierValidationOptions(effectiveSubscriptionTier),
         allowOversize: !uploadUserId,
       };
 
@@ -527,7 +560,7 @@ export async function POST(
     // Check photo limits (skip for admins or admin uploads)
     if (userRole !== 'super_admin' && !isAdminUploadHeader) {
       // First check tenant tier limit
-      const tierLimitResult = await checkPhotoLimit(eventId, tenantId, subscriptionTier);
+      const tierLimitResult = await checkPhotoLimit(eventId, tenantId, effectiveSubscriptionTier);
       if (!tierLimitResult.allowed) {
         return NextResponse.json(
           {
@@ -597,7 +630,7 @@ export async function POST(
         photoId,
         buffer,
         file.name,
-        subscriptionTier
+        effectiveSubscriptionTier
       );
 
       const photo = await db.insert('photos', {
@@ -620,10 +653,12 @@ export async function POST(
       });
 
       // Create lucky draw entry only if user opted in
+      let luckyDrawEntryId: string | null = null;
       if (event.settings.features.lucky_draw_enabled && joinLuckyDraw) {
         try {
           const entryName = isAnonymous ? undefined : contributorName || undefined;
-          await createEntryFromPhoto(tenantId, eventId, photo.id, userId, entryName);
+          const entry = await createEntryFromPhoto(tenantId, eventId, photo.id, userId, entryName);
+          luckyDrawEntryId = entry?.id || null;
         } catch (entryError) {
           console.warn('[API] Lucky draw entry skipped:', entryError);
         }
@@ -658,6 +693,7 @@ export async function POST(
         is_anonymous: photo.is_anonymous,
         status: photo.status,
         created_at: photo.created_at,
+        lucky_draw_entry_id: luckyDrawEntryId,
       });
     }
 
@@ -672,6 +708,30 @@ export async function POST(
       { status: 500 }
     );
   }
+}
+
+function getStringValue(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined;
+}
+
+function getNumberValue(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  return undefined;
+}
+
+function getBooleanValue(value: unknown): boolean | undefined {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') {
+    if (value.toLowerCase() === 'true') return true;
+    if (value.toLowerCase() === 'false') return false;
+  }
+  return undefined;
 }
 
 // ============================================
@@ -770,7 +830,7 @@ export async function GET(
     const total = await db.count('photos', filter);
 
     // Get photos
-    const photos = await db.findMany('photos', filter, {
+    const photos = await db.findMany<IPhoto>('photos', filter, {
       limit,
       offset,
       orderBy: 'created_at',
@@ -779,7 +839,7 @@ export async function GET(
 
     console.log('[PHOTOS_API] Query result:', {
       photoCount: photos.length,
-      photoStatuses: photos.map((p: any) => ({ id: p.id, status: p.status })),
+      photoStatuses: photos.map((p) => ({ id: p.id, status: p.status })),
     });
 
     const response = NextResponse.json({

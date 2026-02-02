@@ -97,7 +97,7 @@ Sentry.init({
   // BEFORE SEND TRANSACTION (PERFORMANCE)
   // ============================================
   // Filter and modify performance transactions
-  beforeSendTransaction(event: any) {
+  beforeSendTransaction(event) {
     // Don't send transactions in development
     if (process.env.NODE_ENV === "development") {
       return null;

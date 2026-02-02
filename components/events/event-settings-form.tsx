@@ -27,6 +27,51 @@ const PHOTO_CARD_STYLE_CLASSES: Record<string, string> = {
     futuristic: 'rounded-2xl bg-slate-950/90 border border-cyan-400/40 shadow-[0_0_24px_rgba(34,211,238,0.35)]',
 };
 
+const THEME_PRESETS = [
+    {
+        id: 'palette-1',
+        label: 'Vibrant Travel',
+        primary: '#FF6B6B',
+        secondary: '#4ECDC4',
+        background: 'linear-gradient(135deg, #FFE5E5 0%, #FFF5E1 50%, #E0F7F4 100%)',
+    },
+    {
+        id: 'palette-2',
+        label: 'Tropical Paradise',
+        primary: '#06B6D4',
+        secondary: '#10B981',
+        background: 'linear-gradient(135deg, #E0F7FA 0%, #E8F5E9 50%, #FFF3E0 100%)',
+    },
+    {
+        id: 'palette-3',
+        label: 'Refined Purple',
+        primary: '#8B5CF6',
+        secondary: '#EC4899',
+        background: 'linear-gradient(135deg, #F3E5F5 0%, #FCE4EC 50%, #FFF8E1 100%)',
+    },
+    {
+        id: 'palette-4',
+        label: 'Sunset Glow',
+        primary: '#F97316',
+        secondary: '#DC2626',
+        background: 'linear-gradient(135deg, #FFEBEE 0%, #FFF3E0 50%, #FFF9C4 100%)',
+    },
+    {
+        id: 'palette-5',
+        label: 'Ocean Breeze',
+        primary: '#0EA5E9',
+        secondary: '#6366F1',
+        background: 'linear-gradient(135deg, #E3F2FD 0%, #EDE7F6 50%, #E0F2F1 100%)',
+    },
+];
+
+const DEFAULT_UPLOAD_RATE_LIMITS = {
+    per_ip_hourly: 10,
+    per_fingerprint_hourly: 10,
+    burst_per_ip_minute: 5,
+    per_event_daily: 100,
+};
+
 // ============================================
 // TYPES
 // ============================================
@@ -49,6 +94,15 @@ export function EventSettingsForm({
     const [photoCardStyle, setPhotoCardStyle] = useState(
         event.settings?.theme?.photo_card_style || 'vacation'
     );
+    const [primaryColor, setPrimaryColor] = useState(
+        event.settings?.theme?.primary_color || '#8B5CF6'
+    );
+    const [secondaryColor, setSecondaryColor] = useState(
+        event.settings?.theme?.secondary_color || '#EC4899'
+    );
+    const [backgroundColor, setBackgroundColor] = useState(
+        event.settings?.theme?.background || '#F9FAFB'
+    );
     const [showPreview, setShowPreview] = useState(false);
 
     // Feature toggles
@@ -64,6 +118,10 @@ export function EventSettingsForm({
     const [luckyDrawEnabled, setLuckyDrawEnabled] = useState(
         event.settings?.features?.lucky_draw_enabled !== false
     );
+    const [uploadRateLimits, setUploadRateLimits] = useState({
+        ...DEFAULT_UPLOAD_RATE_LIMITS,
+        ...(event.settings?.security?.upload_rate_limits || {}),
+    });
 
     const [isLoading, setIsLoading] = useState(false);
     const [hasChanges, setHasChanges] = useState(false);
@@ -72,6 +130,7 @@ export function EventSettingsForm({
     useEffect(() => {
         const originalFeatures = event.settings?.features || {};
         const originalTheme = event.settings?.theme || {};
+        const originalSecurity = event.settings?.security?.upload_rate_limits || DEFAULT_UPLOAD_RATE_LIMITS;
 
         const featuresChanged =
             guestDownloadEnabled !== (originalFeatures.guest_download_enabled !== false) ||
@@ -79,10 +138,31 @@ export function EventSettingsForm({
             anonymousAllowed !== (originalFeatures.anonymous_allowed !== false) ||
             luckyDrawEnabled !== (originalFeatures.lucky_draw_enabled !== false);
 
-        const themeChanged = photoCardStyle !== (originalTheme.photo_card_style || 'vacation');
+        const themeChanged =
+            photoCardStyle !== (originalTheme.photo_card_style || 'vacation') ||
+            primaryColor !== (originalTheme.primary_color || '#8B5CF6') ||
+            secondaryColor !== (originalTheme.secondary_color || '#EC4899') ||
+            backgroundColor !== (originalTheme.background || '#F9FAFB');
 
-        setHasChanges(featuresChanged || themeChanged);
-    }, [guestDownloadEnabled, moderationRequired, anonymousAllowed, luckyDrawEnabled, photoCardStyle, event]);
+        const securityChanged =
+            uploadRateLimits.per_ip_hourly !== (originalSecurity.per_ip_hourly ?? DEFAULT_UPLOAD_RATE_LIMITS.per_ip_hourly) ||
+            uploadRateLimits.per_fingerprint_hourly !== (originalSecurity.per_fingerprint_hourly ?? DEFAULT_UPLOAD_RATE_LIMITS.per_fingerprint_hourly) ||
+            uploadRateLimits.burst_per_ip_minute !== (originalSecurity.burst_per_ip_minute ?? DEFAULT_UPLOAD_RATE_LIMITS.burst_per_ip_minute) ||
+            uploadRateLimits.per_event_daily !== (originalSecurity.per_event_daily ?? DEFAULT_UPLOAD_RATE_LIMITS.per_event_daily);
+
+        setHasChanges(featuresChanged || themeChanged || securityChanged);
+    }, [
+        guestDownloadEnabled,
+        moderationRequired,
+        anonymousAllowed,
+        luckyDrawEnabled,
+        photoCardStyle,
+        primaryColor,
+        secondaryColor,
+        backgroundColor,
+        uploadRateLimits,
+        event,
+    ]);
 
     // Save settings
     const handleSave = async () => {
@@ -101,6 +181,10 @@ export function EventSettingsForm({
                         theme: {
                             ...event.settings?.theme,
                             photo_card_style: photoCardStyle,
+                            primary_color: primaryColor,
+                            secondary_color: secondaryColor,
+                            background: backgroundColor,
+                            surface_color: backgroundColor,
                         },
                         features: {
                             ...event.settings?.features,
@@ -108,6 +192,12 @@ export function EventSettingsForm({
                             moderation_required: moderationRequired,
                             anonymous_allowed: anonymousAllowed,
                             lucky_draw_enabled: luckyDrawEnabled,
+                        },
+                        security: {
+                            upload_rate_limits: {
+                                ...DEFAULT_UPLOAD_RATE_LIMITS,
+                                ...uploadRateLimits,
+                            },
                         },
                     },
                 }),
@@ -236,6 +326,67 @@ export function EventSettingsForm({
                 </div>
             )}
 
+            {/* Guest Page Palette */}
+            <div>
+                <div className="flex items-center gap-2 mb-4">
+                    <Palette className="h-5 w-5 text-violet-600" />
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                        Guest Page Palette
+                    </h3>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                    {THEME_PRESETS.map((preset) => {
+                        const isActive =
+                            preset.primary === primaryColor &&
+                            preset.secondary === secondaryColor &&
+                            preset.background === backgroundColor;
+                        return (
+                            <button
+                                key={preset.id}
+                                type="button"
+                                onClick={() => {
+                                    setPrimaryColor(preset.primary);
+                                    setSecondaryColor(preset.secondary);
+                                    setBackgroundColor(preset.background);
+                                }}
+                                className={clsx(
+                                    'flex items-center justify-between rounded-xl border p-3 text-left transition-colors',
+                                    isActive
+                                        ? 'border-violet-500 bg-violet-50 dark:border-violet-400 dark:bg-violet-900/20'
+                                        : 'border-gray-200 bg-white hover:border-violet-300 dark:border-gray-700 dark:bg-gray-800'
+                                )}
+                            >
+                                <div>
+                                    <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                                        {preset.label}
+                                    </p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                                        {preset.primary} • {preset.secondary}
+                                    </p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <div
+                                        className="h-8 w-8 rounded-lg border border-white/40 shadow-inner"
+                                        style={{ background: preset.background }}
+                                    />
+                                    <div
+                                        className="h-8 w-8 rounded-lg border border-white/40 shadow-inner"
+                                        style={{ background: preset.primary }}
+                                    />
+                                    <div
+                                        className="h-8 w-8 rounded-lg border border-white/40 shadow-inner"
+                                        style={{ background: preset.secondary }}
+                                    />
+                                </div>
+                            </button>
+                        );
+                    })}
+                </div>
+                <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                    This palette controls the guest page background, buttons, and accent colors.
+                </p>
+            </div>
+
             {/* Feature Toggles Section */}
             <div>
                 <div className="flex items-center gap-2 mb-4">
@@ -360,6 +511,78 @@ export function EventSettingsForm({
                                 )}
                             />
                         </div>
+                    </label>
+                </div>
+            </div>
+
+            {/* Upload Rate Limits */}
+            <div>
+                <div className="flex items-center gap-2 mb-4">
+                    <Eye className="h-5 w-5 text-violet-600" />
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                        Upload Security Limits
+                    </h3>
+                </div>
+                <div className="grid gap-4 text-sm sm:grid-cols-2">
+                    <label className="flex flex-col gap-2 text-gray-600 dark:text-gray-300">
+                        <span>Per IP (per hour)</span>
+                        <input
+                            type="number"
+                            min={1}
+                            value={uploadRateLimits.per_ip_hourly}
+                            onChange={(e) =>
+                                setUploadRateLimits((prev) => ({
+                                    ...prev,
+                                    per_ip_hourly: parseInt(e.target.value || '0', 10),
+                                }))
+                            }
+                            className="w-40 rounded border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900"
+                        />
+                    </label>
+                    <label className="flex flex-col gap-2 text-gray-600 dark:text-gray-300">
+                        <span>Per fingerprint (per hour)</span>
+                        <input
+                            type="number"
+                            min={1}
+                            value={uploadRateLimits.per_fingerprint_hourly}
+                            onChange={(e) =>
+                                setUploadRateLimits((prev) => ({
+                                    ...prev,
+                                    per_fingerprint_hourly: parseInt(e.target.value || '0', 10),
+                                }))
+                            }
+                            className="w-40 rounded border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900"
+                        />
+                    </label>
+                    <label className="flex flex-col gap-2 text-gray-600 dark:text-gray-300">
+                        <span>Burst per IP (per minute)</span>
+                        <input
+                            type="number"
+                            min={1}
+                            value={uploadRateLimits.burst_per_ip_minute}
+                            onChange={(e) =>
+                                setUploadRateLimits((prev) => ({
+                                    ...prev,
+                                    burst_per_ip_minute: parseInt(e.target.value || '0', 10),
+                                }))
+                            }
+                            className="w-40 rounded border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900"
+                        />
+                    </label>
+                    <label className="flex flex-col gap-2 text-gray-600 dark:text-gray-300">
+                        <span>Per event (per day)</span>
+                        <input
+                            type="number"
+                            min={1}
+                            value={uploadRateLimits.per_event_daily}
+                            onChange={(e) =>
+                                setUploadRateLimits((prev) => ({
+                                    ...prev,
+                                    per_event_daily: parseInt(e.target.value || '0', 10),
+                                }))
+                            }
+                            className="w-40 rounded border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900"
+                        />
                     </label>
                 </div>
             </div>

@@ -9,7 +9,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Upload, X, Check, AlertCircle, Loader2, Image as ImageIcon, Camera } from 'lucide-react';
 import { validateImageFile, formatFileSize, cn } from '@/lib/utils';
-import type { IEvent } from '@/lib/types';
+import type { IEvent, IPhoto } from '@/lib/types';
 import { getClientFingerprint } from '@/lib/fingerprint';
 import { usePhotoGallery } from '@/lib/realtime/client';
 
@@ -200,7 +200,7 @@ export default function PhotoUploadPage() {
       if (response.ok) {
         const uploaded = Array.isArray(result.data) ? result.data : result.data ? [result.data] : [];
         setUploadedCount(uploaded.length);
-        uploaded.forEach((photo: any) => {
+        uploaded.forEach((photo: IPhoto) => {
           broadcastNewPhoto(photo);
         });
         // Redirect to event page after showing success
