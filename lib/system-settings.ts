@@ -3,9 +3,8 @@
 // ============================================
 
 import { getTenantDb } from './db';
+import { SYSTEM_TENANT_ID } from './constants/tenants';
 import type { ISystemSettings } from './types';
-
-const SYSTEM_TENANT_ID = '00000000-0000-0000-0000-000000000000';
 
 const DEFAULT_SYSTEM_SETTINGS: ISystemSettings = {
   uploads: {

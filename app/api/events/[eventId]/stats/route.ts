@@ -3,14 +3,11 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { getTenantId } from '@/lib/tenant';
 import { getTenantDb } from '@/lib/db';
-import { verifyAccessToken } from '@/lib/auth';
-import { extractSessionId, getSession, refreshSession } from '@/lib/session';
 import { getActiveConfig } from '@/lib/lucky-draw';
 import { getTierConfig } from '@/lib/tier-config';
 import type { IPhoto, SubscriptionTier } from '@/lib/types';
+import { resolveOptionalAuth, resolveTenantId } from '@/lib/api-request-context';
 
 interface EventStats {
   totalPhotos: number;
@@ -34,9 +31,26 @@ interface EventStats {
   }[];
 }
 
-interface TopContributor {
-  contributor_name: string;
-  count: number;
+function buildEmptyStats(tierMaxPhotosPerEvent = 0, tierDisplayName = 'Free'): EventStats {
+  return {
+    totalPhotos: 0,
+    totalParticipants: 0,
+    photosToday: 0,
+    avgPhotosPerUser: 0,
+    topContributors: [],
+    uploadTimeline: [],
+    totalReactions: 0,
+    pendingModeration: 0,
+    luckyDrawStatus: 'not_set',
+    luckyDrawEntryCount: 0,
+    tierMaxPhotosPerEvent,
+    tierDisplayName,
+    topLikedPhotos: [],
+  };
+}
+
+function getTimelineDate(value: string | Date): string {
+  return new Date(value).toISOString().split('T')[0];
 }
 
 // ============================================
@@ -48,80 +62,21 @@ export async function GET(
   { params }: { params: Promise<{ eventId: string }> }
 ) {
   const { eventId: id } = await params;
+
   try {
     const headers = request.headers;
-    let tenantId = getTenantId(headers);
+    const auth = await resolveOptionalAuth(headers);
+    const tenantId = resolveTenantId(headers, auth);
 
-    // Fallback to default tenant for development (Turbopack middleware issue)
-    if (!tenantId) {
-      tenantId = '00000000-0000-0000-0000-000000000001';
-    }
-
-    // Get user from session or JWT token
-    let cookieHeader = headers.get('cookie');
-    const authHeader = headers.get('authorization');
-    let userId: string | null = null;
-    let userRole: string | null = null;
-
-    if (!cookieHeader) {
-      const sessionCookie = (await cookies()).get('session')?.value;
-      if (sessionCookie) {
-        cookieHeader = `session=${sessionCookie}`;
-      }
-    }
-
-    // Try session-based auth first (Redis only to avoid extra DB connections)
-    const sessionResult = extractSessionId(cookieHeader, authHeader);
-    if (sessionResult.sessionId) {
-      const session = await getSession(sessionResult.sessionId);
-      if (session) {
-        const now = Date.now();
-        if (now <= session.expiresAt) {
-          userId = session.userId;
-          userRole = session.role;
-          await refreshSession(sessionResult.sessionId);
-        }
-      }
-    }
-
-    // Fallback to JWT token
-    if (!userId && authHeader) {
-      try {
-        const token = authHeader.replace('Bearer ', '');
-        const payload = verifyAccessToken(token);
-        userId = payload.sub;
-        userRole = payload.role;
-      } catch {
-        // Token invalid
-      }
-    }
-
-    // Stats are optional - return empty stats if not authenticated
-    if (!userId) {
-      const emptyStats: EventStats = {
-        totalPhotos: 0,
-        totalParticipants: 0,
-        photosToday: 0,
-        avgPhotosPerUser: 0,
-        topContributors: [],
-        uploadTimeline: [],
-      totalReactions: 0,
-      pendingModeration: 0,
-      luckyDrawStatus: 'not_set',
-      luckyDrawEntryCount: 0,
-      tierMaxPhotosPerEvent: 0,
-      tierDisplayName: 'Free',
-      topLikedPhotos: [],
-    };
-    return NextResponse.json({ data: emptyStats });
+    // Keep stats publicly safe by returning empty stats when unauthenticated.
+    if (!auth?.userId) {
+      return NextResponse.json({ data: buildEmptyStats() });
     }
 
     const db = getTenantDb(tenantId);
-
-    // Check if event exists AND get tenant info in parallel
     const [event, tenant] = await Promise.all([
-      db.findOne('events', { id }),
-      db.findOne<{ subscription_tier: SubscriptionTier }>('tenants', { id: tenantId })
+      db.findOne<{ id: string; organizer_id: string }>('events', { id }),
+      db.findOne<{ subscription_tier: SubscriptionTier }>('tenants', { id: tenantId }),
     ]);
 
     if (!event) {
@@ -131,10 +86,8 @@ export async function GET(
       );
     }
 
-    // Check permissions
-    const isOwner = event.organizer_id === userId;
-    const isSuperAdmin = userRole === 'super_admin';
-
+    const isOwner = event.organizer_id === auth.userId;
+    const isSuperAdmin = auth.role === 'super_admin';
     if (!isOwner && !isSuperAdmin) {
       return NextResponse.json(
         { error: 'Insufficient permissions', code: 'FORBIDDEN' },
@@ -142,12 +95,10 @@ export async function GET(
       );
     }
 
-    // Use tenant's subscription tier
     const effectiveTier = (tenant?.subscription_tier as SubscriptionTier) || 'free';
     const tierConfig = getTierConfig(effectiveTier);
-
-    // Use SQL aggregations instead of fetching all photos - much faster!
-    // Run multiple queries in parallel where possible
+    const stats = buildEmptyStats(tierConfig.limits.max_photos_per_event, tierConfig.displayName);
+    const warnings: string[] = [];
 
     const [
       totalPhotosResult,
@@ -157,24 +108,17 @@ export async function GET(
       timelineResult,
       reactionsResult,
       topLikedResult,
-      pendingModerationResult
-    ] = await Promise.all([
-      // Total photos
-      db.query<{ count: bigint }>(
-        'SELECT COUNT(*) as count FROM photos WHERE event_id = $1',
-        [id]
-      ),
-      // Unique participants
+      pendingModerationResult,
+    ] = await Promise.allSettled([
+      db.query<{ count: bigint }>('SELECT COUNT(*) as count FROM photos WHERE event_id = $1', [id]),
       db.query<{ count: bigint }>(
         'SELECT COUNT(DISTINCT user_fingerprint) as count FROM photos WHERE event_id = $1',
         [id]
       ),
-      // Photos today
       db.query<{ count: bigint }>(
         'SELECT COUNT(*) as count FROM photos WHERE event_id = $1 AND created_at >= $2',
         [id, new Date(new Date().setHours(0, 0, 0, 0))]
       ),
-      // Top contributors (SQL aggregation)
       db.query<{ contributor_name: string; is_anonymous: boolean; count: bigint }>(
         `SELECT
           COALESCE(contributor_name, 'Guest') as contributor_name,
@@ -187,8 +131,7 @@ export async function GET(
         LIMIT 3`,
         [id]
       ),
-      // Upload timeline (last 7 days)
-      db.query<{ date: string; count: bigint }>(
+      db.query<{ date: string | Date; count: bigint }>(
         `SELECT
           DATE(created_at) as date,
           COUNT(*) as count
@@ -199,7 +142,6 @@ export async function GET(
         ORDER BY date`,
         [id]
       ),
-      // Total reactions (SQL aggregation)
       db.query<{ total_reactions: bigint }>(
         `SELECT
           SUM(
@@ -212,8 +154,13 @@ export async function GET(
         WHERE event_id = $1`,
         [id]
       ),
-      // Top liked photos
-      db.query<{ id: string; images: IPhoto['images']; reactions: IPhoto['reactions']; contributor_name: string | null; is_anonymous: boolean }>(
+      db.query<{
+        id: string;
+        images: IPhoto['images'];
+        reactions: IPhoto['reactions'];
+        contributor_name: string | null;
+        is_anonymous: boolean;
+      }>(
         `SELECT id, images, reactions, contributor_name, is_anonymous
         FROM photos
         WHERE event_id = $1
@@ -221,80 +168,112 @@ export async function GET(
         LIMIT 3`,
         [id]
       ),
-      // Pending moderation
       db.query<{ count: bigint }>(
         'SELECT COUNT(*) as count FROM photos WHERE event_id = $1 AND status = $2',
         [id, 'pending']
-      )
+      ),
     ]);
 
-    // Calculate stats from query results
-    const totalPhotos = Number(totalPhotosResult.rows[0]?.count || 0);
-    const totalParticipants = Number(uniqueParticipantsResult.rows[0]?.count || 0);
-    const photosToday = Number(photosTodayResult.rows[0]?.count || 0);
-    const avgPhotosPerUser = totalParticipants > 0
-      ? Math.round((totalPhotos / totalParticipants) * 10) / 10
-      : 0;
-
-    const topContributors = contributorStatsResult.rows.map(row => ({
-      name: row.is_anonymous ? 'Anonymous' : (row.contributor_name || 'Guest'),
-      count: Number(row.count)
-    }));
-
-    // Build timeline map and fill in missing days
-    const timelineMap = new Map(timelineResult.rows.map(r => [r.date, Number(r.count)]));
-    const uploadTimeline: { date: string; count: number }[] = [];
-    for (let i = 6; i >= 0; i--) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      date.setHours(0, 0, 0, 0);
-      const dateStr = date.toISOString().split('T')[0];
-      uploadTimeline.push({ date: dateStr, count: timelineMap.get(dateStr) || 0 });
+    if (totalPhotosResult.status === 'fulfilled') {
+      stats.totalPhotos = Number(totalPhotosResult.value.rows[0]?.count || 0);
+    } else {
+      warnings.push('Total photos metric unavailable.');
     }
 
-    const totalReactions = Number(reactionsResult.rows[0]?.total_reactions || 0);
+    if (uniqueParticipantsResult.status === 'fulfilled') {
+      stats.totalParticipants = Number(uniqueParticipantsResult.value.rows[0]?.count || 0);
+    } else {
+      warnings.push('Participants metric unavailable.');
+    }
 
-    const topLikedPhotos = topLikedResult.rows.map((photo) => ({
-      id: photo.id,
-      imageUrl: photo.images?.medium_url || photo.images?.full_url || photo.images?.original_url || photo.images?.thumbnail_url || '',
-      heartCount: photo.reactions?.heart || 0,
-      contributorName: photo.is_anonymous ? 'Anonymous' : (photo.contributor_name || 'Guest'),
-      isAnonymous: photo.is_anonymous,
-    }));
+    if (photosTodayResult.status === 'fulfilled') {
+      stats.photosToday = Number(photosTodayResult.value.rows[0]?.count || 0);
+    } else {
+      warnings.push('Photos today metric unavailable.');
+    }
 
-    const pendingModeration = Number(pendingModerationResult.rows[0]?.count || 0);
+    if (contributorStatsResult.status === 'fulfilled') {
+      stats.topContributors = contributorStatsResult.value.rows.map((row) => ({
+        name: row.is_anonymous ? 'Anonymous' : (row.contributor_name || 'Guest'),
+        count: Number(row.count),
+      }));
+    } else {
+      warnings.push('Top contributors unavailable.');
+    }
 
-    const stats: EventStats = {
-      totalPhotos,
-      totalParticipants,
-      photosToday,
-      avgPhotosPerUser,
-      topContributors,
-      uploadTimeline,
-      totalReactions,
-      pendingModeration,
-      luckyDrawStatus: 'not_set',
-      luckyDrawEntryCount: 0,
-      tierMaxPhotosPerEvent: tierConfig.limits.max_photos_per_event,
-      tierDisplayName: tierConfig.displayName,
-      topLikedPhotos,
-    };
+    if (timelineResult.status === 'fulfilled') {
+      const timelineMap = new Map(
+        timelineResult.value.rows.map((row) => [getTimelineDate(row.date), Number(row.count)])
+      );
+      const uploadTimeline: { date: string; count: number }[] = [];
+      for (let i = 6; i >= 0; i -= 1) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        date.setHours(0, 0, 0, 0);
+        const dateStr = date.toISOString().split('T')[0];
+        uploadTimeline.push({ date: dateStr, count: timelineMap.get(dateStr) || 0 });
+      }
+      stats.uploadTimeline = uploadTimeline;
+    } else {
+      warnings.push('Upload timeline unavailable.');
+    }
+
+    if (reactionsResult.status === 'fulfilled') {
+      stats.totalReactions = Number(reactionsResult.value.rows[0]?.total_reactions || 0);
+    } else {
+      warnings.push('Reactions metric unavailable.');
+    }
+
+    if (topLikedResult.status === 'fulfilled') {
+      stats.topLikedPhotos = topLikedResult.value.rows.map((photo) => ({
+        id: photo.id,
+        imageUrl:
+          photo.images?.medium_url ||
+          photo.images?.full_url ||
+          photo.images?.original_url ||
+          photo.images?.thumbnail_url ||
+          '',
+        heartCount: photo.reactions?.heart || 0,
+        contributorName: photo.is_anonymous ? 'Anonymous' : (photo.contributor_name || 'Guest'),
+        isAnonymous: photo.is_anonymous,
+      }));
+    } else {
+      warnings.push('Top liked photos unavailable.');
+    }
+
+    if (pendingModerationResult.status === 'fulfilled') {
+      stats.pendingModeration = Number(pendingModerationResult.value.rows[0]?.count || 0);
+    } else {
+      warnings.push('Pending moderation metric unavailable.');
+    }
+
+    if (stats.totalParticipants > 0) {
+      stats.avgPhotosPerUser = Math.round((stats.totalPhotos / stats.totalParticipants) * 10) / 10;
+    }
 
     try {
       const activeConfig = await getActiveConfig(tenantId, id);
       if (activeConfig) {
-        const countResult = await db.query<{ count: bigint }>(
-          `SELECT COUNT(*) as count FROM lucky_draw_entries WHERE config_id = $1`,
-          [activeConfig.id]
-        );
         stats.luckyDrawStatus = 'active';
-        stats.luckyDrawEntryCount = Number(countResult.rows[0]?.count || 0);
+        try {
+          const countResult = await db.query<{ count: bigint }>(
+            'SELECT COUNT(*) as count FROM lucky_draw_entries WHERE config_id = $1',
+            [activeConfig.id]
+          );
+          stats.luckyDrawEntryCount = Number(countResult.rows[0]?.count || 0);
+        } catch {
+          stats.luckyDrawEntryCount = Number(activeConfig.totalEntries || 0);
+          warnings.push('Lucky draw entry count unavailable; showing cached value.');
+        }
       }
-    } catch (err) {
-      console.warn('[API] Lucky draw stats failed:', err);
+    } catch {
+      warnings.push('Lucky draw stats unavailable.');
     }
 
-    return NextResponse.json({ data: stats });
+    return NextResponse.json({
+      data: stats,
+      warnings: warnings.length > 0 ? warnings : undefined,
+    });
   } catch (error) {
     console.error('[API] Error fetching event stats:', error);
     return NextResponse.json(
@@ -303,3 +282,4 @@ export async function GET(
     );
   }
 }
+

@@ -8,14 +8,16 @@ import { getTenantDb } from '@/lib/db';
 import { verifyAccessToken } from '@/lib/auth';
 import { createManualEntries, getActiveConfig, getEventEntries } from '@/lib/lucky-draw';
 import { extractSessionId, validateSession } from '@/lib/session';
+import { DEFAULT_TENANT_ID } from '@/lib/constants/tenants';
+import { resolveOptionalAuth, resolveTenantId } from '@/lib/api-request-context';
 
 export const runtime = 'nodejs';
 
-const isMissingTableError = (error: unknown) =>
+const isRecoverableReadError = (error: unknown) =>
   typeof error === 'object' &&
   error !== null &&
   'code' in error &&
-  (error as { code?: string }).code === '42P01';
+  ['42P01', '42703'].includes((error as { code?: string }).code || '');
 
 // ============================================
 // GET /api/events/:eventId/lucky-draw/entries - List entries
@@ -27,13 +29,8 @@ export async function GET(
 ) {
   try {
     const { eventId } = await params;
-    const headers = request.headers;
-    let tenantId = getTenantId(headers);
-
-    // Fallback to default tenant for development (Turbopack middleware issue)
-    if (!tenantId) {
-      tenantId = '00000000-0000-0000-0000-000000000001';
-    }
+    const auth = await resolveOptionalAuth(request.headers);
+    const tenantId = resolveTenantId(request.headers, auth);
 
     const db = getTenantDb(tenantId);
 
@@ -71,11 +68,17 @@ export async function GET(
       offset,
     });
 
-    const countResult = await db.query<{ count: bigint }>(
-      `SELECT COUNT(*) as count FROM lucky_draw_entries WHERE config_id = $1`,
-      [config.id]
-    );
-    const total = Number(countResult.rows[0]?.count || 0);
+    let total = entries.length;
+    const warnings: string[] = [];
+    try {
+      const countResult = await db.query<{ count: bigint }>(
+        'SELECT COUNT(*) as count FROM lucky_draw_entries WHERE config_id = $1',
+        [config.id]
+      );
+      total = Number(countResult.rows[0]?.count || 0);
+    } catch {
+      warnings.push('Entry count unavailable; using current page size.');
+    }
 
     return NextResponse.json({
       data: entries,
@@ -84,9 +87,10 @@ export async function GET(
         limit,
         offset,
       },
+      warnings: warnings.length > 0 ? warnings : undefined,
     });
   } catch (error) {
-    if (isMissingTableError(error)) {
+    if (isRecoverableReadError(error)) {
       return NextResponse.json({
         data: [],
         pagination: {
@@ -120,7 +124,7 @@ export async function POST(
 
     // Fallback to default tenant for development (Turbopack middleware issue)
     if (!tenantId) {
-      tenantId = '00000000-0000-0000-0000-000000000001';
+      tenantId = DEFAULT_TENANT_ID;
     }
 
     const db = getTenantDb(tenantId);

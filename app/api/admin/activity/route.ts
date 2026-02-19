@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSuperAdmin } from '@/middleware/auth';
 import { getTenantDb } from '@/lib/db';
+import { SYSTEM_TENANT_ID } from '@/lib/constants/tenants';
 
 type ActivityType = 'user' | 'event' | 'photo' | 'moderation';
 
@@ -28,7 +29,6 @@ type ActivityItem = {
   imageUrl?: string | null;
 };
 
-const SYSTEM_TENANT_ID = '00000000-0000-0000-0000-000000000000';
 
 const toIsoString = (value: Date | string) => {
   if (typeof value === 'string') {

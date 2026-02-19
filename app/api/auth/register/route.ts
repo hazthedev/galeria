@@ -11,9 +11,11 @@ import { createSession } from '../../../../lib/session';
 import { checkRegistrationRateLimit, createRateLimitErrorResponse } from '../../../../lib/rate-limit';
 import { validatePassword, DEFAULT_PASSWORD_REQUIREMENTS } from '../../../../lib/password-validator';
 import { getRequestIp, getRequestUserAgent } from '../../../../middleware/auth';
-import type { IRegisterRequest, IAuthResponseSession } from '../../../../lib/types';
+import type { IAuthResponseSession } from '../../../../lib/types';
+import { registerSchema } from '../../../../lib/validation/auth';
 import type { IUser, ITenant } from '../../../../lib/types';
 import { randomBytes } from 'crypto';
+import { SYSTEM_TENANT_ID } from '@/lib/constants/tenants';
 
 // Configure route to use Node.js runtime
 export const runtime = 'nodejs';
@@ -47,21 +49,20 @@ function generateUUID(): string {
  */
 export async function POST(request: NextRequest) {
   try {
-    // Parse request body
-    const body: IRegisterRequest = await request.json();
-    const { email, password, name, tenantName } = body;
-
-    // Validate input
-    if (!email || !password || !name) {
+    // Parse and validate request body
+    const parsed = registerSchema.safeParse(await request.json());
+    if (!parsed.success) {
       return NextResponse.json(
         {
           success: false,
           error: 'INVALID_INPUT',
-          message: 'Email, password, and name are required',
+          message: 'Invalid registration request',
+          details: parsed.error.flatten().fieldErrors,
         },
         { status: 400 }
       );
     }
+    const { email, password, name, tenantName } = parsed.data;
 
     // Normalize email
     const normalizedEmail = email.toLowerCase().trim();
@@ -114,7 +115,7 @@ export async function POST(request: NextRequest) {
 
     // For Phase 2, we use the default tenant ID
     // In a full multi-tenant system, we would create a new tenant here
-    const defaultTenantId = '00000000-0000-0000-0000-000000000000';
+    const defaultTenantId = SYSTEM_TENANT_ID;
     const db = getTenantDb(defaultTenantId);
 
     // Check if user already exists

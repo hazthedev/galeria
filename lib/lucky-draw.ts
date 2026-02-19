@@ -163,7 +163,7 @@ export async function createLuckyDrawConfig(
     config.playSound ?? true,
     config.confettiAnimation ?? true,
     0,
-    null, // created_by - must be a valid UUID or null
+    config.createdBy ?? null,
     now,
     now,
   ]);

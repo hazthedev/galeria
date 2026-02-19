@@ -185,12 +185,10 @@ export function Recaptcha({
     script.defer = true;
 
     script.onload = () => {
-      // @ts-expect-error - grecaptcha is loaded by the script
       if (window.grecaptcha) {
         setState((prev) => ({ ...prev, loaded: true }));
 
         // Render the reCAPTCHA widget
-        // @ts-expect-error - grecaptcha is loaded by the script
         window.grecaptcha.render(recaptchaId, {
           sitekey: siteKey,
           callback: handleRecaptchaVerified,
@@ -299,9 +297,7 @@ export function useRecaptcha() {
     setError(null);
 
     try {
-      // @ts-expect-error - grecaptcha is loaded by the script
       if (window.grecaptcha) {
-        // @ts-expect-error - grecaptcha is loaded by the script
         const responseToken = await window.grecaptcha.execute('upload', {
           action: 'upload',
         });

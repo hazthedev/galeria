@@ -8,6 +8,7 @@ import { requireAuthForApi } from '@/lib/auth';
 import type { IEvent, IPhoto } from '@/lib/types';
 import { buildPhotoFilename } from '@/lib/export/zip-generator';
 import sharp from 'sharp';
+import { DEFAULT_TENANT_ID } from '@/lib/constants/tenants';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -50,7 +51,7 @@ export async function GET(
       authUser = null;
     }
 
-    const tenantId = authUser?.tenantId || request.headers.get('x-tenant-id') || '00000000-0000-0000-0000-000000000001';
+    const tenantId = authUser?.tenantId || request.headers.get('x-tenant-id') || DEFAULT_TENANT_ID;
     const db = getTenantDb(tenantId);
 
     const result = await db.query<IPhoto & { event_name: string; event_date: Date; organizer_id: string; settings: IEvent['settings'] }>(

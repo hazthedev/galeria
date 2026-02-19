@@ -24,6 +24,25 @@ interface RealtimeContextValue {
     fingerprint: string | null;
 }
 
+interface PhotoUpdatePayload {
+    photo_id: string;
+    status: IPhoto['status'];
+    event_id?: string;
+}
+
+interface ReactionAddedPayload {
+    photo_id: string;
+    emoji: string;
+    count: number;
+    event_id?: string;
+}
+
+interface PhotoGalleryHandlers {
+    onNewPhoto?: (photo: IPhoto) => void;
+    onPhotoUpdated?: (payload: PhotoUpdatePayload) => void;
+    onReactionAdded?: (payload: ReactionAddedPayload) => void;
+}
+
 // ============================================
 // REALTIME CONTEXT
 // ============================================
@@ -111,13 +130,18 @@ export function useRealtime(): RealtimeContextValue {
 /**
  * Hook for photo gallery with real-time updates
  */
-export function usePhotoGallery(eventId: string) {
+export function usePhotoGallery(eventId: string, handlers?: PhotoGalleryHandlers) {
     const [photos, setPhotos] = useState<IPhoto[]>([]);
     const [stats, setStats] = useState<IEventStats | null>(null);
     const [userCount, setUserCount] = useState(0);
     const [channel, setChannel] = useState<RealtimeChannel | null>(null);
-    const { connected, fingerprint } = useRealtime();
+    const { fingerprint } = useRealtime();
     const channelRef = useRef<RealtimeChannel | null>(null);
+    const handlersRef = useRef<PhotoGalleryHandlers | undefined>(handlers);
+
+    useEffect(() => {
+        handlersRef.current = handlers;
+    }, [handlers]);
 
     useEffect(() => {
         if (!eventId) return;
@@ -131,38 +155,44 @@ export function usePhotoGallery(eventId: string) {
 
         // Listen for new photos
         channel.on('broadcast', { event: 'new_photo' }, ({ payload }) => {
-            console.log('[Gallery] New photo received:', payload.id);
-            setPhotos((prev) => [payload as IPhoto, ...prev]);
+            const nextPhoto = payload as IPhoto;
+            console.log('[Gallery] New photo received:', nextPhoto.id);
+            setPhotos((prev) => [nextPhoto, ...prev]);
+            handlersRef.current?.onNewPhoto?.(nextPhoto);
         });
 
         // Listen for photo updates
         channel.on('broadcast', { event: 'photo_updated' }, ({ payload }) => {
             console.log('[Gallery] Photo updated:', payload);
+            const nextPayload = payload as PhotoUpdatePayload;
             setPhotos((prev) =>
                 prev.map((photo) =>
-                    photo.id === payload.photo_id
-                        ? { ...photo, status: payload.status as IPhoto['status'] }
+                    photo.id === nextPayload.photo_id
+                        ? { ...photo, status: nextPayload.status }
                         : photo
                 )
             );
+            handlersRef.current?.onPhotoUpdated?.(nextPayload);
         });
 
         // Listen for reactions
         channel.on('broadcast', { event: 'reaction_added' }, ({ payload }) => {
             console.log('[Gallery] Reaction added:', payload);
+            const nextPayload = payload as ReactionAddedPayload;
             setPhotos((prev) =>
                 prev.map((photo) =>
-                    photo.id === payload.photo_id
+                    photo.id === nextPayload.photo_id
                         ? {
                             ...photo,
                             reactions: {
                                 ...photo.reactions,
-                                [payload.emoji]: payload.count,
+                                [nextPayload.emoji]: nextPayload.count,
                             },
                         }
                         : photo
                 )
             );
+            handlersRef.current?.onReactionAdded?.(nextPayload);
         });
 
         // Listen for stats updates
@@ -240,6 +270,38 @@ export function useLuckyDraw(eventId: string) {
     const [channel, setChannel] = useState<RealtimeChannel | null>(null);
     const { fingerprint } = useRealtime();
     const channelRef = useRef<RealtimeChannel | null>(null);
+    const winnerQueueRef = useRef<IWinner[]>([]);
+    const winnerQueueTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const isProcessingQueueRef = useRef(false);
+
+    const processWinnerQueue = useCallback(() => {
+        const nextWinner = winnerQueueRef.current.shift();
+        if (!nextWinner) {
+            isProcessingQueueRef.current = false;
+            winnerQueueTimerRef.current = null;
+            return;
+        }
+
+        setWinner(nextWinner);
+        setIsDrawing(false);
+        isProcessingQueueRef.current = true;
+
+        if (typeof window !== 'undefined' && 'confetti' in window) {
+            try {
+                (window as unknown as { confetti: (opts: unknown) => void }).confetti?.({
+                    particleCount: 100,
+                    spread: 70,
+                    origin: { x: 0.5, y: 0.5 },
+                });
+            } catch {
+                console.log('[LuckyDraw] Confetti not available');
+            }
+        }
+
+        winnerQueueTimerRef.current = setTimeout(() => {
+            processWinnerQueue();
+        }, 12500);
+    }, []);
 
     useEffect(() => {
         if (!eventId) return;
@@ -250,6 +312,12 @@ export function useLuckyDraw(eventId: string) {
         // Listen for draw started
         channel.on('broadcast', { event: 'draw_started' }, ({ payload }) => {
             console.log('[LuckyDraw] Draw started:', payload);
+            winnerQueueRef.current = [];
+            if (winnerQueueTimerRef.current) {
+                clearTimeout(winnerQueueTimerRef.current);
+                winnerQueueTimerRef.current = null;
+            }
+            isProcessingQueueRef.current = false;
             setIsDrawing(true);
             setWinner(null);
 
@@ -264,20 +332,14 @@ export function useLuckyDraw(eventId: string) {
         // Listen for winner announcement
         channel.on('broadcast', { event: 'draw_winner' }, ({ payload }) => {
             console.log('[LuckyDraw] Winner announced:', payload);
-            setWinner(payload as IWinner);
-            setIsDrawing(false);
+            const normalizedWinner = normalizeWinnerPayload(payload);
+            if (!normalizedWinner) {
+                return;
+            }
 
-            // Show confetti if available
-            if (typeof window !== 'undefined' && 'confetti' in window) {
-                try {
-                    (window as unknown as { confetti: (opts: unknown) => void }).confetti?.({
-                        particleCount: 100,
-                        spread: 70,
-                        origin: { x: 0.5, y: 0.5 },
-                    });
-                } catch {
-                    console.log('[LuckyDraw] Confetti not available');
-                }
+            winnerQueueRef.current.push(normalizedWinner);
+            if (!isProcessingQueueRef.current) {
+                processWinnerQueue();
             }
         });
 
@@ -286,10 +348,16 @@ export function useLuckyDraw(eventId: string) {
         setChannel(channel);
 
         return () => {
+            if (winnerQueueTimerRef.current) {
+                clearTimeout(winnerQueueTimerRef.current);
+                winnerQueueTimerRef.current = null;
+            }
+            winnerQueueRef.current = [];
+            isProcessingQueueRef.current = false;
             supabase.removeChannel(channel);
             setChannel(null);
         };
-    }, [eventId, fingerprint]);
+    }, [eventId, fingerprint, processWinnerQueue]);
 
     const submitEntry = async (
         name: string,
@@ -318,6 +386,69 @@ export function useLuckyDraw(eventId: string) {
     }, []);
 
     return { entries, winner, isDrawing, submitEntry, broadcastDrawStart, broadcastWinner, channel };
+}
+
+function normalizePrizeTierValue(value: unknown): number {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+        return value;
+    }
+
+    if (typeof value === 'string') {
+        const mapped: Record<string, number> = {
+            grand: 1,
+            first: 2,
+            second: 3,
+            third: 4,
+            consolation: 5,
+        };
+        return mapped[value] ?? 1;
+    }
+
+    return 1;
+}
+
+function normalizeWinnerPayload(payload: unknown): IWinner | null {
+    if (!payload || typeof payload !== 'object') {
+        return null;
+    }
+
+    const winnerPayload = payload as Record<string, unknown>;
+    const eventId = winnerPayload.event_id ?? winnerPayload.eventId;
+    const entryId = winnerPayload.entry_id ?? winnerPayload.entryId;
+    const participantName = winnerPayload.participant_name ?? winnerPayload.participantName;
+    const selfieUrl = winnerPayload.selfie_url ?? winnerPayload.selfieUrl;
+    const prizeTierRaw = winnerPayload.prize_tier ?? winnerPayload.prizeTier;
+    const drawnAtRaw = winnerPayload.drawn_at ?? winnerPayload.drawnAt;
+
+    if (typeof eventId !== 'string' || typeof entryId !== 'string') {
+        return null;
+    }
+
+    const normalizedDate =
+        drawnAtRaw instanceof Date
+            ? drawnAtRaw
+            : typeof drawnAtRaw === 'string'
+                ? new Date(drawnAtRaw)
+                : new Date();
+
+    return {
+        id:
+            typeof winnerPayload.id === 'string'
+                ? winnerPayload.id
+                : `winner_${Date.now()}`,
+        event_id: eventId,
+        entry_id: entryId,
+        participant_name: typeof participantName === 'string' ? participantName : 'Anonymous',
+        selfie_url: typeof selfieUrl === 'string' ? selfieUrl : '',
+        prize_tier: normalizePrizeTierValue(prizeTierRaw),
+        drawn_at: normalizedDate,
+        drawn_by:
+            typeof winnerPayload.drawn_by === 'string'
+                ? winnerPayload.drawn_by
+                : 'admin',
+        is_claimed: Boolean(winnerPayload.is_claimed ?? winnerPayload.isClaimed),
+        notes: typeof winnerPayload.notes === 'string' ? winnerPayload.notes : undefined,
+    };
 }
 
 /**

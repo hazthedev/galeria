@@ -4,11 +4,78 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantDb } from '@/lib/db';
+import { hasModeratorRole, requireAuthForApi } from '@/lib/auth';
 import { getTenantId } from '@/lib/tenant';
+import { DEFAULT_TENANT_ID } from '@/lib/constants/tenants';
 
 type RouteContext = {
   params: Promise<{ eventId: string }>;
 };
+
+type EventAccessRecord = {
+  id: string;
+  organizer_id: string;
+};
+
+async function requirePhotoChallengeManageAccess(
+  req: NextRequest,
+  eventId: string
+): Promise<{ db: ReturnType<typeof getTenantDb> }> {
+  const { userId, tenantId, payload } = await requireAuthForApi(req.headers);
+
+  if (!hasModeratorRole(payload.role)) {
+    throw new Error('Forbidden');
+  }
+
+  const db = getTenantDb(tenantId);
+  const event = await db.findOne<EventAccessRecord>('events', { id: eventId });
+  if (!event) {
+    throw new Error('Event not found');
+  }
+
+  if (payload.role === 'organizer' && event.organizer_id !== userId) {
+    throw new Error('Forbidden');
+  }
+
+  return { db };
+}
+
+function getMutationErrorResponse(
+  error: unknown,
+  fallbackError: string,
+  fallbackCode: string
+) {
+  if (error instanceof Error) {
+    if (
+      error.message.includes('Authentication required') ||
+      error.message.includes('Invalid or expired access token')
+    ) {
+      return NextResponse.json(
+        { error: 'Authentication required', code: 'AUTH_REQUIRED' },
+        { status: 401 }
+      );
+    }
+
+    if (error.message.includes('Forbidden')) {
+      return NextResponse.json(
+        { error: 'Forbidden', code: 'FORBIDDEN' },
+        { status: 403 }
+      );
+    }
+
+    if (error.message.includes('Event not found')) {
+      return NextResponse.json(
+        { error: 'Event not found', code: 'EVENT_NOT_FOUND' },
+        { status: 404 }
+      );
+    }
+  }
+
+  return NextResponse.json(
+    { error: fallbackError, code: fallbackCode },
+    { status: 500 }
+  );
+}
 
 /**
  * GET /api/events/[eventId]/photo-challenge
@@ -22,7 +89,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
 
     // Fallback to default tenant for development
     if (!tenantId) {
-      tenantId = '00000000-0000-0000-0000-000000000001';
+      tenantId = DEFAULT_TENANT_ID;
     }
 
     const db = getTenantDb(tenantId);
@@ -67,27 +134,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
   try {
     const { eventId } = await context.params;
     const body = await req.json();
-    const headers = req.headers;
-    let tenantId = getTenantId(headers);
-
-    // Fallback to default tenant for development
-    if (!tenantId) {
-      tenantId = '00000000-0000-0000-0000-000000000001';
-    }
-
-    const db = getTenantDb(tenantId);
-
-    // Check if event exists
-    const event = await db.findOne('events', { id: eventId });
-    if (!event) {
-      return NextResponse.json(
-        { error: 'Event not found', code: 'EVENT_NOT_FOUND' },
-        { status: 404 }
-      );
-    }
-
-    // TODO: Add organizer authentication check here
-    // For now, we'll skip auth to make it work for development
+    const { db } = await requirePhotoChallengeManageAccess(req, eventId);
 
     // Check if challenge already exists
     const existing = await db.findOne('photo_challenges', { event_id: eventId });
@@ -117,10 +164,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
     });
   } catch (error) {
     console.error('[PHOTO_CHALLENGE] POST error:', error);
-    return NextResponse.json(
-      { error: 'Failed to create photo challenge', code: 'CREATE_ERROR' },
-      { status: 500 }
-    );
+    return getMutationErrorResponse(error, 'Failed to create photo challenge', 'CREATE_ERROR');
   }
 }
 
@@ -132,26 +176,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
   try {
     const { eventId } = await context.params;
     const body = await req.json();
-    const headers = req.headers;
-    let tenantId = getTenantId(headers);
-
-    // Fallback to default tenant for development
-    if (!tenantId) {
-      tenantId = '00000000-0000-0000-0000-000000000001';
-    }
-
-    const db = getTenantDb(tenantId);
-
-    // Check if event exists
-    const event = await db.findOne('events', { id: eventId });
-    if (!event) {
-      return NextResponse.json(
-        { error: 'Event not found', code: 'EVENT_NOT_FOUND' },
-        { status: 404 }
-      );
-    }
-
-    // TODO: Add organizer authentication check here
+    const { db } = await requirePhotoChallengeManageAccess(req, eventId);
 
     // Update challenge
     await db.update(
@@ -176,10 +201,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
     });
   } catch (error) {
     console.error('[PHOTO_CHALLENGE] PATCH error:', error);
-    return NextResponse.json(
-      { error: 'Failed to update photo challenge', code: 'UPDATE_ERROR' },
-      { status: 500 }
-    );
+    return getMutationErrorResponse(error, 'Failed to update photo challenge', 'UPDATE_ERROR');
   }
 }
 
@@ -190,26 +212,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
 export async function DELETE(req: NextRequest, context: RouteContext) {
   try {
     const { eventId } = await context.params;
-    const headers = req.headers;
-    let tenantId = getTenantId(headers);
-
-    // Fallback to default tenant for development
-    if (!tenantId) {
-      tenantId = '00000000-0000-0000-0000-000000000001';
-    }
-
-    const db = getTenantDb(tenantId);
-
-    // Check if event exists
-    const event = await db.findOne('events', { id: eventId });
-    if (!event) {
-      return NextResponse.json(
-        { error: 'Event not found', code: 'EVENT_NOT_FOUND' },
-        { status: 404 }
-      );
-    }
-
-    // TODO: Add organizer authentication check here
+    const { db } = await requirePhotoChallengeManageAccess(req, eventId);
 
     // Delete challenge
     await db.delete('photo_challenges', { event_id: eventId });
@@ -219,9 +222,6 @@ export async function DELETE(req: NextRequest, context: RouteContext) {
     });
   } catch (error) {
     console.error('[PHOTO_CHALLENGE] DELETE error:', error);
-    return NextResponse.json(
-      { error: 'Failed to delete photo challenge', code: 'DELETE_ERROR' },
-      { status: 500 }
-    );
+    return getMutationErrorResponse(error, 'Failed to delete photo challenge', 'DELETE_ERROR');
   }
 }

@@ -8,6 +8,8 @@ import { getTenantId } from '@/lib/tenant';
 import { getTenantDb } from '@/lib/db';
 import { verifyAccessToken } from '@/lib/auth';
 import type { ReactionType } from '@/lib/types';
+import { DEFAULT_TENANT_ID } from '@/lib/constants/tenants';
+import { publishEventBroadcast } from '@/lib/realtime/server';
 
 // Maximum reactions per user per photo
 const MAX_REACTIONS_PER_USER = 10;
@@ -26,7 +28,7 @@ export async function GET(
     let tenantId = getTenantId(headers);
 
     if (!tenantId && process.env.NODE_ENV !== 'production') {
-      tenantId = '00000000-0000-0000-0000-000000000001';
+      tenantId = DEFAULT_TENANT_ID;
     }
 
     if (!tenantId) {
@@ -95,7 +97,7 @@ export async function POST(
     let tenantId = getTenantId(headers);
 
     if (!tenantId && process.env.NODE_ENV !== 'production') {
-      tenantId = '00000000-0000-0000-0000-000000000001';
+      tenantId = DEFAULT_TENANT_ID;
     }
 
     if (!tenantId) {
@@ -179,6 +181,13 @@ export async function POST(
         { id: photoId }
       );
 
+      await publishEventBroadcast(photo.event_id, 'reaction_added', {
+        photo_id: photoId,
+        emoji: type,
+        count: newCount,
+        event_id: photo.event_id,
+      });
+
       return NextResponse.json({
         data: {
           type,
@@ -211,6 +220,13 @@ export async function POST(
           { id: photoId }
         );
 
+        await publishEventBroadcast(photo.event_id, 'reaction_added', {
+          photo_id: photoId,
+          emoji: type,
+          count: newCount,
+          event_id: photo.event_id,
+        });
+
         return NextResponse.json({
           data: {
             type,
@@ -238,6 +254,13 @@ export async function POST(
         { reactions: { ...photo.reactions, [type]: newCount } },
         { id: photoId }
       );
+
+      await publishEventBroadcast(photo.event_id, 'reaction_added', {
+        photo_id: photoId,
+        emoji: type,
+        count: newCount,
+        event_id: photo.event_id,
+      });
 
       return NextResponse.json({
         data: {

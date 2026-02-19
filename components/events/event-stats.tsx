@@ -75,6 +75,7 @@ export function EventStats({ eventId, refreshInterval = 30000, className }: Even
   const [stats, setStats] = useState<EventStatsData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [warnings, setWarnings] = useState<string[]>([]);
 
   const fetchStats = async () => {
     try {
@@ -84,14 +85,19 @@ export function EventStats({ eventId, refreshInterval = 30000, className }: Even
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || data.message || 'Failed to fetch stats');
+        const message = data.error || data.message || 'Failed to fetch stats';
+        setError(message);
+        setStats(null);
+        setWarnings([]);
+        return;
       }
 
       setStats(data.data);
       setError(null);
+      setWarnings(Array.isArray(data.warnings) ? data.warnings : []);
     } catch (err) {
-      console.error('[EVENT_STATS] Error:', err);
       setError(err instanceof Error ? err.message : 'Failed to load stats');
+      setWarnings([]);
     } finally {
       setIsLoading(false);
     }
@@ -141,6 +147,12 @@ export function EventStats({ eventId, refreshInterval = 30000, className }: Even
 
   return (
     <div className={clsx('space-y-6', className)}>
+      {warnings.length > 0 && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800/60 dark:bg-amber-900/20 dark:text-amber-300">
+          {warnings[0]}
+        </div>
+      )}
+
       {/* Stats Grid */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         {statCards.map(card => {

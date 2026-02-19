@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantId } from '@/lib/tenant';
 import { getTenantDb } from '@/lib/db';
+import { DEFAULT_TENANT_ID } from '@/lib/constants/tenants';
 
 type RouteContext = {
   params: Promise<{ eventId: string }>;
@@ -26,7 +27,7 @@ export async function GET(
 
     // Fallback to default tenant for development
     if (!tenantId) {
-      tenantId = '00000000-0000-0000-0000-000000000001';
+      tenantId = DEFAULT_TENANT_ID;
     }
 
     const db = getTenantDb(tenantId);

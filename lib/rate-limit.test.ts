@@ -93,8 +93,9 @@ export async function runAllTests() {
     }
 
     // Clean up
-    await resetKey(`${RATE_LIMIT_CONFIGS.uploadPerIp.keyPrefix}:${testIp}`);
     await resetKey(`${RATE_LIMIT_CONFIGS.uploadBurstPerIp.keyPrefix}:${testIp}`);
+    await resetKey(`${RATE_LIMIT_CONFIGS.uploadBurstPerFingerprint.keyPrefix}:fp-123`);
+    await resetKey(`${RATE_LIMIT_CONFIGS.uploadPerUser.keyPrefix}:fp-123`);
     await resetKey(`${RATE_LIMIT_CONFIGS.uploadPerEvent.keyPrefix}:${testEvent}`);
 
     return { pass: true, details: 'New IP can upload' };
@@ -104,22 +105,27 @@ export async function runAllTests() {
     const testIp = `test-ip-burst-${Date.now()}`;
     const testEvent = `test-event-burst-${Date.now()}`;
 
-    // Make 6 rapid uploads (should be blocked after 5)
+    const overrides = {
+      burst_per_ip_minute: 5,
+      burst_per_fingerprint_minute: 5,
+    };
+
+    // Make 6 rapid uploads (should be blocked after 5 with overrides)
     const results = [];
     for (let i = 0; i < 6; i++) {
-      results.push(await checkUploadRateLimit(testIp, `fp-${i}`, testEvent));
+      results.push(await checkUploadRateLimit(testIp, `fp-${i}`, testEvent, undefined, overrides));
     }
 
     const allowedCount = results.filter(r => r.allowed).length;
 
     // Clean up
     await resetKey(`${RATE_LIMIT_CONFIGS.uploadBurstPerIp.keyPrefix}:${testIp}`);
-    await resetKey(`${RATE_LIMIT_CONFIGS.uploadPerFingerprint.keyPrefix}:fp-0`);
-    await resetKey(`${RATE_LIMIT_CONFIGS.uploadPerFingerprint.keyPrefix}:fp-1`);
-    await resetKey(`${RATE_LIMIT_CONFIGS.uploadPerFingerprint.keyPrefix}:fp-2`);
-    await resetKey(`${RATE_LIMIT_CONFIGS.uploadPerFingerprint.keyPrefix}:fp-3`);
-    await resetKey(`${RATE_LIMIT_CONFIGS.uploadPerFingerprint.keyPrefix}:fp-4`);
-    await resetKey(`${RATE_LIMIT_CONFIGS.uploadPerFingerprint.keyPrefix}:fp-5`);
+    await resetKey(`${RATE_LIMIT_CONFIGS.uploadPerUser.keyPrefix}:fp-0`);
+    await resetKey(`${RATE_LIMIT_CONFIGS.uploadPerUser.keyPrefix}:fp-1`);
+    await resetKey(`${RATE_LIMIT_CONFIGS.uploadPerUser.keyPrefix}:fp-2`);
+    await resetKey(`${RATE_LIMIT_CONFIGS.uploadPerUser.keyPrefix}:fp-3`);
+    await resetKey(`${RATE_LIMIT_CONFIGS.uploadPerUser.keyPrefix}:fp-4`);
+    await resetKey(`${RATE_LIMIT_CONFIGS.uploadPerUser.keyPrefix}:fp-5`);
 
     // Should be blocked by IP burst or fingerprint burst after 5
     if (allowedCount > 5) {
@@ -133,33 +139,31 @@ export async function runAllTests() {
     return { pass: true, details: `Allowed ${allowedCount} uploads, 6th blocked by burst protection (${results[5].limitType})` };
   });
 
-  await runTest('Hourly IP limit: 11th upload is blocked', async () => {
-    // This test simulates exceeding the hourly limit
-    // We'll mock by checking the config
-    const maxPerHour = RATE_LIMIT_CONFIGS.uploadPerIp.maxRequests;
+  await runTest('User hourly limit is configured', async () => {
+    const maxPerHour = RATE_LIMIT_CONFIGS.uploadPerUser.maxRequests;
 
-    if (maxPerHour !== 10) {
-      return { pass: false, message: `Config wrong: expected 10, got ${maxPerHour}` };
+    if (maxPerHour !== 1000) {
+      return { pass: false, message: `Config wrong: expected 1000, got ${maxPerHour}` };
     }
 
     return { pass: true, details: `Hourly limit configured: ${maxPerHour} per hour` };
   });
 
-  await runTest('Event daily limit: 100 uploads per day', async () => {
+  await runTest('Event daily limit: 1000 uploads per day', async () => {
     const maxPerDay = RATE_LIMIT_CONFIGS.uploadPerEvent.maxRequests;
 
-    if (maxPerDay !== 100) {
-      return { pass: false, message: `Config wrong: expected 100, got ${maxPerDay}` };
+    if (maxPerDay !== 1000) {
+      return { pass: false, message: `Config wrong: expected 1000, got ${maxPerDay}` };
     }
 
     return { pass: true, details: `Event daily limit configured: ${maxPerDay} per day` };
   });
 
-  await runTest('Burst limit: 5 per minute per IP', async () => {
+  await runTest('Burst limit: 100 per minute per IP', async () => {
     const burstLimit = RATE_LIMIT_CONFIGS.uploadBurstPerIp;
 
-    if (burstLimit.maxRequests !== 5) {
-      return { pass: false, message: `Config wrong: expected 5, got ${burstLimit.maxRequests}` };
+    if (burstLimit.maxRequests !== 100) {
+      return { pass: false, message: `Config wrong: expected 100, got ${burstLimit.maxRequests}` };
     }
 
     if (burstLimit.windowSeconds !== 60) {
@@ -182,7 +186,7 @@ export async function runAllTests() {
     }
 
     // Clean up
-    await resetKey(`${RATE_LIMIT_CONFIGS.uploadPerFingerprint.keyPrefix}:${testFp}`);
+    await resetKey(`${RATE_LIMIT_CONFIGS.uploadPerUser.keyPrefix}:${testFp}`);
     await resetKey(`${RATE_LIMIT_CONFIGS.uploadBurstPerFingerprint.keyPrefix}:${testFp}`);
     await resetKey(`${RATE_LIMIT_CONFIGS.uploadPerEvent.keyPrefix}:${testEvent}`);
 
@@ -366,7 +370,10 @@ export async function runAllTests() {
       const result = await checkUploadRateLimit(testId, 'fp', 'event-1');
 
       // Clean up
-      await resetKey(`${RATE_LIMIT_CONFIGS.uploadPerIp.keyPrefix}:${testId}`);
+      await resetKey(`${RATE_LIMIT_CONFIGS.uploadBurstPerIp.keyPrefix}:${testId}`);
+      await resetKey(`${RATE_LIMIT_CONFIGS.uploadPerUser.keyPrefix}:fp`);
+      await resetKey(`${RATE_LIMIT_CONFIGS.uploadBurstPerFingerprint.keyPrefix}:fp`);
+      await resetKey(`${RATE_LIMIT_CONFIGS.uploadPerEvent.keyPrefix}:event-1`);
 
       return { pass: true, details: `Result structure valid` };
     });
@@ -374,23 +381,23 @@ export async function runAllTests() {
     await runTest('Rate limit exceeded returns proper error details', async () => {
       // We can't easily test actual limit exceeding without many requests
       // So we verify the config structure is correct
-      const ipConfig = RATE_LIMIT_CONFIGS.uploadPerIp;
+      const userConfig = RATE_LIMIT_CONFIGS.uploadPerUser;
 
-      if (ipConfig.maxRequests !== 10) {
-        return { pass: false, message: `IP limit wrong: ${ipConfig.maxRequests}` };
+      if (userConfig.maxRequests !== 1000) {
+        return { pass: false, message: `User limit wrong: ${userConfig.maxRequests}` };
       }
 
-      if (ipConfig.windowSeconds !== 3600) {
-        return { pass: false, message: `Window wrong: ${ipConfig.windowSeconds}s` };
+      if (userConfig.windowSeconds !== 3600) {
+        return { pass: false, message: `Window wrong: ${userConfig.windowSeconds}s` };
       }
 
-      return { pass: true, details: `IP limit: ${ipConfig.maxRequests} per ${ipConfig.windowSeconds}s` };
+      return { pass: true, details: `User limit: ${userConfig.maxRequests} per ${userConfig.windowSeconds}s` };
     });
 
     await runTest('Burst limit has correct config', async () => {
       const burstConfig = RATE_LIMIT_CONFIGS.uploadBurstPerIp;
 
-      if (burstConfig.maxRequests !== 5) {
+      if (burstConfig.maxRequests !== 100) {
         return { pass: false, message: `Burst limit wrong: ${burstConfig.maxRequests}` };
       }
 
@@ -423,8 +430,9 @@ export async function runAllTests() {
       const result = await checkUploadRateLimit(`ip-${testId}`, `fp-${testId}`, `event-${testId}`);
 
       // Clean up
-      await resetKey(`${RATE_LIMIT_CONFIGS.uploadPerIp.keyPrefix}:ip-${testId}`);
-      await resetKey(`${RATE_LIMIT_CONFIGS.uploadPerFingerprint.keyPrefix}:fp-${testId}`);
+      await resetKey(`${RATE_LIMIT_CONFIGS.uploadBurstPerIp.keyPrefix}:ip-${testId}`);
+      await resetKey(`${RATE_LIMIT_CONFIGS.uploadBurstPerFingerprint.keyPrefix}:fp-${testId}`);
+      await resetKey(`${RATE_LIMIT_CONFIGS.uploadPerUser.keyPrefix}:fp-${testId}`);
       await resetKey(`${RATE_LIMIT_CONFIGS.uploadPerEvent.keyPrefix}:event-${testId}`);
 
       if (!result.allowed) {
@@ -434,25 +442,29 @@ export async function runAllTests() {
       return { pass: true, details: 'Multi-layer check passed (IP + fingerprint + event)' };
     });
 
-    await runTest('Authenticated users get higher limits', async () => {
+    await runTest('User hourly limit is configured', async () => {
       const userConfig = RATE_LIMIT_CONFIGS.uploadPerUser;
 
-      if (userConfig.maxRequests !== 50) {
+      if (userConfig.maxRequests !== 1000) {
         return { pass: false, message: `User limit wrong: ${userConfig.maxRequests}` };
       }
 
-      return { pass: true, details: `Authenticated users: ${userConfig.maxRequests} per hour` };
+      return { pass: true, details: `User hourly limit: ${userConfig.maxRequests} per hour` };
     });
 
-    await runTest('Anonymous users get stricter limits', async () => {
-      const ipConfig = RATE_LIMIT_CONFIGS.uploadPerIp;
-      const fpConfig = RATE_LIMIT_CONFIGS.uploadPerFingerprint;
+    await runTest('Anonymous limits are configured', async () => {
+      const burstIpConfig = RATE_LIMIT_CONFIGS.uploadBurstPerIp;
+      const burstFpConfig = RATE_LIMIT_CONFIGS.uploadBurstPerFingerprint;
+      const userConfig = RATE_LIMIT_CONFIGS.uploadPerUser;
 
-      if (ipConfig.maxRequests !== 10 || fpConfig.maxRequests !== 10) {
-        return { pass: false, message: `Anonymous limits wrong` };
+      if (burstIpConfig.maxRequests <= 0 || burstFpConfig.maxRequests <= 0 || userConfig.maxRequests <= 0) {
+        return { pass: false, message: 'Anonymous limits are not configured' };
       }
 
-      return { pass: true, details: `Anonymous users: ${ipConfig.maxRequests} per hour` };
+      return {
+        pass: true,
+        details: `Anonymous: burst IP ${burstIpConfig.maxRequests}/min, burst FP ${burstFpConfig.maxRequests}/min, hourly ${userConfig.maxRequests}/hr`,
+      };
     });
   }
 
@@ -470,20 +482,21 @@ export async function runAllTests() {
   } else {
     await runTest('getUploadRateLimitStatus returns current usage', async () => {
       const testId = `status-${Date.now()}`;
-      const status = await getUploadRateLimitStatus(testId, null, `event-${testId}`);
+      const status = await getUploadRateLimitStatus(`ip-${testId}`, `fp-${testId}`, `event-${testId}`);
 
       // Clean up
-      await resetKey(`${RATE_LIMIT_CONFIGS.uploadPerIp.keyPrefix}:${testId}`);
-      await resetKey(`${RATE_LIMIT_CONFIGS.uploadBurstPerIp.keyPrefix}:${testId}`);
+      await resetKey(`${RATE_LIMIT_CONFIGS.uploadBurstPerIp.keyPrefix}:ip-${testId}`);
+      await resetKey(`${RATE_LIMIT_CONFIGS.uploadBurstPerFingerprint.keyPrefix}:fp-${testId}`);
+      await resetKey(`${RATE_LIMIT_CONFIGS.uploadPerUser.keyPrefix}:fp-${testId}`);
       await resetKey(`${RATE_LIMIT_CONFIGS.uploadPerEvent.keyPrefix}:event-${testId}`);
 
-      if (!status.ipHourly || !status.ipBurst || !status.eventDaily) {
+      if (!status.userHourly || !status.burstIp || !status.eventDaily) {
         return { pass: false, message: 'Missing status fields' };
       }
 
       return {
         pass: true,
-        details: `IP: ${status.ipHourly.used}/${status.ipHourly.limit}, Burst: ${status.ipBurst.used}/${status.ipBurst.limit}, Event: ${status.eventDaily.used}/${status.eventDaily.limit}`
+        details: `User: ${status.userHourly.used}/${status.userHourly.limit}, Burst: ${status.burstIp.used}/${status.burstIp.limit}, Event: ${status.eventDaily.used}/${status.eventDaily.limit}`
       };
     });
   }

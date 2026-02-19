@@ -146,20 +146,11 @@ export default function EventAdminPage() {
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Event
           </Link>
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-                {event.name}
-              </h1>
-              <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">Admin Dashboard</p>
-            </div>
-            <Link
-              href={`/organizer/events/${eventId}/edit`}
-              className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-            >
-              <Settings className="mr-2 h-4 w-4" />
-              Edit Event
-            </Link>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+              {event.name}
+            </h1>
+            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">Admin Dashboard</p>
           </div>
         </div>
 

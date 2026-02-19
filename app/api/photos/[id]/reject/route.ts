@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantDb } from '@/lib/db';
 import { requireAuthForApi, verifyPhotoModerationAccess } from '@/lib/auth';
+import { publishEventBroadcast } from '@/lib/realtime/server';
 
 const shouldLogModeration = async (db: ReturnType<typeof getTenantDb>) => {
   const result = await db.query<{ name: string | null }>(
@@ -67,6 +68,12 @@ export async function PATCH(
         created_at: new Date(),
       });
     }
+
+    await publishEventBroadcast(photo.event_id, 'photo_updated', {
+      photo_id: photoId,
+      status: 'rejected',
+      event_id: photo.event_id,
+    });
 
     return NextResponse.json({
       data: { id: photoId, status: 'rejected' },

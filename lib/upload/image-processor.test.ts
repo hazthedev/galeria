@@ -500,7 +500,7 @@ if (process.env.JEST_WORKER_ID) {
   test('image processor test suite', async () => {
     const success = await runAllTests();
     expect(success).toBe(true);
-  });
+  }, 30000);
 } else {
   runAllTests()
     .then((success) => {

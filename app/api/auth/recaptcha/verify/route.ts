@@ -7,6 +7,7 @@ import { verifyRecaptchaToken, generateMathChallenge, storeChallenge, verifyChal
 import { getTenantId } from '@/lib/tenant';
 import type { SubscriptionTier } from '@/lib/types';
 import { resolveUserTier } from '@/lib/subscription';
+import { DEFAULT_TENANT_ID } from '@/lib/constants/tenants';
 
 /**
  * POST /api/auth/recaptcha/verify
@@ -28,7 +29,7 @@ export async function POST(request: NextRequest) {
     const headers = request.headers;
     let tenantId = getTenantId(headers);
     if (!tenantId) {
-      tenantId = '00000000-0000-0000-0000-000000000001';
+      tenantId = DEFAULT_TENANT_ID;
     }
     const subscriptionTier = await resolveUserTier(headers, tenantId, 'free');
 

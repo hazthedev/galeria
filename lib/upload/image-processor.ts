@@ -142,6 +142,27 @@ class ImageProcessingError extends Error implements ProcessingError {
   }
 }
 
+async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  message: string
+): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(message));
+    }, timeoutMs);
+  });
+
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  }
+}
+
 // ============================================
 // MAIN PROCESSING FUNCTION
 // ============================================
@@ -197,17 +218,12 @@ export async function processSecureImage(
       unlimited: false, // Enforce security limits
     });
 
-    // Set timeout for processing
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => {
-        reject(new Error('Image processing timeout'));
-      }, MAX_PROCESSING_TIME);
-    });
-
     // Get metadata with timeout
-    const metadataPromise = image.metadata();
-
-    metadata = await Promise.race([metadataPromise, timeoutPromise]) as Metadata;
+    metadata = await withTimeout(
+      image.metadata(),
+      MAX_PROCESSING_TIME,
+      'Image processing timeout'
+    );
 
   } catch (error) {
     if (error instanceof Error) {
@@ -435,12 +451,11 @@ async function processSize(
   // No need for explicit removeMetadata() call
 
   // Generate buffer with timeout
-  const buffer = await Promise.race([
+  const buffer = await withTimeout(
     pipeline.toBuffer(),
-    new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('Size processing timeout')), 10000)
-    ),
-  ]) as Buffer;
+    10000,
+    'Size processing timeout'
+  );
 
   // Verify output
   const metadata = await sharp(buffer).metadata();

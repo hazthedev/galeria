@@ -22,7 +22,8 @@ const formatLimit = (value: number | string[]) => {
 
 export default function OrganizerBillingPage() {
   const { user, isLoading } = useAuth();
-  const currentTier = (user?.subscription_tier || 'free') as SubscriptionTier;
+  const [usageTier, setUsageTier] = useState<SubscriptionTier | null>(null);
+  const currentTier = (usageTier || user?.subscription_tier || 'free') as SubscriptionTier;
   const [usage, setUsage] = useState<{
     eventsThisMonth: number;
     totalEvents: number;
@@ -41,11 +42,14 @@ export default function OrganizerBillingPage() {
         const response = await fetch('/api/organizer/usage', { credentials: 'include' });
         const data = await response.json();
         if (response.ok) {
+          setUsageTier((data.data?.tier || null) as SubscriptionTier | null);
           setUsage(data.data?.usage || null);
         } else {
+          setUsageTier(null);
           setUsage(null);
         }
       } catch {
+        setUsageTier(null);
         setUsage(null);
       } finally {
         setUsageLoading(false);

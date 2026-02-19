@@ -8,6 +8,7 @@ import { getTenantDb } from '@/lib/db';
 import { verifyAccessToken } from '@/lib/auth';
 import { extractSessionId, validateSession } from '@/lib/session';
 import type { IAttendance, IAttendanceCreate } from '@/lib/types';
+import { DEFAULT_TENANT_ID } from '@/lib/constants/tenants';
 
 // ============================================
 // POST /api/events/:eventId/attendance/manual
@@ -25,7 +26,7 @@ export async function POST(
 
     // Fallback to default tenant for development
     if (!tenantId) {
-      tenantId = '00000000-0000-0000-0000-000000000001';
+      tenantId = DEFAULT_TENANT_ID;
     }
 
     const db = getTenantDb(tenantId);

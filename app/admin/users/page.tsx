@@ -24,6 +24,8 @@ interface User {
     name: string;
     role: 'guest' | 'organizer' | 'super_admin';
     subscription_tier?: 'free' | 'pro' | 'premium' | 'enterprise' | 'tester';
+    user_subscription_tier?: 'free' | 'pro' | 'premium' | 'enterprise' | 'tester';
+    tenant_subscription_tier?: 'free' | 'pro' | 'premium' | 'enterprise' | 'tester';
     tenant_id: string;
     created_at: string;
     last_login_at?: string;
@@ -92,7 +94,11 @@ export default function SupervisorUsersPage() {
         }
     };
 
-    const handleTierChange = async (userId: string, newTier: string) => {
+    const handleTierChange = async (userId: string, userRole: User['role'], newTier: string) => {
+        const isSuperAdmin = userRole === 'super_admin';
+        const successMessage = isSuperAdmin ? 'Account tier updated' : 'Tenant plan updated';
+        const errorMessage = isSuperAdmin ? 'Failed to update account tier' : 'Failed to update tenant plan';
+
         try {
             const response = await fetch(`/api/admin/users/${userId}`, {
                 method: 'PATCH',
@@ -102,13 +108,13 @@ export default function SupervisorUsersPage() {
             });
 
             if (response.ok) {
-                toast.success('User tier updated');
+                toast.success(successMessage);
                 fetchUsers();
             } else {
-                toast.error('Failed to update user tier');
+                toast.error(errorMessage);
             }
         } catch (error) {
-            toast.error('Failed to update user tier');
+            toast.error(errorMessage);
         }
     };
 
@@ -214,7 +220,7 @@ export default function SupervisorUsersPage() {
                                     Role
                                 </th>
                                 <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
-                                    Tier
+                                    Plan
                                 </th>
                                 <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
                                     Joined
@@ -253,9 +259,18 @@ export default function SupervisorUsersPage() {
                                         </select>
                                     </td>
                                     <td className="px-4 py-3 text-sm text-gray-500">
+                                        {/**
+                                          * Super admins keep account-level tier.
+                                          * Organizer/guest rows reflect shared tenant plan.
+                                          */}
+                                        {(() => {
+                                            const tierValue = user.role === 'super_admin'
+                                                ? (user.user_subscription_tier || user.subscription_tier || 'free')
+                                                : (user.tenant_subscription_tier || user.subscription_tier || 'free');
+                                            return (
                                         <select
-                                            value={user.subscription_tier || 'free'}
-                                            onChange={(e) => handleTierChange(user.id, e.target.value)}
+                                            value={tierValue}
+                                            onChange={(e) => handleTierChange(user.id, user.role, e.target.value)}
                                             className="rounded-full px-2 py-1 text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200"
                                         >
                                             <option value="free">Free</option>
@@ -264,6 +279,8 @@ export default function SupervisorUsersPage() {
                                             <option value="enterprise">Enterprise</option>
                                             <option value="tester">Tester</option>
                                         </select>
+                                            );
+                                        })()}
                                     </td>
                                     <td className="px-4 py-3 text-sm text-gray-500">
                                         {new Date(user.created_at).toLocaleDateString()}

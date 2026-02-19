@@ -3,8 +3,9 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getTenantId } from '@/lib/tenant';
 import { getTenantDb } from '@/lib/db';
+import { hasModeratorRole, requireAuthForApi } from '@/lib/auth';
+import { resolveOptionalAuth, resolveTenantId } from '@/lib/api-request-context';
 import {
   createLuckyDrawConfig,
   getActiveConfig,
@@ -14,11 +15,75 @@ import {
 
 export const runtime = 'nodejs';
 
-const isMissingTableError = (error: unknown) =>
+const isRecoverableReadError = (error: unknown) =>
   typeof error === 'object' &&
   error !== null &&
   'code' in error &&
-  (error as { code?: string }).code === '42P01';
+  ['42P01', '42703'].includes((error as { code?: string }).code || '');
+
+type EventAccessRecord = {
+  id: string;
+  organizer_id: string;
+};
+
+async function requireConfigWriteAccess(
+  request: NextRequest,
+  eventId: string
+): Promise<{
+  db: ReturnType<typeof getTenantDb>;
+  tenantId: string;
+  userId: string;
+}> {
+  const { userId, tenantId, payload } = await requireAuthForApi(request.headers);
+  if (!hasModeratorRole(payload.role)) {
+    throw new Error('Forbidden');
+  }
+
+  const db = getTenantDb(tenantId);
+  const event = await db.findOne<EventAccessRecord>('events', { id: eventId });
+  if (!event) {
+    throw new Error('Event not found');
+  }
+
+  if (payload.role === 'organizer' && event.organizer_id !== userId) {
+    throw new Error('Forbidden');
+  }
+
+  return { db, tenantId, userId };
+}
+
+function getConfigMutationError(error: unknown) {
+  if (error instanceof Error) {
+    if (
+      error.message.includes('Authentication required') ||
+      error.message.includes('Invalid or expired access token')
+    ) {
+      return NextResponse.json(
+        { error: 'Authentication required', code: 'AUTH_REQUIRED' },
+        { status: 401 }
+      );
+    }
+
+    if (error.message.includes('Forbidden')) {
+      return NextResponse.json(
+        { error: 'Forbidden', code: 'FORBIDDEN' },
+        { status: 403 }
+      );
+    }
+
+    if (error.message.includes('Event not found')) {
+      return NextResponse.json(
+        { error: 'Event not found', code: 'EVENT_NOT_FOUND' },
+        { status: 404 }
+      );
+    }
+  }
+
+  return NextResponse.json(
+    { error: 'Failed to save configuration', code: 'CONFIG_ERROR' },
+    { status: 500 }
+  );
+}
 
 // ============================================
 // GET /api/events/:eventId/lucky-draw/config - Get active config
@@ -30,13 +95,8 @@ export async function GET(
 ) {
   try {
     const { eventId } = await params;
-    const headers = request.headers;
-    let tenantId = getTenantId(headers);
-
-    // Fallback to default tenant for development (Turbopack middleware issue)
-    if (!tenantId) {
-      tenantId = '00000000-0000-0000-0000-000000000001';
-    }
+    const auth = await resolveOptionalAuth(request.headers);
+    const tenantId = resolveTenantId(request.headers, auth);
 
     const db = getTenantDb(tenantId);
 
@@ -65,19 +125,28 @@ export async function GET(
     }
 
     // Get entries count
-    const entries = await getEventEntries(tenantId, config.id);
+    let entryCount = 0;
+    const warnings: string[] = [];
+    try {
+      const entries = await getEventEntries(tenantId, config.id);
+      entryCount = entries.length;
+    } catch {
+      entryCount = Number(config.totalEntries || 0);
+      warnings.push('Entry count unavailable; showing cached value.');
+    }
 
     return NextResponse.json({
       data: {
         ...config,
-        entryCount: entries.length,
+        entryCount,
       },
+      warnings: warnings.length > 0 ? warnings : undefined,
     });
   } catch (error) {
-    if (isMissingTableError(error)) {
+    if (isRecoverableReadError(error)) {
       return NextResponse.json({
         data: null,
-        message: 'Lucky draw tables not initialized',
+        message: 'Lucky draw configuration unavailable right now.',
       });
     }
     console.error('[API] Config fetch error:', error);
@@ -98,24 +167,7 @@ async function upsertConfig(
 ) {
   try {
     const { eventId } = await params;
-    const headers = request.headers;
-    let tenantId = getTenantId(headers);
-
-    // Fallback to default tenant for development (Turbopack middleware issue)
-    if (!tenantId) {
-      tenantId = '00000000-0000-0000-0000-000000000001';
-    }
-
-    const db = getTenantDb(tenantId);
-
-    // Verify event exists
-    const event = await db.findOne('events', { id: eventId });
-    if (!event) {
-      return NextResponse.json(
-        { error: 'Event not found', code: 'EVENT_NOT_FOUND' },
-        { status: 404 }
-      );
-    }
+    const { db, tenantId, userId } = await requireConfigWriteAccess(request, eventId);
 
     // Parse request body
     const body = await request.json();
@@ -193,7 +245,7 @@ async function upsertConfig(
       showFullName: settings.showFullName !== false,
       playSound: settings.playSound !== false,
       confettiAnimation: settings.confettiAnimation !== false,
-      createdBy: 'system', // TODO: Get from authenticated user when available
+      createdBy: userId,
     });
 
     return NextResponse.json({
@@ -202,10 +254,7 @@ async function upsertConfig(
     });
   } catch (error) {
     console.error('[API] Config error:', error);
-    return NextResponse.json(
-      { error: 'Failed to save configuration', code: 'CONFIG_ERROR' },
-      { status: 500 }
-    );
+    return getConfigMutationError(error);
   }
 }
 

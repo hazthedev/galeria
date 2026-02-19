@@ -8,6 +8,7 @@ import type { NextRequest } from 'next/server';
 import crypto from 'crypto';
 import { getTenantDb } from './db';
 import type { ITenant, ITenantContext, TenantType, SubscriptionTier } from './types';
+import { DEFAULT_TENANT_ID, SYSTEM_TENANT_ID } from './constants/tenants';
 
 // ============================================
 // CONFIGURATION
@@ -78,7 +79,7 @@ export async function getTenantByDomain(domain: string): Promise<ITenant | null>
   }
 
   try {
-    const db = getTenantDb('00000000-0000-0000-0000-000000000000'); // System DB for tenant lookup
+    const db = getTenantDb(SYSTEM_TENANT_ID); // System DB for tenant lookup
     const tenant = await db.findOne<ITenant>('tenants', {
       domain: domain,
       status: 'active',
@@ -110,7 +111,7 @@ export async function getTenantBySubdomain(subdomain: string): Promise<ITenant |
   }
 
   try {
-    const db = getTenantDb('00000000-0000-0000-0000-000000000000'); // System DB for tenant lookup
+    const db = getTenantDb(SYSTEM_TENANT_ID); // System DB for tenant lookup
     const tenant = await db.findOne<ITenant>('tenants', {
       subdomain: subdomain,
       status: 'active',
@@ -142,7 +143,7 @@ export async function getMasterTenant(): Promise<ITenant | null> {
   }
 
   try {
-    const db = getTenantDb('00000000-0000-0000-0000-000000000000'); // System DB for tenant lookup
+    const db = getTenantDb(SYSTEM_TENANT_ID); // System DB for tenant lookup
     const tenant = await db.findOne<ITenant>('tenants', {
       tenant_type: 'master',
       status: 'active',
@@ -414,7 +415,7 @@ export function clearTenantCache(tenantId?: string): void {
  */
 export async function warmTenantCache(): Promise<void> {
   try {
-    const db = getTenantDb('00000000-0000-0000-0000-000000000000');
+    const db = getTenantDb(SYSTEM_TENANT_ID);
     const tenants = await db.findMany<ITenant>('tenants', { status: 'active' });
 
     for (const tenant of tenants) {
@@ -462,7 +463,7 @@ interface ICreateTenantInput {
  * Create a new tenant
  */
 export async function createTenant(input: ICreateTenantInput): Promise<ITenant> {
-  const db = getTenantDb('00000000-0000-0000-0000-000000000000');
+  const db = getTenantDb(SYSTEM_TENANT_ID);
 
   // Generate unique subdomain if not provided
   let subdomain = input.subdomain;
@@ -525,8 +526,8 @@ export async function createTenant(input: ICreateTenantInput): Promise<ITenant> 
 
 async function seedMasterTenant(): Promise<ITenant | null> {
   try {
-    const db = getTenantDb('00000000-0000-0000-0000-000000000000');
-    const masterId = process.env.MASTER_TENANT_ID || '00000000-0000-0000-0000-000000000001';
+    const db = getTenantDb(SYSTEM_TENANT_ID);
+    const masterId = DEFAULT_TENANT_ID;
     const appName = process.env.NEXT_PUBLIC_APP_NAME || 'Momentique';
     const masterDomain = process.env.NEXT_PUBLIC_MASTER_DOMAIN || 'app.momentique.com';
     const contactEmail = process.env.MASTER_TENANT_CONTACT_EMAIL || `admin@${masterDomain}`;

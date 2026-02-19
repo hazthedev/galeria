@@ -28,30 +28,44 @@ export async function GET(request: NextRequest) {
         let paramIndex = 1;
 
         if (role && role !== 'all') {
-            whereClause += ` AND role = $${paramIndex}`;
+            whereClause += ` AND u.role = $${paramIndex}`;
             params.push(role);
             paramIndex++;
         }
 
         if (search) {
-            whereClause += ` AND (name ILIKE $${paramIndex} OR email ILIKE $${paramIndex})`;
+            whereClause += ` AND (u.name ILIKE $${paramIndex} OR u.email ILIKE $${paramIndex})`;
             params.push(`%${search}%`);
             paramIndex++;
         }
 
         // Get users
         const usersResult = await db.query(
-            `SELECT id, email, name, role, tenant_id, subscription_tier, created_at, last_login_at 
-       FROM users 
+            `SELECT
+         u.id,
+         u.email,
+         u.name,
+         u.role,
+         u.tenant_id,
+         CASE
+           WHEN u.role = 'super_admin' THEN COALESCE(u.subscription_tier, 'free')
+           ELSE COALESCE(t.subscription_tier, u.subscription_tier, 'free')
+         END AS subscription_tier,
+         u.subscription_tier AS user_subscription_tier,
+         t.subscription_tier AS tenant_subscription_tier,
+         u.created_at,
+         u.last_login_at
+       FROM users u
+       LEFT JOIN tenants t ON t.id = u.tenant_id
        WHERE ${whereClause}
-       ORDER BY created_at DESC 
+       ORDER BY u.created_at DESC
        LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
             [...params, limit, offset]
         );
 
         // Get total count
         const countResult = await db.query(
-            `SELECT COUNT(*) as count FROM users WHERE ${whereClause}`,
+            `SELECT COUNT(*) as count FROM users u WHERE ${whereClause}`,
             params
         );
 

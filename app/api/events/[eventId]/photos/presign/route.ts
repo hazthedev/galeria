@@ -11,6 +11,7 @@ import { getSystemSettings } from '@/lib/system-settings';
 import { generatePhotoId } from '@/lib/utils';
 import { checkPhotoLimit } from '@/lib/limit-check';
 import { resolveUserTier } from '@/lib/subscription';
+import { DEFAULT_TENANT_ID } from '@/lib/constants/tenants';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -26,7 +27,7 @@ export async function POST(
 
     // Fallback to default tenant for development (Turbopack middleware issue)
     if (!tenantId) {
-      tenantId = '00000000-0000-0000-0000-000000000001';
+      tenantId = DEFAULT_TENANT_ID;
     }
 
     const body = await request.json();

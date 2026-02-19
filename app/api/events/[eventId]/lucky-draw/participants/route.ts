@@ -3,17 +3,17 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getTenantId } from '@/lib/tenant';
 import { getTenantDb } from '@/lib/db';
 import { getActiveConfig, getEventEntries } from '@/lib/lucky-draw';
+import { resolveOptionalAuth, resolveTenantId } from '@/lib/api-request-context';
 
 export const runtime = 'nodejs';
 
-const isMissingTableError = (error: unknown) =>
+const isRecoverableReadError = (error: unknown) =>
   typeof error === 'object' &&
   error !== null &&
   'code' in error &&
-  (error as { code?: string }).code === '42P01';
+  ['42P01', '42703'].includes((error as { code?: string }).code || '');
 
 // ============================================
 // GET /api/events/:eventId/lucky-draw/participants - List participants
@@ -25,13 +25,8 @@ export async function GET(
 ) {
   try {
     const { eventId } = await params;
-    const headers = request.headers;
-    let tenantId = getTenantId(headers);
-
-    // Fallback to default tenant for development (Turbopack middleware issue)
-    if (!tenantId) {
-      tenantId = '00000000-0000-0000-0000-000000000001';
-    }
+    const auth = await resolveOptionalAuth(request.headers);
+    const tenantId = resolveTenantId(request.headers, auth);
 
     const db = getTenantDb(tenantId);
 
@@ -104,7 +99,7 @@ export async function GET(
       },
     });
   } catch (error) {
-    if (isMissingTableError(error)) {
+    if (isRecoverableReadError(error)) {
       return NextResponse.json({
         data: [],
         pagination: {

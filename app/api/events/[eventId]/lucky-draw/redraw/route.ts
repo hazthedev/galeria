@@ -9,6 +9,8 @@ import { getTenantDb } from '@/lib/db';
 import { redrawPrizeTier } from '@/lib/lucky-draw';
 import { extractSessionId, validateSession } from '@/lib/session';
 import { verifyAccessToken } from '@/lib/auth';
+import { DEFAULT_TENANT_ID } from '@/lib/constants/tenants';
+import { publishEventBroadcast } from '@/lib/realtime/server';
 
 export const runtime = 'nodejs';
 
@@ -27,7 +29,7 @@ export async function POST(
 
         // Fallback to default tenant for development
         if (!tenantId) {
-            tenantId = '00000000-0000-0000-0000-000000000001';
+            tenantId = DEFAULT_TENANT_ID;
         }
 
         const db = getTenantDb(tenantId);
@@ -89,6 +91,8 @@ export async function POST(
             redrawBy: userId,
         });
 
+        await publishEventBroadcast(eventId, 'draw_winner', mapWinnerToBroadcastPayload(result.newWinner, eventId));
+
         return NextResponse.json({
             data: {
                 newWinner: result.newWinner,
@@ -104,4 +108,65 @@ export async function POST(
             { status: 500 }
         );
     }
+}
+
+function mapPrizeTierToLegacy(prizeTier: unknown): number {
+    if (typeof prizeTier === 'number' && Number.isFinite(prizeTier)) {
+        return prizeTier;
+    }
+
+    if (typeof prizeTier !== 'string') {
+        return 1;
+    }
+
+    const lookup: Record<string, number> = {
+        grand: 1,
+        first: 2,
+        second: 3,
+        third: 4,
+        consolation: 5,
+    };
+
+    return lookup[prizeTier] ?? 1;
+}
+
+function mapWinnerToBroadcastPayload(
+    winner: {
+        id?: string;
+        eventId?: string;
+        entryId?: string;
+        participantName?: string;
+        selfieUrl?: string;
+        prizeTier?: string | number;
+        drawnAt?: Date;
+        isClaimed?: boolean;
+    },
+    eventId: string
+) {
+    const normalizedEventId = winner.eventId || eventId;
+    const normalizedEntryId = winner.entryId || '';
+    const normalizedParticipant = winner.participantName || 'Anonymous';
+    const normalizedSelfie = winner.selfieUrl || '';
+    const normalizedPrizeTier = mapPrizeTierToLegacy(winner.prizeTier);
+    const normalizedDrawnAt = winner.drawnAt ?? new Date();
+
+    return {
+        id: winner.id || `winner_${Date.now()}`,
+        event_id: normalizedEventId,
+        entry_id: normalizedEntryId,
+        participant_name: normalizedParticipant,
+        selfie_url: normalizedSelfie,
+        prize_tier: normalizedPrizeTier,
+        drawn_at: normalizedDrawnAt,
+        drawn_by: 'admin',
+        is_claimed: winner.isClaimed ?? false,
+
+        eventId: normalizedEventId,
+        entryId: normalizedEntryId,
+        participantName: normalizedParticipant,
+        selfieUrl: normalizedSelfie,
+        prizeTier: winner.prizeTier,
+        drawnAt: normalizedDrawnAt,
+        isClaimed: winner.isClaimed ?? false,
+    };
 }

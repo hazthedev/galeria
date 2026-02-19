@@ -10,12 +10,62 @@ import { getTenantDb } from '../../../../lib/db';
 import { createSession, deleteSession, extractSessionId } from '../../../../lib/session';
 import { checkLoginRateLimit, createRateLimitErrorResponse } from '../../../../lib/rate-limit';
 import { getRequestIp, getRequestUserAgent } from '../../../../middleware/auth';
-import type { ILoginRequest, IAuthResponseSession } from '../../../../lib/types';
-import type { IUser } from '../../../../lib/types';
+import type { IAuthResponseSession } from '../../../../lib/types';
+import { loginSchema } from '../../../../lib/validation/auth';
+import { getTenantId } from '../../../../lib/tenant';
+import type { IUser, ITenant } from '../../../../lib/types';
+import { SYSTEM_TENANT_ID } from '@/lib/constants/tenants';
 
 // Configure route to use Node.js runtime
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+type LoginUserMatch = {
+  db: ReturnType<typeof getTenantDb>;
+  user: IUser;
+};
+
+async function findUserForLogin(
+  normalizedEmail: string,
+  hintedTenantId: string | null
+): Promise<LoginUserMatch | null> {
+  const systemDb = getTenantDb(SYSTEM_TENANT_ID);
+  const tenantIds: string[] = [];
+
+  if (hintedTenantId) {
+    tenantIds.push(hintedTenantId);
+  }
+
+  // Keep backward compatibility for existing data that may still live in system tenant.
+  tenantIds.push(SYSTEM_TENANT_ID);
+
+  try {
+    const activeTenants = await systemDb.findMany<ITenant>('tenants', { status: 'active' });
+    tenantIds.push(...activeTenants.map((tenant) => tenant.id));
+  } catch (error) {
+    console.error('[LOGIN] Failed to load active tenants:', error);
+  }
+
+  const checked = new Set<string>();
+  for (const tenantId of tenantIds) {
+    if (!tenantId || checked.has(tenantId)) {
+      continue;
+    }
+    checked.add(tenantId);
+
+    try {
+      const tenantDb = getTenantDb(tenantId);
+      const user = await tenantDb.findOne<IUser>('users', { email: normalizedEmail });
+      if (user) {
+        return { db: tenantDb, user };
+      }
+    } catch (error) {
+      console.error(`[LOGIN] Tenant lookup failed for ${tenantId}:`, error);
+    }
+  }
+
+  return null;
+}
 
 /**
  * POST /api/auth/login
@@ -23,21 +73,20 @@ export const dynamic = 'force-dynamic';
  */
 export async function POST(request: NextRequest) {
   try {
-    // Parse request body
-    const body: ILoginRequest = await request.json();
-    const { email, password, rememberMe = false } = body;
-
-    // Validate input
-    if (!email || !password) {
+    // Parse and validate request body
+    const parsed = loginSchema.safeParse(await request.json());
+    if (!parsed.success) {
       return NextResponse.json(
         {
           success: false,
           error: 'INVALID_INPUT',
-          message: 'Email and password are required',
+          message: 'Invalid login request',
+          details: parsed.error.flatten().fieldErrors,
         },
         { status: 400 }
       );
     }
+    const { email, password, rememberMe = false } = parsed.data;
 
     // Normalize email
     const normalizedEmail = email.toLowerCase().trim();
@@ -62,22 +111,13 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // For login, we need to find the user across all tenants
-    // In production, you might have a users index table or a different approach
-    // For now, we'll query the default/master tenant first
-    // In Phase 3, this would be improved with a proper multi-tenant user lookup
+    const tenantHintId = getTenantId(request.headers);
+    const loginMatch = await findUserForLogin(normalizedEmail, tenantHintId);
 
-    // TODO: Implement proper multi-tenant user lookup
-    // For now, we'll use the default tenant ID
-    const defaultTenantId = '00000000-0000-0000-0000-000000000000';
-    const db = getTenantDb(defaultTenantId);
+    const user = loginMatch?.user;
+    const passwordHash = user?.password_hash;
 
-    // Find user by email
-    const user = await db.findOne<IUser>('users', {
-      email: normalizedEmail,
-    });
-
-    if (!user || !user.password_hash) {
+    if (!user || !passwordHash) {
       // Don't reveal whether user exists for security
       return NextResponse.json(
         {
@@ -90,7 +130,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify password
-    const passwordValid = await comparePassword(password, user.password_hash);
+    const passwordValid = await comparePassword(password, passwordHash);
 
     if (!passwordValid) {
       return NextResponse.json(
@@ -104,7 +144,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Update last login timestamp
-    await db.update(
+    await loginMatch.db.update(
       'users',
       { last_login_at: new Date() },
       { id: user.id }

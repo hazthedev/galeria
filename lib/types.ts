@@ -611,7 +611,7 @@ export interface ISocketEventData {
   join_event: { event_id: string };
   leave_event: { event_id: string };
   new_photo: IPhoto;
-  photo_updated: { photo_id: string; status: PhotoStatus };
+  photo_updated: { photo_id: string; status: PhotoStatus; event_id?: string };
   stats_update: IEventStats;
   draw_started: ILuckyDrawConfig;
   draw_winner: IWinner;

@@ -20,8 +20,11 @@ export async function GET(request: NextRequest) {
     }
 
     const db = getTenantDb(tenantId);
-    const user = await db.findOne<IUser>('users', { id: userId });
-    const tier = (user?.subscription_tier || 'free') as SubscriptionTier;
+    const [user, tenant] = await Promise.all([
+      db.findOne<IUser>('users', { id: userId }),
+      db.findOne<{ subscription_tier: SubscriptionTier }>('tenants', { id: tenantId }),
+    ]);
+    const tier = (tenant?.subscription_tier || user?.subscription_tier || 'free') as SubscriptionTier;
     const tierConfig = getTierConfig(tier);
 
     const eventsThisMonthResult = await db.query<{ count: string }>(

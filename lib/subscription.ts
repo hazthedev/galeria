@@ -12,6 +12,12 @@ export async function resolveUserTier(
   tenantId: string,
   fallbackTier: SubscriptionTier = 'free'
 ): Promise<SubscriptionTier> {
+  const resolveTenantTier = async (effectiveTenantId: string): Promise<SubscriptionTier | null> => {
+    const db = getTenantDb(effectiveTenantId);
+    const tenant = await db.findOne<{ subscription_tier: SubscriptionTier }>('tenants', { id: effectiveTenantId });
+    return tenant?.subscription_tier || null;
+  };
+
   const authHeader = headers.get('authorization');
   const cookieHeader = headers.get('cookie');
 
@@ -20,6 +26,13 @@ export async function resolveUserTier(
   if (sessionResult.sessionId) {
     const session = await validateSession(sessionResult.sessionId, false);
     if (session.valid && session.user) {
+      const effectiveTenantId = session.user.tenant_id || tenantId;
+      try {
+        const tenantTier = await resolveTenantTier(effectiveTenantId);
+        if (tenantTier) return tenantTier;
+      } catch {
+        // Fall through to user tier / fallback.
+      }
       return (session.user.subscription_tier as SubscriptionTier) || fallbackTier;
     }
   }
@@ -29,7 +42,14 @@ export async function resolveUserTier(
     try {
       const token = authHeader.replace('Bearer ', '');
       const payload = verifyAccessToken(token);
-      const db = getTenantDb(payload.tenant_id || tenantId);
+      const effectiveTenantId = payload.tenant_id || tenantId;
+      try {
+        const tenantTier = await resolveTenantTier(effectiveTenantId);
+        if (tenantTier) return tenantTier;
+      } catch {
+        // Fall through to user tier / fallback.
+      }
+      const db = getTenantDb(effectiveTenantId);
       const user = await db.findOne<IUser>('users', { id: payload.sub });
       return (user?.subscription_tier as SubscriptionTier) || fallbackTier;
     } catch {

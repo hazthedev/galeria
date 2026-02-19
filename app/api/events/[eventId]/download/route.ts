@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getTenantDb } from '@/lib/db';
 import type { IEvent, IPhoto } from '@/lib/types';
 import { createPhotoExportZip } from '@/lib/export/zip-generator';
+import { DEFAULT_TENANT_ID } from '@/lib/constants/tenants';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -18,7 +19,7 @@ export async function GET(
     const { eventId } = await params;
     const watermark = request.nextUrl.searchParams.get('watermark') === '1';
 
-    const tenantId = request.headers.get('x-tenant-id') || '00000000-0000-0000-0000-000000000001';
+    const tenantId = request.headers.get('x-tenant-id') || DEFAULT_TENANT_ID;
     const db = getTenantDb(tenantId);
 
     const eventResult = await db.query<IEvent>(
@@ -86,7 +87,7 @@ export async function POST(
       return NextResponse.json({ error: 'Too many photos selected', code: 'LIMIT_EXCEEDED' }, { status: 400 });
     }
 
-    const tenantId = request.headers.get('x-tenant-id') || '00000000-0000-0000-0000-000000000001';
+    const tenantId = request.headers.get('x-tenant-id') || DEFAULT_TENANT_ID;
     const db = getTenantDb(tenantId);
 
     const eventResult = await db.query<IEvent>(

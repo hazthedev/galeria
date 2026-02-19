@@ -9,6 +9,7 @@ import { verifyAccessToken } from '@/lib/auth';
 import { extractSessionId, validateSession } from '@/lib/session';
 import { generateSlug, generateEventUrl } from '@/lib/utils';
 import type { IEvent, IEventUpdate } from '@/lib/types';
+import { DEFAULT_TENANT_ID } from '@/lib/constants/tenants';
 
 // ============================================
 // GET /api/events/:eventId - Get single event
@@ -25,7 +26,7 @@ export async function GET(
 
     // Fallback to default tenant for development (Turbopack middleware issue)
     if (!tenantId) {
-      tenantId = '00000000-0000-0000-0000-000000000001';
+      tenantId = DEFAULT_TENANT_ID;
     }
 
     const db = getTenantDb(tenantId);
@@ -63,7 +64,7 @@ export async function PATCH(
 
     // Fallback to default tenant for development (Turbopack middleware issue)
     if (!tenantId) {
-      tenantId = '00000000-0000-0000-0000-000000000001';
+      tenantId = DEFAULT_TENANT_ID;
     }
 
     // Get user from session or JWT token (supports both auth methods)
@@ -191,7 +192,7 @@ export async function DELETE(
 
     // Fallback to default tenant for development (Turbopack middleware issue)
     if (!tenantId) {
-      tenantId = '00000000-0000-0000-0000-000000000001';
+      tenantId = DEFAULT_TENANT_ID;
     }
 
     // Get user from session or JWT token

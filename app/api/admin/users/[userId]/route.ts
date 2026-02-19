@@ -7,6 +7,12 @@ import { requireSuperAdmin } from '@/middleware/auth';
 import { getTenantDb } from '@/lib/db';
 import type { SubscriptionTier } from '@/lib/types';
 
+type UserTenantLookup = {
+    id: string;
+    tenant_id: string;
+    role: 'guest' | 'organizer' | 'super_admin';
+};
+
 export async function PATCH(
     request: NextRequest,
     { params }: { params: Promise<{ userId: string }> }
@@ -24,6 +30,7 @@ export async function PATCH(
         const updates: string[] = [];
         const values: unknown[] = [];
         let paramIndex = 1;
+        let nextSubscriptionTier: SubscriptionTier | undefined;
 
         if (role !== undefined) {
             if (!['guest', 'organizer', 'super_admin'].includes(role)) {
@@ -44,11 +51,10 @@ export async function PATCH(
                     { status: 400 }
                 );
             }
-            updates.push(`subscription_tier = $${paramIndex++}`);
-            values.push(subscription_tier);
+            nextSubscriptionTier = subscription_tier;
         }
 
-        if (updates.length === 0) {
+        if (updates.length === 0 && nextSubscriptionTier === undefined) {
             return NextResponse.json(
                 { error: 'No changes provided', code: 'VALIDATION_ERROR' },
                 { status: 400 }
@@ -56,6 +62,19 @@ export async function PATCH(
         }
 
         const db = getTenantDb(auth.user.tenant_id);
+        const targetUser = await db.findOne<UserTenantLookup>('users', { id: userId });
+        if (!targetUser) {
+            return NextResponse.json(
+                { error: 'User not found', code: 'NOT_FOUND' },
+                { status: 404 }
+            );
+        }
+
+        // Super admin tier is account-level, organizer/guest tier is tenant-level.
+        if (nextSubscriptionTier !== undefined && targetUser.role === 'super_admin') {
+            updates.push(`subscription_tier = $${paramIndex++}`);
+            values.push(nextSubscriptionTier);
+        }
 
         updates.push('updated_at = NOW()');
         values.push(userId);
@@ -65,16 +84,12 @@ export async function PATCH(
             values
         );
 
-        if (subscription_tier !== undefined) {
+        if (nextSubscriptionTier !== undefined && targetUser.role !== 'super_admin') {
             await db.query(
                 `UPDATE tenants
                  SET subscription_tier = $1, updated_at = NOW()
-                 WHERE id IN (
-                   SELECT DISTINCT tenant_id
-                   FROM events
-                   WHERE organizer_id = $2
-                 )`,
-                [subscription_tier, userId]
+                 WHERE id = $2`,
+                [nextSubscriptionTier, targetUser.tenant_id]
             );
         }
 
