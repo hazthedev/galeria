@@ -3,13 +3,24 @@
 
 import { getTenantDb } from '../lib/db';
 
+interface ScriptEvent {
+  id: string;
+  name: string;
+  settings?: {
+    limits?: {
+      max_total_photos?: number | null;
+    };
+    [key: string]: unknown;
+  };
+}
+
 async function updateEventPhotoLimit(eventId: string, newLimit: number | null) {
   const tenantId = '00000000-0000-0000-0000-000000000001';
   const db = getTenantDb(tenantId);
 
   console.log(`[UPDATE] Fetching event: ${eventId}`);
 
-  const event = await db.findOne<any>('events', { id: eventId });
+  const event = await db.findOne<ScriptEvent>('events', { id: eventId });
 
   if (!event) {
     console.error(`[ERROR] Event not found: ${eventId}`);

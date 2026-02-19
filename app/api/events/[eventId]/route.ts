@@ -3,13 +3,12 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getTenantId } from '@/lib/tenant';
 import { getTenantDb } from '@/lib/db';
 import { verifyAccessToken } from '@/lib/auth';
 import { extractSessionId, validateSession } from '@/lib/session';
 import { generateSlug, generateEventUrl } from '@/lib/utils';
 import type { IEvent, IEventUpdate } from '@/lib/types';
-import { DEFAULT_TENANT_ID } from '@/lib/constants/tenants';
+import { resolveOptionalAuth, resolveRequiredTenantId, resolveTenantId } from '@/lib/api-request-context';
 
 // ============================================
 // GET /api/events/:eventId - Get single event
@@ -22,12 +21,8 @@ export async function GET(
   const { eventId: id } = await params;
   try {
     const headers = request.headers;
-    let tenantId = getTenantId(headers);
-
-    // Fallback to default tenant for development (Turbopack middleware issue)
-    if (!tenantId) {
-      tenantId = DEFAULT_TENANT_ID;
-    }
+    const authContext = await resolveOptionalAuth(headers);
+    const tenantId = resolveTenantId(headers, authContext);
 
     const db = getTenantDb(tenantId);
     const event = await db.findOne<IEvent>('events', { id });
@@ -60,12 +55,8 @@ export async function PATCH(
   const { eventId: id } = await params;
   try {
     const headers = request.headers;
-    let tenantId = getTenantId(headers);
-
-    // Fallback to default tenant for development (Turbopack middleware issue)
-    if (!tenantId) {
-      tenantId = DEFAULT_TENANT_ID;
-    }
+    const authContext = await resolveOptionalAuth(headers);
+    const tenantId = resolveRequiredTenantId(headers, authContext);
 
     // Get user from session or JWT token (supports both auth methods)
     const cookieHeader = headers.get('cookie');
@@ -188,12 +179,8 @@ export async function DELETE(
   const { eventId: id } = await params;
   try {
     const headers = request.headers;
-    let tenantId = getTenantId(headers);
-
-    // Fallback to default tenant for development (Turbopack middleware issue)
-    if (!tenantId) {
-      tenantId = DEFAULT_TENANT_ID;
-    }
+    const authContext = await resolveOptionalAuth(headers);
+    const tenantId = resolveRequiredTenantId(headers, authContext);
 
     // Get user from session or JWT token
     const cookieHeader = headers.get('cookie');

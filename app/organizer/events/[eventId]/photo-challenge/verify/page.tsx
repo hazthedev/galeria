@@ -9,6 +9,15 @@ import { useParams, useRouter } from 'next/navigation';
 import { QrCode, Check, X, Loader2, Search } from 'lucide-react';
 import { toast } from 'sonner';
 
+interface ClaimData {
+  user_fingerprint?: string;
+  prize_title?: string;
+  prize_description?: string;
+  photos_approved?: number;
+  goal_photos?: number;
+  claimed_at?: string;
+}
+
 export default function PhotoChallengeVerifyPage() {
   const params = useParams();
   const router = useRouter();
@@ -16,7 +25,7 @@ export default function PhotoChallengeVerifyPage() {
 
   const [tokenInput, setTokenInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [claimData, setClaimData] = useState<any>(null);
+  const [claimData, setClaimData] = useState<ClaimData | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const handleVerify = async () => {
@@ -203,7 +212,7 @@ export default function PhotoChallengeVerifyPage() {
               <div className="rounded-lg bg-gray-50 p-3 dark:bg-gray-700/50">
                 <p className="text-xs text-gray-500 dark:text-gray-400">Claimed At</p>
                 <p className="text-sm text-gray-900 dark:text-gray-100">
-                  {new Date(claimData.claimed_at).toLocaleString()}
+                  {claimData.claimed_at ? new Date(claimData.claimed_at).toLocaleString() : '-'}
                 </p>
               </div>
             </div>

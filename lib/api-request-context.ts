@@ -47,6 +47,18 @@ export async function resolveOptionalAuth(headers: Headers): Promise<OptionalAut
 }
 
 export function resolveTenantId(headers: Headers, auth?: OptionalAuthContext | null): string {
-  return auth?.tenantId || getTenantId(headers) || DEFAULT_TENANT_ID;
+  const resolvedTenantId = auth?.tenantId || getTenantId(headers);
+  if (resolvedTenantId) {
+    return resolvedTenantId;
+  }
+
+  if (process.env.NODE_ENV !== 'production') {
+    return DEFAULT_TENANT_ID;
+  }
+
+  throw new Error('Tenant context missing');
 }
 
+export function resolveRequiredTenantId(headers: Headers, auth?: OptionalAuthContext | null): string {
+  return resolveTenantId(headers, auth);
+}

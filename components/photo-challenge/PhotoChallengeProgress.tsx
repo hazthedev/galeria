@@ -63,7 +63,7 @@ export function PhotoChallengeProgress({
       <p className="mt-2 text-center text-sm text-gray-600">
         {goalReached ? (
           <span className="font-semibold" style={{ color: themeColor }}>
-            🎉 You've reached {goalPhotos} photos! You can claim: {prizeTitle}
+            🎉 You&apos;ve reached {goalPhotos} photos! You can claim: {prizeTitle}
           </span>
         ) : (
           <>

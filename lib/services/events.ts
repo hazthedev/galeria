@@ -4,7 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { getTenantId, getTenantContextFromHeaders } from '@/lib/tenant';
+import { getTenantContextFromHeaders } from '@/lib/tenant';
 import { getTenantDb } from '@/lib/db';
 import { verifyAccessToken } from '@/lib/auth';
 import { generateSlug, generateUUID, generateEventUrl } from '@/lib/utils';
@@ -15,7 +15,7 @@ import { getSystemSettings } from '@/lib/system-settings';
 import type { IEvent, SubscriptionTier } from '@/lib/types';
 import { resolveUserTier } from '@/lib/subscription';
 import { eventBulkUpdateSchema, eventCreateSchema } from '@/lib/validation/events';
-import { DEFAULT_TENANT_ID } from '@/lib/constants/tenants';
+import { resolveOptionalAuth, resolveRequiredTenantId } from '@/lib/api-request-context';
 
 // ============================================
 // GET /api/events - List events (service)
@@ -25,12 +25,8 @@ export async function handleEventsList(request: NextRequest) {
   try {
     // Get tenant from headers (injected by middleware)
     const headers = request.headers;
-    let tenantId = getTenantId(headers);
-
-    // Fallback to default tenant for development (Turbopack middleware issue)
-    if (!tenantId) {
-      tenantId = DEFAULT_TENANT_ID;
-    }
+    const authContext = await resolveOptionalAuth(headers);
+    const tenantId = resolveRequiredTenantId(headers, authContext);
 
     // Parse query parameters
     const { searchParams } = new URL(request.url);
@@ -132,12 +128,8 @@ export async function handleEventCreate(request: NextRequest) {
   try {
     // Get tenant from headers
     const headers = request.headers;
-    let tenantId = getTenantId(headers);
-
-    // Fallback to default tenant for development (Turbopack middleware issue)
-    if (!tenantId) {
-      tenantId = DEFAULT_TENANT_ID;
-    }
+    const authContext = await resolveOptionalAuth(headers);
+    const tenantId = resolveRequiredTenantId(headers, authContext);
 
     // Get user from session or JWT token
     const cookieHeader = headers.get('cookie');
@@ -340,14 +332,8 @@ export async function handleEventsBulkUpdate(request: NextRequest) {
   try {
     // Get tenant from headers
     const headers = request.headers;
-    const tenantId = getTenantId(headers);
-
-    if (!tenantId) {
-      return NextResponse.json(
-        { error: 'Tenant not found', code: 'TENANT_NOT_FOUND' },
-        { status: 404 }
-      );
-    }
+    const authContext = await resolveOptionalAuth(headers);
+    const tenantId = resolveRequiredTenantId(headers, authContext);
 
     // Get user from JWT token
     const authHeader = headers.get('authorization');
@@ -454,14 +440,8 @@ export async function handleEventsBulkDelete(request: NextRequest) {
   try {
     // Get tenant from headers
     const headers = request.headers;
-    const tenantId = getTenantId(headers);
-
-    if (!tenantId) {
-      return NextResponse.json(
-        { error: 'Tenant not found', code: 'TENANT_NOT_FOUND' },
-        { status: 404 }
-      );
-    }
+    const authContext = await resolveOptionalAuth(headers);
+    const tenantId = resolveRequiredTenantId(headers, authContext);
 
     // Get user from JWT token
     const authHeader = headers.get('authorization');

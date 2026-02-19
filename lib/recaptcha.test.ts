@@ -24,7 +24,7 @@ import { closeRedis } from './redis';
 
 interface TestResult {
   pass: boolean;
-  message: string;
+  message?: string;
   details?: string;
 }
 
@@ -328,7 +328,7 @@ export async function runAllTests() {
   });
 
   await runTest('Missing score in verification is handled', async () => {
-    const mockResult = {
+    const mockResult: { success: boolean; score?: number; action: string } = {
       success: true,
       // score missing
       action: 'upload',

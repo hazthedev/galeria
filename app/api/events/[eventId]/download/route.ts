@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getTenantDb } from '@/lib/db';
 import type { IEvent, IPhoto } from '@/lib/types';
 import { createPhotoExportZip } from '@/lib/export/zip-generator';
-import { DEFAULT_TENANT_ID } from '@/lib/constants/tenants';
+import { resolveOptionalAuth, resolveTenantId } from '@/lib/api-request-context';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -19,7 +19,8 @@ export async function GET(
     const { eventId } = await params;
     const watermark = request.nextUrl.searchParams.get('watermark') === '1';
 
-    const tenantId = request.headers.get('x-tenant-id') || DEFAULT_TENANT_ID;
+    const auth = await resolveOptionalAuth(request.headers);
+    const tenantId = resolveTenantId(request.headers, auth);
     const db = getTenantDb(tenantId);
 
     const eventResult = await db.query<IEvent>(
@@ -56,6 +57,12 @@ export async function GET(
       },
     });
   } catch (error) {
+    if (error instanceof Error && error.message.includes('Tenant context missing')) {
+      return NextResponse.json(
+        { error: 'Tenant not found', code: 'TENANT_NOT_FOUND' },
+        { status: 404 }
+      );
+    }
     console.error('[EVENT_DOWNLOAD] Error:', error);
     return NextResponse.json(
       { error: 'Failed to download event photos', code: 'INTERNAL_ERROR' },
@@ -87,7 +94,8 @@ export async function POST(
       return NextResponse.json({ error: 'Too many photos selected', code: 'LIMIT_EXCEEDED' }, { status: 400 });
     }
 
-    const tenantId = request.headers.get('x-tenant-id') || DEFAULT_TENANT_ID;
+    const auth = await resolveOptionalAuth(request.headers);
+    const tenantId = resolveTenantId(request.headers, auth);
     const db = getTenantDb(tenantId);
 
     const eventResult = await db.query<IEvent>(
@@ -128,6 +136,12 @@ export async function POST(
       },
     });
   } catch (error) {
+    if (error instanceof Error && error.message.includes('Tenant context missing')) {
+      return NextResponse.json(
+        { error: 'Tenant not found', code: 'TENANT_NOT_FOUND' },
+        { status: 404 }
+      );
+    }
     console.error('[EVENT_DOWNLOAD] Error:', error);
     return NextResponse.json(
       { error: 'Failed to download selected photos', code: 'INTERNAL_ERROR' },

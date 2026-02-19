@@ -4,12 +4,11 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { getTenantId } from '@/lib/tenant';
 import { getTenantDb } from '@/lib/db';
 import { verifyAccessToken } from '@/lib/auth';
 import type { ReactionType } from '@/lib/types';
-import { DEFAULT_TENANT_ID } from '@/lib/constants/tenants';
 import { publishEventBroadcast } from '@/lib/realtime/server';
+import { resolveOptionalAuth, resolveTenantId } from '@/lib/api-request-context';
 
 // Maximum reactions per user per photo
 const MAX_REACTIONS_PER_USER = 10;
@@ -25,18 +24,8 @@ export async function GET(
   try {
     const { id: photoId } = await params;
     const headers = request.headers;
-    let tenantId = getTenantId(headers);
-
-    if (!tenantId && process.env.NODE_ENV !== 'production') {
-      tenantId = DEFAULT_TENANT_ID;
-    }
-
-    if (!tenantId) {
-      return NextResponse.json(
-        { error: 'Tenant not found', code: 'TENANT_NOT_FOUND' },
-        { status: 404 }
-      );
-    }
+    const auth = await resolveOptionalAuth(headers);
+    const tenantId = resolveTenantId(headers, auth);
 
     const db = getTenantDb(tenantId);
 
@@ -72,6 +61,12 @@ export async function GET(
       },
     });
   } catch (error) {
+    if (error instanceof Error && error.message.includes('Tenant context missing')) {
+      return NextResponse.json(
+        { error: 'Tenant not found', code: 'TENANT_NOT_FOUND' },
+        { status: 404 }
+      );
+    }
     console.error('[API] Get reactions error:', error);
     return NextResponse.json(
       { error: 'Failed to get reactions', code: 'GET_REACTIONS_ERROR' },
@@ -94,18 +89,8 @@ export async function POST(
   try {
     const { id: photoId } = await params;
     const headers = request.headers;
-    let tenantId = getTenantId(headers);
-
-    if (!tenantId && process.env.NODE_ENV !== 'production') {
-      tenantId = DEFAULT_TENANT_ID;
-    }
-
-    if (!tenantId) {
-      return NextResponse.json(
-        { error: 'Tenant not found', code: 'TENANT_NOT_FOUND' },
-        { status: 404 }
-      );
-    }
+    const auth = await resolveOptionalAuth(headers);
+    const tenantId = resolveTenantId(headers, auth);
 
     const db = getTenantDb(tenantId);
 
@@ -272,6 +257,12 @@ export async function POST(
       });
     }
   } catch (error) {
+    if (error instanceof Error && error.message.includes('Tenant context missing')) {
+      return NextResponse.json(
+        { error: 'Tenant not found', code: 'TENANT_NOT_FOUND' },
+        { status: 404 }
+      );
+    }
     console.error('[API] Reaction error:', error);
     return NextResponse.json(
       { error: 'Failed to process reaction', code: 'REACTION_ERROR' },

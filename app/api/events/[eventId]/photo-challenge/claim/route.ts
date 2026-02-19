@@ -4,9 +4,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantDb } from '@/lib/db';
-import { getTenantId } from '@/lib/tenant';
 import crypto from 'crypto';
-import { DEFAULT_TENANT_ID } from '@/lib/constants/tenants';
+import { resolveOptionalAuth, resolveRequiredTenantId } from '@/lib/api-request-context';
 
 type RouteContext = {
   params: Promise<{ eventId: string }>;
@@ -20,12 +19,8 @@ export async function POST(req: NextRequest, context: RouteContext) {
   try {
     const { eventId } = await context.params;
     const headers = req.headers;
-    let tenantId = getTenantId(headers);
-
-    // Fallback to default tenant for development
-    if (!tenantId) {
-      tenantId = DEFAULT_TENANT_ID;
-    }
+    const auth = await resolveOptionalAuth(headers);
+    const tenantId = resolveRequiredTenantId(headers, auth);
 
     // Get fingerprint from request header sent by client
     const fingerprint = headers.get('x-fingerprint');
@@ -169,7 +164,6 @@ export async function POST(req: NextRequest, context: RouteContext) {
       {
         error: 'Failed to generate prize claim',
         code: 'CLAIM_ERROR',
-        details: error instanceof Error ? error.message : String(error),
       },
       { status: 500 }
     );

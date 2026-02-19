@@ -1,12 +1,31 @@
 // Find events by organizer email
 import { getTenantDb } from '../lib/db';
 
+interface ScriptUser {
+  id: string;
+  email: string;
+  name?: string | null;
+  role?: string | null;
+}
+
+interface ScriptEvent {
+  id: string;
+  name: string;
+  short_code?: string | null;
+  status?: string | null;
+  settings?: {
+    limits?: {
+      max_total_photos?: number | null;
+    };
+  };
+}
+
 async function findEventsByEmail(email: string) {
   const tenantId = '00000000-0000-0000-0000-000000000001';
   const db = getTenantDb(tenantId);
 
   // First find the user by email
-  const user = await db.findOne<any>('users', { email });
+  const user = await db.findOne<ScriptUser>('users', { email });
 
   if (!user) {
     console.log(`\n❌ No user found with email: ${email}`);
@@ -18,7 +37,7 @@ async function findEventsByEmail(email: string) {
   console.log(`   Role: ${user.role}\n`);
 
   // Find events organized by this user
-  const events = await db.findMany<any>('events', { organizer_id: user.id }, {
+  const events = await db.findMany<ScriptEvent>('events', { organizer_id: user.id }, {
     limit: 20,
     orderBy: 'created_at',
     orderDirection: 'DESC'

@@ -65,13 +65,6 @@ export function WinnerModal({
     setIsAnimating(false);
   };
 
-  useEffect(() => {
-    setCurrentIndex(0);
-    setIsAnimating(false);
-    setShowWinner(false);
-    setShowAllWinners(false);
-  }, [winners.length]);
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
       <div className="relative bg-gradient-to-br from-violet-50 via-white to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-pink-900/30 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">

@@ -3,13 +3,11 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getTenantId } from '@/lib/tenant';
 import { getTenantDb } from '@/lib/db';
 import { verifyAccessToken } from '@/lib/auth';
 import { createManualEntries, getActiveConfig, getEventEntries } from '@/lib/lucky-draw';
 import { extractSessionId, validateSession } from '@/lib/session';
-import { DEFAULT_TENANT_ID } from '@/lib/constants/tenants';
-import { resolveOptionalAuth, resolveTenantId } from '@/lib/api-request-context';
+import { resolveOptionalAuth, resolveRequiredTenantId, resolveTenantId } from '@/lib/api-request-context';
 
 export const runtime = 'nodejs';
 
@@ -120,12 +118,8 @@ export async function POST(
   try {
     const { eventId } = await params;
     const headers = request.headers;
-    let tenantId = getTenantId(headers);
-
-    // Fallback to default tenant for development (Turbopack middleware issue)
-    if (!tenantId) {
-      tenantId = DEFAULT_TENANT_ID;
-    }
+    const auth = await resolveOptionalAuth(headers);
+    const tenantId = resolveRequiredTenantId(headers, auth);
 
     const db = getTenantDb(tenantId);
 

@@ -19,7 +19,7 @@ import { closeRedis, getRedisClient } from './redis';
 
 interface TestResult {
   pass: boolean;
-  message: string;
+  message?: string;
   details?: string;
 }
 

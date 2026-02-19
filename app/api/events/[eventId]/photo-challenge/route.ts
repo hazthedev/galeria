@@ -5,8 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantDb } from '@/lib/db';
 import { hasModeratorRole, requireAuthForApi } from '@/lib/auth';
-import { getTenantId } from '@/lib/tenant';
-import { DEFAULT_TENANT_ID } from '@/lib/constants/tenants';
+import { resolveOptionalAuth, resolveTenantId } from '@/lib/api-request-context';
 
 type RouteContext = {
   params: Promise<{ eventId: string }>;
@@ -85,12 +84,8 @@ export async function GET(req: NextRequest, context: RouteContext) {
   try {
     const { eventId } = await context.params;
     const headers = req.headers;
-    let tenantId = getTenantId(headers);
-
-    // Fallback to default tenant for development
-    if (!tenantId) {
-      tenantId = DEFAULT_TENANT_ID;
-    }
+    const auth = await resolveOptionalAuth(headers);
+    const tenantId = resolveTenantId(headers, auth);
 
     const db = getTenantDb(tenantId);
 

@@ -18,7 +18,7 @@ import sharp from 'sharp';
 
 interface TestResult {
   pass: boolean;
-  message: string;
+  message?: string;
   details?: string;
 }
 

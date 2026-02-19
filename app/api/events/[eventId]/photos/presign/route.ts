@@ -4,14 +4,13 @@
 // POST /api/events/:eventId/photos/presign
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getTenantId } from '@/lib/tenant';
 import { getTenantDb } from '@/lib/db';
 import { getPresignedUploadUrl } from '@/lib/images';
 import { getSystemSettings } from '@/lib/system-settings';
 import { generatePhotoId } from '@/lib/utils';
 import { checkPhotoLimit } from '@/lib/limit-check';
 import { resolveUserTier } from '@/lib/subscription';
-import { DEFAULT_TENANT_ID } from '@/lib/constants/tenants';
+import { resolveOptionalAuth, resolveRequiredTenantId } from '@/lib/api-request-context';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -23,12 +22,8 @@ export async function POST(
   try {
     const { eventId } = await params;
     const headers = request.headers;
-    let tenantId = getTenantId(headers);
-
-    // Fallback to default tenant for development (Turbopack middleware issue)
-    if (!tenantId) {
-      tenantId = DEFAULT_TENANT_ID;
-    }
+    const authContext = await resolveOptionalAuth(headers);
+    const tenantId = resolveRequiredTenantId(headers, authContext);
 
     const body = await request.json();
     const {

@@ -35,6 +35,7 @@ export type ScanPriority = 'low' | 'normal' | 'high' | 'critical';
 export interface ScanJobData {
   photoId: string;
   eventId: string;
+  tenantId?: string;
   imageUrl: string;
   userId?: string;
   priority?: ScanPriority;
@@ -95,6 +96,10 @@ let scanQueue: Queue<ScanJobData> | null = null;
 let scanWorker: Worker<ScanJobData, ScanJobResult> | null = null;
 let queueEvents: QueueEvents | null = null;
 
+function isQueueProcessingEnabled(): boolean {
+  return process.env.MODERATION_QUEUE_ENABLED === 'true';
+}
+
 /**
  * Get or create the scan queue
  */
@@ -128,8 +133,13 @@ function getQueue(): Queue<ScanJobData> {
  * @returns Job ID
  */
 export async function queuePhotoScan(jobData: ScanJobData): Promise<string> {
+  if (!isQueueProcessingEnabled()) {
+    console.log('[SCAN_QUEUE] Queue processing disabled; skipping scan job');
+    return 'queue-disabled';
+  }
+
   // Check if moderation is enabled
-  if (!isModerationEnabled()) {
+  if (!(await isModerationEnabled())) {
     console.log('[SCAN_QUEUE] Moderation not enabled, skipping scan');
     return 'moderation-disabled';
   }
@@ -209,6 +219,7 @@ export async function reportPhoto(
   await queuePhotoScan({
     photoId,
     eventId,
+    tenantId,
     imageUrl: photo.images.full_url,
     userId: photo.user_id || undefined,
     priority: 'high',
@@ -283,7 +294,7 @@ export async function clearQueue(): Promise<void> {
  * Process a single scan job
  */
 async function processScanJob(job: Job<ScanJobData, ScanJobResult>): Promise<ScanJobResult> {
-  const { photoId, eventId, imageUrl, priority, isReported } = job.data;
+  const { photoId, eventId, tenantId, imageUrl, priority, isReported } = job.data;
 
   console.log(`[SCAN_WORKER] Processing scan for photo ${photoId} (priority: ${priority || 'normal'})`);
 
@@ -293,10 +304,18 @@ async function processScanJob(job: Job<ScanJobData, ScanJobResult>): Promise<Sca
       autoReject: !isReported, // Don't auto-reject reported content, flag for review
     });
 
-    // 2. Get tenant ID - for now, use system tenant
-    // In production, you'd want to look up the event to get the tenant ID
-    const SYSTEM_TENANT_ID = '00000000-0000-0000-0000-000000000000';
-    const db = getTenantDb(SYSTEM_TENANT_ID);
+    // 2. Resolve tenant context for safe multi-tenant processing
+    const effectiveTenantId =
+      tenantId ||
+      (process.env.NODE_ENV !== 'production'
+        ? (process.env.DEFAULT_TENANT_ID || '00000000-0000-0000-0000-000000000001')
+        : null);
+
+    if (!effectiveTenantId) {
+      throw new Error('Missing tenant context for scan job');
+    }
+
+    const db = getTenantDb(effectiveTenantId);
 
     // 3. Check if photo exists
     const photo = await db.findOne<{
@@ -373,7 +392,12 @@ export async function startScanWorker(): Promise<void> {
     return;
   }
 
-  if (!isModerationEnabled()) {
+  if (!isQueueProcessingEnabled()) {
+    console.log('[SCAN_WORKER] Queue processing disabled, worker not started');
+    return;
+  }
+
+  if (!(await isModerationEnabled())) {
     console.log('[SCAN_WORKER] Moderation not enabled, worker not started');
     return;
   }

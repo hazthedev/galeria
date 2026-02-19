@@ -8,7 +8,7 @@ import { requireAuthForApi } from '@/lib/auth';
 import type { IEvent, IPhoto } from '@/lib/types';
 import { buildPhotoFilename } from '@/lib/export/zip-generator';
 import sharp from 'sharp';
-import { DEFAULT_TENANT_ID } from '@/lib/constants/tenants';
+import { resolveOptionalAuth, resolveTenantId } from '@/lib/api-request-context';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -51,7 +51,8 @@ export async function GET(
       authUser = null;
     }
 
-    const tenantId = authUser?.tenantId || request.headers.get('x-tenant-id') || DEFAULT_TENANT_ID;
+    const optionalAuth = await resolveOptionalAuth(request.headers);
+    const tenantId = authUser?.tenantId || resolveTenantId(request.headers, optionalAuth);
     const db = getTenantDb(tenantId);
 
     const result = await db.query<IPhoto & { event_name: string; event_date: Date; organizer_id: string; settings: IEvent['settings'] }>(
@@ -127,6 +128,12 @@ export async function GET(
       },
     });
   } catch (error) {
+    if (error instanceof Error && error.message.includes('Tenant context missing')) {
+      return NextResponse.json(
+        { error: 'Tenant not found', code: 'TENANT_NOT_FOUND' },
+        { status: 404 }
+      );
+    }
     console.error('[PHOTO_DOWNLOAD] Error:', error);
     return NextResponse.json(
       { error: 'Failed to download photo', code: 'INTERNAL_ERROR' },

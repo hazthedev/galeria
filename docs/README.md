@@ -9,7 +9,7 @@ Momentique is a white-label SaaS platform that allows event organizers to create
 - **Multi-Tenant Architecture**: Complete tenant isolation with Row-Level Security (RLS)
 - **Photo Management**: Upload, moderate, and organize event photos
 - **Lucky Draw**: Engage guests with random winner selection
-- **Real-Time Updates**: Live photo updates via WebSocket
+- **Real-Time Updates**: Live photo updates via Supabase Realtime channels
 - **Secure**: JWT authentication, RLS policies, bcrypt password hashing
 - **Analytics**: Track engagement and usage metrics
 - **Customizable**: Tenant branding, themes, and feature flags
@@ -26,8 +26,8 @@ npm install
 #    (or set DATABASE_URL/REDIS_URL to your cloud services)
 npm run db:setup
 
-# 3. Start the development server + WebSocket server
-npm run dev:all
+# 3. Start the development server
+npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
@@ -39,7 +39,7 @@ To populate the database with sample data for development:
 ```bash
 npm run db:setup
 npm run db:seed    # Creates sample tenant, users, events, and photos
-npm run dev:all
+npm run dev
 ```
 
 **Admin credentials** (from seed data):
@@ -325,7 +325,7 @@ momentique/
 │   ├── db.ts                     # TenantDatabase class
 │   ├── tenant.ts                 # Multi-tenant resolution
 │   └── types.ts                  # TypeScript type definitions
-└── middleware.ts                 # Next.js middleware
+└── proxy.ts                      # Next.js proxy
 ```
 
 ## Technologies Used
@@ -334,7 +334,7 @@ momentique/
 - **Database**: [PostgreSQL 15](https://www.postgresql.org/)
 - **ORM**: [Drizzle ORM](https://orm.drizzle.team/)
 - **Caching**: [Redis 7](https://redis.io/)
-- **Real-Time**: [Socket.io](https://socket.io/)
+- **Real-Time**: Supabase Realtime (channel broadcasts)
 - **Storage**: Cloudflare R2 / AWS S3
 - **Image Processing**: Sharp
 - **Authentication**: JWT + bcrypt
@@ -348,3 +348,4 @@ MIT
 ## Support
 
 For issues and questions, please open a GitHub issue or contact the Momentique team.
+

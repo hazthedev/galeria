@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "typecheck": "tsc --noEmit",
     "security": "npm run security:audit && npm run security:snyk",
     "security:audit": "npm audit --production",
     "security:snyk": "snyk test",
@@ -63,7 +64,8 @@
     "zod": "^4.3.6"
   },
   "overrides": {
-    "fast-xml-parser": "5.3.4"
+    "fast-xml-parser": "^5.3.6",
+    "minimatch": "^10.2.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

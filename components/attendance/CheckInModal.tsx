@@ -13,7 +13,7 @@ import { motion, AnimatePresence } from 'motion/react';
 interface CheckInModalProps {
   eventId: string;
   onClose: () => void;
-  onSuccess?: (attendance: any) => void;
+  onSuccess?: (attendance: unknown) => void;
 }
 
 export function CheckInModal({ eventId, onClose, onSuccess }: CheckInModalProps) {

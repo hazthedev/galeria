@@ -27,7 +27,6 @@ interface RecaptchaState {
   useFallback: boolean;
   fallbackQuestion: string;
   fallbackSessionId: string;
-  fallbackAnswer: string;
   userAnswer: string;
   verifying: boolean;
 }
@@ -51,7 +50,6 @@ export function Recaptcha({
     useFallback: showFallback,
     fallbackQuestion: '',
     fallbackSessionId: '',
-    fallbackAnswer: '',
     userAnswer: '',
     verifying: false,
   });
@@ -64,27 +62,31 @@ export function Recaptcha({
   const [enabled, setEnabled] = useState<boolean>(false);
 
   // Generate fallback math challenge
-  const generateFallbackChallenge = () => {
-    const a = getRandomInt(1, 10);
-    const b = getRandomInt(1, 10);
-    const sessionId = `challenge_${Date.now()}_${getRandomId()}`;
+  const generateFallbackChallenge = async () => {
+    try {
+      const response = await fetch('/api/auth/recaptcha/challenge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
 
-    setState((prev) => ({
-      ...prev,
-      fallbackQuestion: `${a} + ${b} = ?`,
-      fallbackSessionId: sessionId,
-      fallbackAnswer: '',
-      userAnswer: '',
-    }));
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to generate fallback challenge');
+      }
 
-    // Store answer in Redis
-    fetch('/api/auth/recaptcha/challenge', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sessionId, answer: a + b }),
-    }).catch((err) => {
-      console.error('[RECAPTCHA] Failed to store challenge:', err);
-    });
+      setState((prev) => ({
+        ...prev,
+        fallbackQuestion: data.question || '',
+        fallbackSessionId: data.sessionId || '',
+        userAnswer: '',
+      }));
+    } catch (err) {
+      console.error('[RECAPTCHA] Failed to generate challenge:', err);
+      setState((prev) => ({
+        ...prev,
+        error: 'Failed to generate fallback challenge',
+      }));
+    }
   };
 
   // ============================================
@@ -120,7 +122,7 @@ export function Recaptcha({
     setState((prev) => ({ ...prev, verifying: true, error: null }));
 
     try {
-      const response = await fetch('/api/auth/recaptcha/verify', {
+      const response = await fetch('/api/auth/recaptcha/challenge', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -141,7 +143,7 @@ export function Recaptcha({
           error: 'Incorrect answer, please try again',
         }));
         // Generate new challenge
-        generateFallbackChallenge();
+        await generateFallbackChallenge();
       }
     } catch (err) {
       setState((prev) => ({
@@ -163,14 +165,14 @@ export function Recaptcha({
         } else {
           // If reCAPTCHA not configured, show fallback immediately
           setState((prev) => ({ ...prev, useFallback: true }));
-          generateFallbackChallenge();
+          void generateFallbackChallenge();
         }
       })
       .catch((err) => {
         console.error('[RECAPTCHA] Failed to load config:', err);
         // On error, use fallback
         setState((prev) => ({ ...prev, useFallback: true, error: 'Failed to load CAPTCHA' }));
-        generateFallbackChallenge();
+        void generateFallbackChallenge();
       });
   }, []);
 
@@ -205,7 +207,7 @@ export function Recaptcha({
         useFallback: true,
         error: 'Failed to load CAPTCHA, using fallback',
       }));
-      generateFallbackChallenge();
+      void generateFallbackChallenge();
     };
 
     document.head.appendChild(script);
@@ -344,16 +346,3 @@ export const recaptchaStyles = `
     display: block;
   }
 `;
-
-function getRandomInt(min: number, max: number): number {
-  const range = max - min + 1;
-  const bytes = new Uint32Array(1);
-  crypto.getRandomValues(bytes);
-  return min + (bytes[0] % range);
-}
-
-function getRandomId(): string {
-  const bytes = new Uint8Array(8);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
-}

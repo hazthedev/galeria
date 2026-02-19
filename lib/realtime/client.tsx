@@ -273,6 +273,7 @@ export function useLuckyDraw(eventId: string) {
     const winnerQueueRef = useRef<IWinner[]>([]);
     const winnerQueueTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const isProcessingQueueRef = useRef(false);
+    const processWinnerQueueRef = useRef<() => void>(() => { });
 
     const processWinnerQueue = useCallback(() => {
         const nextWinner = winnerQueueRef.current.shift();
@@ -299,9 +300,13 @@ export function useLuckyDraw(eventId: string) {
         }
 
         winnerQueueTimerRef.current = setTimeout(() => {
-            processWinnerQueue();
+            processWinnerQueueRef.current();
         }, 12500);
     }, []);
+
+    useEffect(() => {
+        processWinnerQueueRef.current = processWinnerQueue;
+    }, [processWinnerQueue]);
 
     useEffect(() => {
         if (!eventId) return;
@@ -339,7 +344,7 @@ export function useLuckyDraw(eventId: string) {
 
             winnerQueueRef.current.push(normalizedWinner);
             if (!isProcessingQueueRef.current) {
-                processWinnerQueue();
+                processWinnerQueueRef.current();
             }
         });
 

@@ -19,7 +19,7 @@ interface TestCase {
 
 interface TestResult {
   pass: boolean;
-  message: string;
+  message?: string;
   details?: string;
 }
 

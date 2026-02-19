@@ -3,11 +3,10 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyRecaptchaToken, generateMathChallenge, storeChallenge, verifyChallenge } from '@/lib/recaptcha';
-import { getTenantId } from '@/lib/tenant';
+import { verifyRecaptchaToken } from '@/lib/recaptcha';
 import type { SubscriptionTier } from '@/lib/types';
 import { resolveUserTier } from '@/lib/subscription';
-import { DEFAULT_TENANT_ID } from '@/lib/constants/tenants';
+import { resolveOptionalAuth, resolveRequiredTenantId } from '@/lib/api-request-context';
 
 /**
  * POST /api/auth/recaptcha/verify
@@ -27,10 +26,8 @@ export async function POST(request: NextRequest) {
 
     // Resolve user tier for custom thresholds
     const headers = request.headers;
-    let tenantId = getTenantId(headers);
-    if (!tenantId) {
-      tenantId = DEFAULT_TENANT_ID;
-    }
+    const auth = await resolveOptionalAuth(headers);
+    const tenantId = resolveRequiredTenantId(headers, auth);
     const subscriptionTier = await resolveUserTier(headers, tenantId, 'free');
 
     // Configure threshold based on tier

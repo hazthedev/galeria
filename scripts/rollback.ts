@@ -24,7 +24,7 @@ const connectionString = process.env.DATABASE_URL || 'postgresql://momentique:mo
 
 async function getCurrentVersion(pool: Pool): Promise<number> {
   try {
-    const result = await pool.query('SELECT version FROM migration_version LIMIT 1');
+    const result = await pool.query('SELECT COALESCE(MAX(version), 0) AS version FROM migration_version');
     return result.rows[0]?.version || 0;
   } catch (error: unknown) {
     if ((error as { code?: string }).code === '42P01') {
@@ -64,6 +64,12 @@ async function rollback() {
     console.log('');
 
     const currentVersion = await getCurrentVersion(pool);
+
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(
+        'Rollback script is disabled in production. Use tested down-migrations or backup/restore runbook.'
+      );
+    }
 
     if (currentVersion === 0) {
       console.log('[ROLLBACK] Already at version 0 (base state)');
@@ -110,14 +116,6 @@ async function rollback() {
     console.log(`[ROLLBACK] Migrations to rollback:`);
     migrationsToRollback.forEach(f => console.log(`[ROLLBACK]   - ${f}`));
     console.log('');
-
-    // Confirmation
-    if (process.env.NODE_ENV === 'production' && !process.env.ROLLBACK_CONFIRMED) {
-      console.error('[ROLLBACK] [!] PRODUCTION ENVIRONMENT DETECTED!');
-      console.error('[ROLLBACK] Set ROLLBACK_CONFIRMED=true to confirm rollback');
-      console.error('[ROLLBACK] Aborting for safety.');
-      process.exit(1);
-    }
 
     const client = await pool.connect();
 

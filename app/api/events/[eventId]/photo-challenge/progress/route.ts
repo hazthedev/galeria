@@ -4,8 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantDb } from '@/lib/db';
-import { getTenantId } from '@/lib/tenant';
-import { DEFAULT_TENANT_ID } from '@/lib/constants/tenants';
+import { resolveOptionalAuth, resolveTenantId } from '@/lib/api-request-context';
 
 type RouteContext = {
   params: Promise<{ eventId: string }>;
@@ -19,12 +18,8 @@ export async function GET(req: NextRequest, context: RouteContext) {
   try {
     const { eventId } = await context.params;
     const headers = req.headers;
-    let tenantId = getTenantId(headers);
-
-    // Fallback to default tenant for development
-    if (!tenantId) {
-      tenantId = DEFAULT_TENANT_ID;
-    }
+    const auth = await resolveOptionalAuth(headers);
+    const tenantId = resolveTenantId(headers, auth);
 
     // Get fingerprint from request header sent by client
     const fingerprint = headers.get('x-fingerprint');
@@ -95,6 +90,12 @@ export async function GET(req: NextRequest, context: RouteContext) {
       },
     });
   } catch (error) {
+    if (error instanceof Error && error.message.includes('Tenant context missing')) {
+      return NextResponse.json(
+        { error: 'Tenant not found', code: 'TENANT_NOT_FOUND' },
+        { status: 404 }
+      );
+    }
     console.error('[PHOTO_CHALLENGE_PROGRESS] GET error:', error);
     return NextResponse.json(
       { error: 'Failed to fetch progress', code: 'FETCH_ERROR' },

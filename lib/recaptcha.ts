@@ -42,6 +42,7 @@ export interface RecaptchaConfig {
 // ============================================
 
 const RECAPTCHA_VERIFY_URL = 'https://www.google.com/recaptcha/api/siteverify';
+const FALLBACK_TOKEN_PREFIX = 'fallback_';
 
 // Default configuration (can be overridden by tenant settings)
 const DEFAULT_RECAPTCHA_CONFIG: RecaptchaConfig = {
@@ -51,6 +52,11 @@ const DEFAULT_RECAPTCHA_CONFIG: RecaptchaConfig = {
   threshold: 0.5,
   minScoreForAnonymous: 0.3, // More lenient for anonymous uploads
   requireForUploads: true,
+};
+
+export const RATE_LIMIT_CONFIGS = {
+  verify_per_ip_hourly: 120,
+  challenge_per_ip_hourly: 120,
 };
 
 // ============================================
@@ -150,6 +156,30 @@ async function cacheVerificationResult(
   }
 }
 
+async function storeFallbackToken(token: string, ttlSeconds = 300): Promise<void> {
+  try {
+    const redis = getRedisClient();
+    await redis.setex(`recaptcha:fallback:${token}`, ttlSeconds, '1');
+  } catch (error) {
+    console.warn('[RECAPTCHA] Failed to store fallback token:', error);
+  }
+}
+
+async function consumeFallbackToken(token: string): Promise<boolean> {
+  try {
+    const redis = getRedisClient();
+    const key = `recaptcha:fallback:${token}`;
+    const exists = await redis.get(key);
+    if (!exists) {
+      return false;
+    }
+    await redis.del(key);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Validate reCAPTCHA for an upload request
  *
@@ -162,6 +192,16 @@ export async function validateRecaptchaForUpload(
   config: Partial<RecaptchaConfig> = {}
 ): Promise<RecaptchaValidationResult> {
   const fullConfig = { ...DEFAULT_RECAPTCHA_CONFIG, ...config };
+
+  if (token.startsWith(FALLBACK_TOKEN_PREFIX)) {
+    const isValidFallbackToken = await consumeFallbackToken(token);
+    return {
+      valid: isValidFallbackToken,
+      score: isValidFallbackToken ? 1.0 : 0,
+      error: isValidFallbackToken ? undefined : 'Fallback verification expired or invalid',
+      code: isValidFallbackToken ? undefined : 'fallback_invalid',
+    };
+  }
 
   // If reCAPTCHA is disabled, allow all requests
   if (!fullConfig.enabled) {
@@ -335,6 +375,12 @@ export async function cleanupChallenge(sessionId: string): Promise<void> {
   } catch {
     // Ignore cleanup errors
   }
+}
+
+export async function issueFallbackToken(ttlSeconds = 300): Promise<string> {
+  const token = `${FALLBACK_TOKEN_PREFIX}${Date.now()}_${crypto.randomBytes(8).toString('hex')}`;
+  await storeFallbackToken(token, ttlSeconds);
+  return token;
 }
 
 // ============================================

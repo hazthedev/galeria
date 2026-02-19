@@ -3,8 +3,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'crypto';
-import { generateMathChallenge, storeChallenge, verifyChallenge, cleanupChallenge } from '@/lib/recaptcha';
+import { cleanupChallenge, generateMathChallenge, issueFallbackToken, storeChallenge, verifyChallenge } from '@/lib/recaptcha';
 
 /**
  * POST /api/auth/recaptcha/challenge
@@ -12,19 +11,25 @@ import { generateMathChallenge, storeChallenge, verifyChallenge, cleanupChalleng
  */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    let body: { sessionId?: string; answer?: number | string } = {};
+    try {
+      body = await request.json();
+    } catch {
+      body = {};
+    }
     const { sessionId, answer } = body || {};
 
     // If providing an answer, verify it
     if (sessionId && answer !== undefined) {
-      const isValid = await verifyChallenge(sessionId, parseInt(answer, 10));
+      const normalizedAnswer =
+        typeof answer === 'number' ? answer : parseInt(answer, 10);
+      const isValid = await verifyChallenge(sessionId, normalizedAnswer);
 
       // Clean up the challenge session
       await cleanupChallenge(sessionId);
 
       if (isValid) {
-        // Generate a token that can be used instead of reCAPTCHA token
-        const fallbackToken = `fallback_${Date.now()}_${crypto.randomUUID()}`;
+        const fallbackToken = await issueFallbackToken();
 
         return NextResponse.json({
           valid: true,

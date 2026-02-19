@@ -3,8 +3,6 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { DEFAULT_TENANT_ID } from '@/lib/constants/tenants';
-import { getTenantId } from '@/lib/tenant';
 import { getTenantDb } from '@/lib/db';
 import { uploadImageToStorage, validateImageFile, validateUploadedImage, getTierValidationOptions } from '@/lib/images';
 import { generatePhotoId } from '@/lib/utils';
@@ -13,7 +11,6 @@ import { updateGuestProgress } from '@/lib/photo-challenge';
 import { verifyAccessToken } from '@/lib/auth';
 import { extractSessionId, validateSession } from '@/lib/session';
 import { checkPhotoLimit } from '@/lib/limit-check';
-import { getSystemSettings } from '@/lib/system-settings';
 import { checkUploadRateLimit } from '@/lib/rate-limit';
 import { validateRecaptchaForUpload, isRecaptchaRequiredForUploads } from '@/lib/recaptcha';
 import { isModerationEnabled } from '@/lib/moderation/auto-moderate';
@@ -22,6 +19,7 @@ import type { DeviceType, IPhoto, SubscriptionTier } from '@/lib/types';
 import { resolveUserTier } from '@/lib/subscription';
 import { applyCacheHeaders, CACHE_PROFILES } from '@/lib/cache/strategy';
 import { publishEventBroadcast } from '@/lib/realtime/server';
+import { resolveOptionalAuth, resolveRequiredTenantId, resolveTenantId } from '@/lib/api-request-context';
 
 // ============================================
 // POST /api/events/:eventId/photos - Upload photo (service)
@@ -30,12 +28,8 @@ import { publishEventBroadcast } from '@/lib/realtime/server';
 export async function handleEventPhotoUpload(request: NextRequest, eventId: string) {
   try {
     const headers = request.headers;
-    let tenantId = getTenantId(headers);
-
-    // Fallback to default tenant for development (Turbopack middleware issue)
-    if (!tenantId) {
-      tenantId = DEFAULT_TENANT_ID;
-    }
+    const auth = await resolveOptionalAuth(headers);
+    const tenantId = resolveRequiredTenantId(headers, auth);
 
     const db = getTenantDb(tenantId);
     const subscriptionTier = await resolveUserTier(headers, tenantId, 'free');
@@ -155,18 +149,8 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
     const uploadFingerprint = headers.get('x-fingerprint');
 
     // Determine user ID for rate limiting
-    let uploadUserId: string | undefined;
-    const uploadAuthHeader = headers.get('authorization');
-
-    if (uploadAuthHeader) {
-      try {
-        const token = uploadAuthHeader.replace('Bearer ', '');
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        uploadUserId = payload.sub;
-      } catch {
-        // Invalid token - will be treated as guest below
-      }
-    }
+    const uploadUserId = auth?.userId;
+    const uploadUserRole = auth?.role || 'guest';
 
     const isAdminUploadHeader = headers.get('x-admin-upload') === 'true';
     let tenantTierFromDb: SubscriptionTier | null = null;
@@ -348,23 +332,9 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
       }
 
       // Get user info (authenticated or guest)
-      const authHeader = headers.get('authorization');
       const fingerprint = headers.get('x-fingerprint');
-      let userId: string;
-      let userRole: string = 'guest';
-
-      if (authHeader) {
-        try {
-          const token = authHeader.replace('Bearer ', '');
-          const payload = JSON.parse(atob(token.split('.')[1]));
-          userId = payload.sub;
-          userRole = payload.role;
-        } catch {
-          userId = `guest_${fingerprint || 'anonymous'}`;
-        }
-      } else {
-        userId = `guest_${fingerprint || 'anonymous'}`;
-      }
+      const userId = uploadUserId || `guest_${fingerprint || 'anonymous'}`;
+      const userRole = uploadUserRole;
 
       // Check if anonymous uploads are allowed
       if (isAnonymous && !event.settings.features.anonymous_allowed) {
@@ -472,6 +442,7 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
           await queuePhotoScan({
             photoId: photo.id,
             eventId: eventId,
+            tenantId,
             imageUrl: photo.images.full_url,
             userId: userRole === 'guest' ? undefined : userId,
             priority: 'normal',
@@ -569,25 +540,9 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
     }
 
     // Get user info (authenticated or guest)
-    const authHeader = headers.get('authorization');
     const fingerprint = headers.get('x-fingerprint');
-    let userId: string;
-    let userRole: string = 'guest';
-
-    if (authHeader) {
-      try {
-        const token = authHeader.replace('Bearer ', '');
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        userId = payload.sub;
-        userRole = payload.role;
-      } catch {
-        // Invalid token - treat as guest
-        userId = `guest_${fingerprint || 'anonymous'}`;
-      }
-    } else {
-      // Guest user - use fingerprint
-      userId = `guest_${fingerprint || 'anonymous'}`;
-    }
+    const userId = uploadUserId || `guest_${fingerprint || 'anonymous'}`;
+    const userRole = uploadUserRole;
 
     // Check photo limits (skip for admins or admin uploads)
     if (userRole !== 'super_admin' && !isAdminUploadHeader) {
@@ -674,6 +629,7 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
           await queuePhotoScan({
             photoId: photo.id,
             eventId: eventId,
+            tenantId,
             imageUrl: photo.images.full_url,
             userId: userRole === 'guest' ? undefined : userId,
             priority: 'normal',
@@ -708,7 +664,7 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
   } catch (error) {
     console.error('[API] Photo upload error:', error);
     return NextResponse.json(
-      { error: 'Failed to upload photo', code: 'UPLOAD_ERROR', details: error instanceof Error ? error.message : 'Unknown error' },
+      { error: 'Failed to upload photo', code: 'UPLOAD_ERROR' },
       { status: 500 }
     );
   }
@@ -745,12 +701,8 @@ function getBooleanValue(value: unknown): boolean | undefined {
 export async function handleEventPhotoList(request: NextRequest, eventId: string) {
   try {
     const headers = request.headers;
-    let tenantId = getTenantId(headers);
-
-    // Fallback to default tenant for development (Turbopack middleware issue)
-    if (!tenantId) {
-      tenantId = DEFAULT_TENANT_ID;
-    }
+    const auth = await resolveOptionalAuth(headers);
+    const tenantId = resolveTenantId(headers, auth);
 
     const db = getTenantDb(tenantId);
 

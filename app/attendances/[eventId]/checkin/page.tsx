@@ -132,10 +132,10 @@ export default function AttendanceCheckInPage() {
               </motion.div>
 
               <h2 className="mb-2 text-2xl font-bold text-gray-900 dark:text-gray-100">
-                You're Checked In!
+                You&apos;re Checked In!
               </h2>
               <p className="mb-6 text-gray-600 dark:text-gray-400">
-                Thanks for checking in to {event.name}. We're looking forward to seeing you!
+                Thanks for checking in to {event.name}. We&apos;re looking forward to seeing you!
               </p>
 
               <div className="rounded-xl border border-emerald-200 bg-white p-6 shadow-sm dark:border-emerald-800 dark:bg-gray-900">
@@ -182,7 +182,7 @@ export default function AttendanceCheckInPage() {
                   Welcome to {event.name}!
                 </h2>
                 <p className="text-lg text-gray-600 dark:text-gray-400">
-                  Please check in below to let us know you're here.
+                  Please check in below to let us know you&apos;re here.
                 </p>
               </div>
 
@@ -233,7 +233,7 @@ export default function AttendanceCheckInPage() {
                   )}
                   {event.description && (
                     <p className="mt-3 text-gray-600 dark:text-gray-400 italic">
-                      "{event.description}"
+                      &quot;{event.description}&quot;
                     </p>
                   )}
                 </div>

@@ -1,17 +1,27 @@
 // List events with their photo limits
 import { getTenantDb } from '../lib/db';
 
+interface ScriptEvent {
+  id: string;
+  name: string;
+  settings?: {
+    limits?: {
+      max_total_photos?: number | null;
+    };
+  };
+}
+
 async function listEvents() {
   const db = getTenantDb('00000000-0000-0000-0000-000000000001');
 
-  const events = await db.findMany('events', {}, {
+  const events = await db.findMany<ScriptEvent>('events', {}, {
     limit: 10,
     orderBy: 'created_at',
     orderDirection: 'DESC'
   });
 
   console.log('\nRecent Events:\n');
-  events.forEach((e: any, i: number) => {
+  events.forEach((e, i: number) => {
     console.log(`${i + 1}. ID: ${e.id}`);
     console.log(`   Name: ${e.name}`);
     console.log(`   Photo Limit: ${e.settings?.limits?.max_total_photos || 'undefined (uses tier limit)'}`);

@@ -4,13 +4,12 @@
 // Endpoint to redraw a single prize tier when winner is unavailable
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getTenantId } from '@/lib/tenant';
 import { getTenantDb } from '@/lib/db';
 import { redrawPrizeTier } from '@/lib/lucky-draw';
 import { extractSessionId, validateSession } from '@/lib/session';
 import { verifyAccessToken } from '@/lib/auth';
-import { DEFAULT_TENANT_ID } from '@/lib/constants/tenants';
 import { publishEventBroadcast } from '@/lib/realtime/server';
+import { resolveOptionalAuth, resolveRequiredTenantId } from '@/lib/api-request-context';
 
 export const runtime = 'nodejs';
 
@@ -25,12 +24,8 @@ export async function POST(
     try {
         const { eventId } = await params;
         const headers = request.headers;
-        let tenantId = getTenantId(headers);
-
-        // Fallback to default tenant for development
-        if (!tenantId) {
-            tenantId = DEFAULT_TENANT_ID;
-        }
+        const authContext = await resolveOptionalAuth(headers);
+        const tenantId = resolveRequiredTenantId(headers, authContext);
 
         const db = getTenantDb(tenantId);
 

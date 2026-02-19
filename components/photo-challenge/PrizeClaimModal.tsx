@@ -155,7 +155,7 @@ export function PrizeClaimModal({
 
               {/* Prize Info */}
               <div className="mb-6 rounded-lg p-4" style={{ backgroundColor: `${themeColor}15` }}>
-                <p className="text-sm text-gray-600 mb-1">You've won:</p>
+                <p className="text-sm text-gray-600 mb-1">You&apos;ve won:</p>
                 <p className="text-xl font-bold" style={{ color: themeColor }}>
                   {prizeTitle}
                 </p>

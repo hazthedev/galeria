@@ -120,11 +120,11 @@ export function OrganizerQRScanner({ eventId, onClose, onScanSuccess }: Organize
 
             {isScanning ? (
               <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">
-                Position the guest's QR code within the frame
+                Position the guest&apos;s QR code within the frame
               </p>
             ) : (
               <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">
-                Click "Start Scanner" to begin scanning guest QR codes
+                Click &quot;Start Scanner&quot; to begin scanning guest QR codes
               </p>
             )}
 

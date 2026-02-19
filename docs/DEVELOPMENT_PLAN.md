@@ -1,12 +1,12 @@
 ﻿# Momentique Development Plan
 
 Source of Truth: This is the single authoritative development progress tracker for this repository.
-Last Verified: 2026-02-14
-Verification Basis: Current codebase state, route/component/module presence, and latest local Jest run.
+Last Verified: 2026-02-19
+Verification Basis: Current codebase state, route/component/module presence, local `npm run lint`, `npm run typecheck`, `npm test -- --runInBand`, `npm run build`, `npm audit --omit=dev`, and `npm run security:snyk`.
 
-## Current Snapshot (2026-02-14)
+## Current Snapshot (2026-02-19)
 
-The codebase has strong platform foundations and broad feature coverage, with specific implementation gaps still open in configuration completeness, realtime consistency, and test depth.
+Core release-blocking quality gates now pass locally (lint/typecheck/build/tests/security audit), and high-risk auth/realtime/CAPTCHA contract drift has been hardened. Remaining work is now primarily production hardening depth (test expansion, rollback policy maturity, and large-file maintainability).
 
 ## Verified Completed
 
@@ -33,6 +33,18 @@ The codebase has strong platform foundations and broad feature coverage, with sp
 - [x] `lib/upload/validator.test.ts` passes
 - [x] `lib/upload/image-processor.test.ts` passes
 - [x] `lib/recaptcha.test.ts` passes
+
+### Production Hardening and Release Gates
+- [x] Upload auth path no longer trusts unsigned JWT decode (`lib/services/event-photos.ts`)
+- [x] Shared tenant resolver now blocks silent default-tenant behavior in production for hardened routes (`lib/api-request-context.ts`)
+- [x] CAPTCHA fallback contract is aligned end-to-end (`components/auth/Recaptcha.tsx`, `app/api/auth/recaptcha/challenge/route.ts`, `app/api/auth/recaptcha/verify/route.ts`, `lib/recaptcha.ts`)
+- [x] Internal error detail leakage removed from prize-claim 5xx response (`app/api/events/[eventId]/photo-challenge/claim/route.ts`)
+- [x] Lucky draw/attendance/event mutation routes moved to required tenant-resolution paths for production-safe behavior (`app/api/events/[eventId]/*`)
+- [x] Security dependency overrides updated (`fast-xml-parser`, `minimatch`) and lockfile refreshed (`package.json`, `package-lock.json`)
+- [x] CI quality workflow added for build/lint/typecheck/test (`.github/workflows/ci.yml`)
+- [x] Security workflow no longer suppresses key failures via `continue-on-error` (`.github/workflows/security.yml`)
+- [x] Health endpoints are present and routable (`app/api/health/route.ts`, `app/api/auth/health/route.ts`)
+- [x] Remaining `app/api` + `lib/services` silent default-tenant fallbacks removed in favor of resolver-based production-safe handling.
 
 ## Verified In Progress
 
@@ -80,9 +92,13 @@ Last run: 2026-02-14
 ## Documentation Drift Notes
 
 ### Confirmed Drift
-- `docs/README.md` references `npm run dev:all`, but `package.json` does not define `dev:all`.
 - Historical progress docs reference `lib/websocket/server.ts`, but that file does not exist.
-- Current realtime implementation is Supabase client-based (`lib/realtime/client.tsx`), while older docs center a Socket.io/WebSocket server path.
+- Current realtime implementation is Supabase client-based (`lib/realtime/client.tsx`); older historical notes still reference Socket.io/WebSocket framing.
+
+### Resolved Drift (2026-02-19)
+- `docs/README.md` runtime command mismatch (`dev:all`) fixed to `npm run dev`.
+- `docs/README.md` realtime and middleware/proxy references aligned with current codebase.
+- `.env.example` now includes `SENTRY_DSN` alongside public Sentry DSN for consistency with runtime config.
 
 ### Rule
 When progress docs conflict with code/runtime behavior, code and `package.json` are authoritative.
@@ -95,14 +111,20 @@ When progress docs conflict with code/runtime behavior, code and `package.json` 
 ### P1 (Reliability and Consistency)
 1. Resolve legacy TODO stubs in `lib/images.ts` or migrate all call sites to maintained modules.
 2. Standardize API error response and logging patterns across critical routes.
+3. Expand CI to include explicit security gate invocation in the quality workflow (`npm run security:audit` + `npm run security:snyk`).
 
 ### P2 (Quality and Maintainability)
 1. Replace index-based React keys with stable IDs in identified list renders.
 2. Add component tests for admin/organizer core surfaces.
 3. Add API integration tests for auth, events, photos, lucky draw, and photo challenge critical paths.
+4. Split remaining large hotspots (`lib/services/event-photos.ts`, guest page controller/view, lucky draw admin tab) into smaller maintainable modules.
 
 ## Change Log
 
+- 2026-02-19: Completed production hardening pass for auth/tenant/CAPTCHA/realtime-adjacent safety; local lint/typecheck/build/tests/security gates now pass.
+- 2026-02-19: Added CI quality workflow and tightened existing security workflow failure semantics.
+- 2026-02-19: Added `GET /api/health` and `GET /api/auth/health` endpoints for readiness checks.
+- 2026-02-19: Updated docs/runtime/env drift points (`docs/README.md`, `.env.example`) to match current code contracts.
 - 2026-02-14: Completed multi-tenant login lookup and lucky-draw `createdBy` attribution/auth hardening; removed both from open gaps and P0.
 - 2026-02-14: Marked photo-challenge organizer auth hardening as completed and removed it from open gaps/P0.
 - 2026-02-14: Consolidated all active progress tracking into this file.

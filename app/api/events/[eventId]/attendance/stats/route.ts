@@ -3,12 +3,11 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getTenantId } from '@/lib/tenant';
 import { getTenantDb } from '@/lib/db';
 import { verifyAccessToken } from '@/lib/auth';
 import { extractSessionId, validateSession } from '@/lib/session';
 import type { IAttendanceStats, CheckInMethod } from '@/lib/types';
-import { DEFAULT_TENANT_ID } from '@/lib/constants/tenants';
+import { resolveOptionalAuth, resolveRequiredTenantId } from '@/lib/api-request-context';
 
 // ============================================
 // GET /api/events/:eventId/attendance/stats
@@ -21,12 +20,8 @@ export async function GET(
   try {
     const { eventId } = await params;
     const headers = request.headers;
-    let tenantId = getTenantId(headers);
-
-    // Fallback to default tenant for development
-    if (!tenantId) {
-      tenantId = DEFAULT_TENANT_ID;
-    }
+    const auth = await resolveOptionalAuth(headers);
+    const tenantId = resolveRequiredTenantId(headers, auth);
 
     const db = getTenantDb(tenantId);
 
@@ -116,6 +111,12 @@ export async function GET(
 
     return NextResponse.json({ data: stats });
   } catch (error) {
+    if (error instanceof Error && error.message.includes('Tenant context missing')) {
+      return NextResponse.json(
+        { error: 'Tenant not found', code: 'TENANT_NOT_FOUND' },
+        { status: 404 }
+      );
+    }
     console.error('[API] Attendance stats error:', error);
     return NextResponse.json(
       { error: 'Failed to fetch stats', code: 'STATS_ERROR' },
