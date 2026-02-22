@@ -127,10 +127,8 @@ export default function EventAdminPage() {
 
   useEffect(() => {
     const requestedTab = parseAdminTab(searchParams.get('tab'));
-    if (requestedTab !== activeTab) {
-      setActiveTab(requestedTab);
-    }
-  }, [searchParams, activeTab]);
+    setActiveTab((prev) => (prev === requestedTab ? prev : requestedTab));
+  }, [searchParams]);
 
   useEffect(() => {
     const currentTab = parseAdminTab(searchParams.get('tab'));

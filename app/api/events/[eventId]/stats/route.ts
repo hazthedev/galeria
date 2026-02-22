@@ -53,6 +53,20 @@ function getTimelineDate(value: string | Date): string {
   return new Date(value).toISOString().split('T')[0];
 }
 
+function normalizeTier(value: unknown): SubscriptionTier {
+  if (
+    value === 'free' ||
+    value === 'pro' ||
+    value === 'premium' ||
+    value === 'enterprise' ||
+    value === 'tester'
+  ) {
+    return value;
+  }
+
+  return 'free';
+}
+
 // ============================================
 // GET /api/events/:id/stats - Get event statistics
 // ============================================
@@ -74,10 +88,7 @@ export async function GET(
     }
 
     const db = getTenantDb(tenantId);
-    const [event, tenant] = await Promise.all([
-      db.findOne<{ id: string; organizer_id: string }>('events', { id }),
-      db.findOne<{ subscription_tier: SubscriptionTier }>('tenants', { id: tenantId }),
-    ]);
+    const event = await db.findOne<{ id: string; organizer_id: string }>('events', { id });
 
     if (!event) {
       return NextResponse.json(
@@ -95,10 +106,22 @@ export async function GET(
       );
     }
 
-    const effectiveTier = (tenant?.subscription_tier as SubscriptionTier) || 'free';
+    const warnings: string[] = [];
+    let effectiveTier: SubscriptionTier = 'free';
+
+    try {
+      const tenant = await db.findOne<{ subscription_tier: unknown }>('tenants', { id: tenantId });
+      const resolvedTier = normalizeTier(tenant?.subscription_tier);
+      if (tenant?.subscription_tier && resolvedTier !== tenant.subscription_tier) {
+        warnings.push('Subscription tier metadata invalid; using Free limits.');
+      }
+      effectiveTier = resolvedTier;
+    } catch {
+      warnings.push('Subscription tier metadata unavailable; using Free limits.');
+    }
+
     const tierConfig = getTierConfig(effectiveTier);
     const stats = buildEmptyStats(tierConfig.limits.max_photos_per_event, tierConfig.displayName);
-    const warnings: string[] = [];
 
     const [
       totalPhotosResult,
@@ -282,4 +305,3 @@ export async function GET(
     );
   }
 }
-
