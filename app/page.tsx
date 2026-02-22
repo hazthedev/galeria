@@ -35,9 +35,6 @@ export default function HomePage() {
           <p className="mt-3 text-lg text-gray-600 dark:text-gray-400">
             Capture Moments, Together
           </p>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-500">
-            Rakam Momen, Bersama
-          </p>
         </div>
 
         {/* Login Cards */}
@@ -57,7 +54,7 @@ export default function HomePage() {
               Create and manage your events
             </p>
             <span className="mt-4 inline-flex items-center text-sm font-medium text-violet-600 dark:text-violet-400 transition-transform group-hover:translate-x-1">
-              Login {'->'}
+              Login &rarr;
             </span>
           </Link>
 
@@ -76,7 +73,7 @@ export default function HomePage() {
               System administration
             </p>
             <span className="mt-4 inline-flex items-center text-sm font-medium text-violet-600 dark:text-violet-400 transition-transform group-hover:translate-x-1">
-              Login {'->'}
+              Login &rarr;
             </span>
           </Link>
         </div>
