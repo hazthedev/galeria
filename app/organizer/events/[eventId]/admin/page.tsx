@@ -25,6 +25,7 @@ import { LuckyDrawAdminTab } from '@/components/lucky-draw/admin/LuckyDrawAdminT
 import { AttendanceAdminTab } from '@/components/attendance/AttendanceAdminTab';
 import { PhotoChallengeAdminTab } from '@/components/photo-challenge/admin-tab';
 import { SettingsAdminTab } from '@/components/settings/SettingsAdminTab';
+import { FeatureDisabledNotice } from '@/components/features/FeatureDisabledNotice';
 import type { IEvent } from '@/lib/types';
 import type { SettingsFeatureHighlight, SettingsSubTab } from '@/components/settings/types';
 
@@ -140,8 +141,10 @@ export default function EventAdminPage() {
     router.replace(queryString ? `${pathname}?${queryString}` : pathname, { scroll: false });
   };
 
+  const moderationEnabled = event?.settings?.features?.moderation_required === true;
+
   useEffect(() => {
-    if (activeTab !== 'moderation') return;
+    if (activeTab !== 'moderation' || !moderationEnabled) return;
 
     const fetchLogs = async () => {
       try {
@@ -158,7 +161,7 @@ export default function EventAdminPage() {
     };
 
     fetchLogs();
-  }, [activeTab, eventId]);
+  }, [activeTab, eventId, moderationEnabled]);
 
   const tabs = [
     { id: 'overview' as const, label: 'Overview', icon: ImageIcon },
@@ -374,60 +377,70 @@ export default function EventAdminPage() {
                 Review and approve or reject pending photo uploads
               </p>
 
-              <Link
-                href={`/organizer/events/${eventId}/photos?status=pending`}
-                className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-              >
-                <ImageIcon className="mr-2 h-4 w-4" />
-                View Pending Photos
-              </Link>
+              {!moderationEnabled ? (
+                <FeatureDisabledNotice
+                  featureName="Photo Moderation"
+                  settingsFeaturesHref={settingsFeatureHref('moderation')}
+                  description="Enable Photo Moderation in Event Settings to review and approve uploads before they appear."
+                />
+              ) : (
+                <>
+                  <Link
+                    href={`/organizer/events/${eventId}/photos?status=pending`}
+                    className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                  >
+                    <ImageIcon className="mr-2 h-4 w-4" />
+                    View Pending Photos
+                  </Link>
 
-              {moderationLogs.length > 0 && (
-                <div className="mt-8">
-                  <h3 className="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Recent Moderation Activity
-                  </h3>
-                  <div className="space-y-3">
-                    {moderationLogs.map((log) => (
-                      <div
-                        key={log.id}
-                        className="flex items-center justify-between gap-4 rounded-lg bg-gray-50 px-4 py-3 dark:bg-gray-700/50"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 overflow-hidden rounded-md bg-gray-200 dark:bg-gray-700">
-                            {log.imageUrl ? (
-                              <img
-                                src={log.imageUrl}
-                                alt="Moderated"
-                                className="h-full w-full object-cover"
-                                loading="lazy"
-                              />
-                            ) : (
-                              <div className="flex h-full w-full items-center justify-center text-gray-400">
-                                <ImageIcon className="h-4 w-4" />
+                  {moderationLogs.length > 0 && (
+                    <div className="mt-8">
+                      <h3 className="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Recent Moderation Activity
+                      </h3>
+                      <div className="space-y-3">
+                        {moderationLogs.map((log) => (
+                          <div
+                            key={log.id}
+                            className="flex items-center justify-between gap-4 rounded-lg bg-gray-50 px-4 py-3 dark:bg-gray-700/50"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="h-10 w-10 overflow-hidden rounded-md bg-gray-200 dark:bg-gray-700">
+                                {log.imageUrl ? (
+                                  <img
+                                    src={log.imageUrl}
+                                    alt="Moderated"
+                                    className="h-full w-full object-cover"
+                                    loading="lazy"
+                                  />
+                                ) : (
+                                  <div className="flex h-full w-full items-center justify-center text-gray-400">
+                                    <ImageIcon className="h-4 w-4" />
+                                  </div>
+                                )}
                               </div>
-                            )}
-                          </div>
-                          <div>
+                              <div>
+                                <div className="text-xs text-gray-500 dark:text-gray-400">
+                                  {(() => {
+                                    const statusRaw = (log.photoStatus || log.action || '').toLowerCase();
+                                    if (statusRaw === 'approve') return 'Approved';
+                                    if (statusRaw === 'reject') return 'Rejected';
+                                    return statusRaw
+                                      ? `${statusRaw.charAt(0).toUpperCase()}${statusRaw.slice(1)}`
+                                      : 'Updated';
+                                  })()}
+                                </div>
+                              </div>
+                            </div>
                             <div className="text-xs text-gray-500 dark:text-gray-400">
-                              {(() => {
-                                const statusRaw = (log.photoStatus || log.action || '').toLowerCase();
-                                if (statusRaw === 'approve') return 'Approved';
-                                if (statusRaw === 'reject') return 'Rejected';
-                                return statusRaw
-                                  ? `${statusRaw.charAt(0).toUpperCase()}${statusRaw.slice(1)}`
-                                  : 'Updated';
-                              })()}
+                              {new Date(log.createdAt).toLocaleString()}
                             </div>
                           </div>
-                        </div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">
-                          {new Date(log.createdAt).toLocaleString()}
-                        </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}
