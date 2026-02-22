@@ -15,8 +15,6 @@ import {
   Image as ImageIcon,
   Shield,
   Loader2,
-  ChevronDown,
-  ChevronUp,
   Sparkles,
   Target,
 } from 'lucide-react';
@@ -27,7 +25,6 @@ import { LuckyDrawAdminTab } from '@/components/lucky-draw/admin/LuckyDrawAdminT
 import { AttendanceAdminTab } from '@/components/attendance/AttendanceAdminTab';
 import { PhotoChallengeAdminTab } from '@/components/photo-challenge/admin-tab';
 import { SettingsAdminTab } from '@/components/settings/SettingsAdminTab';
-import { toast } from 'sonner';
 import type { IEvent } from '@/lib/types';
 import type { SettingsFeatureHighlight, SettingsSubTab } from '@/components/settings/types';
 
@@ -87,7 +84,6 @@ export default function EventAdminPage() {
   const [event, setEvent] = useState<IEvent | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<AdminTab>(() => parseAdminTab(searchParams.get('tab')));
   const [moderationLogs, setModerationLogs] = useState<Array<{
     id: string;
     photoId: string;
@@ -125,28 +121,24 @@ export default function EventAdminPage() {
     fetchEvent();
   }, [eventId]);
 
-  useEffect(() => {
-    const requestedTab = parseAdminTab(searchParams.get('tab'));
-    setActiveTab((prev) => (prev === requestedTab ? prev : requestedTab));
-  }, [searchParams]);
+  const activeTab = parseAdminTab(searchParams.get('tab'));
 
-  useEffect(() => {
-    const currentTab = parseAdminTab(searchParams.get('tab'));
-    if (currentTab === activeTab) {
+  const handleTabChange = (nextTab: AdminTab) => {
+    if (nextTab === activeTab) {
       return;
     }
 
     const nextParams = new URLSearchParams(searchParams.toString());
-    nextParams.set('tab', activeTab);
+    nextParams.set('tab', nextTab);
 
-    if (activeTab !== 'settings') {
+    if (nextTab !== 'settings') {
       nextParams.delete('subTab');
       nextParams.delete('feature');
     }
 
     const queryString = nextParams.toString();
     router.replace(queryString ? `${pathname}?${queryString}` : pathname, { scroll: false });
-  }, [activeTab, pathname, router, searchParams]);
+  };
 
   useEffect(() => {
     if (activeTab !== 'moderation') return;
@@ -239,7 +231,7 @@ export default function EventAdminPage() {
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => handleTabChange(tab.id)}
                   className={clsx(
                     'flex items-center gap-2 whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium transition-colors',
                     activeTab === tab.id
