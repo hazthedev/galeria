@@ -213,7 +213,8 @@ export async function POST(request: NextRequest) {
  */
 function getCookieOptions(rememberMe: boolean) {
   const isSecure = process.env.NODE_ENV === 'production';
-  const maxAge = rememberMe ? 2592000 : 604800; // 30 days or 7 days
+  // Default to 30 days for both regular and remember me sessions
+  const maxAge = 2592000; // 30 days
 
   return {
     httpOnly: true,
@@ -221,5 +222,11 @@ function getCookieOptions(rememberMe: boolean) {
     sameSite: 'lax' as const,
     path: '/',
     maxAge,
+    // Explicitly set domain for production to avoid subdomain issues
+    ...(isSecure && {
+      domain: process.env.NEXT_PUBLIC_APP_URL
+        ? new URL(process.env.NEXT_PUBLIC_APP_URL).hostname
+        : undefined,
+    }),
   };
 }
