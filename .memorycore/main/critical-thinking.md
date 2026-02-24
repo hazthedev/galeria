@@ -42,6 +42,13 @@ Capture reusable engineering reasoning patterns relevant to Galeria/Galeria impl
 - Keep `EVENT_NOT_FOUND` precedence ahead of feature-disabled checks where applicable.
 - In admin surfaces, prefer actionable remediation UX: disabled callout + deep-link to `Settings > Features`.
 
+## Mobile vs Laptop Tenant Routing Patterns
+- Distinguish auth-derived tenant context from host-derived tenant context:
+  - authenticated laptop flows can succeed via session tenant
+  - unauthenticated QR/mobile flows depend on host/header tenant resolution
+- For QR issues, verify the scanned URL host and middleware/proxy host parsing before changing feature logic.
+- Treat host normalization as a first-class concern (port stripping, LAN ranges, `.local`, IPv6 loopback, primary app host alignment).
+
 ## Debugging and Verification Patterns
 - Use `rg` for fast codebase discovery.
 - Prefer narrow verification commands over broad noisy runs.

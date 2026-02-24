@@ -13,6 +13,12 @@ import type { IUploadRateLimitOverrides } from './types';
 // ============================================
 
 /**
+ * Enable or disable rate limiting globally
+ * Set DISABLE_RATE_LIMITING=true in .env to disable (for development/testing)
+ */
+const RATE_LIMITING_DISABLED = process.env.DISABLE_RATE_LIMITING === 'true';
+
+/**
  * Rate limit configuration for different endpoints/actions
  */
 export interface IRateLimitConfig {
@@ -153,6 +159,17 @@ export async function checkRateLimit(
   identifier: string,
   config: IRateLimitConfig
 ): Promise<IRateLimitResult> {
+  // Bypass rate limiting if disabled (for development/testing)
+  if (RATE_LIMITING_DISABLED) {
+    return {
+      allowed: true,
+      remaining: config.maxRequests,
+      resetAt: new Date(Date.now() + config.windowSeconds * 1000),
+      limit: config.maxRequests,
+      windowSeconds: config.windowSeconds,
+    };
+  }
+
   try {
     const redis = getRedisClient();
     const key = `${config.keyPrefix}:${identifier}`;

@@ -108,3 +108,37 @@ Optional conversation archive for milestone continuity.
 ### Next Session Starting Point
 - Add targeted API/UI regression tests specifically for disabled-feature flows.
 - Consider small UX enhancement for focus state when highlighted setting row loads.
+
+---
+
+## Entry 005 - 2026-02-22
+### Session Summary
+- Shipped multiple post-release hotfixes after feature-toggle rollout:
+  - Admin tab bounce regressions
+  - Overview stats 500 fallback hardening
+  - Moderation tab feature gating
+  - Proxy tenant host handling expansion for mobile/LAN variants
+- Despite fixes, user still reports phone QR flow with "tenant not found" while laptop access works.
+
+### Decisions Locked In
+1. Pause active technical fixes when user explicitly requests pause.
+2. Preserve unresolved issue state in memory for continuity.
+3. Keep next-step debugging focused on runtime host evidence (phone-scanned URL + request host path).
+
+### Context Updates
+- Hotfix commits delivered on `main`:
+  - `61295b6`
+  - `ea5187c`
+  - `8e60c2e`
+  - `fae49b5`
+- User instruction: "dont fix it yet" followed by memory workflow command.
+
+### Validation Notes
+- Typecheck/build remained green through all hotfixes.
+- Real-device tenant behavior still not fully resolved.
+
+### Next Session Starting Point
+- When user resumes debugging:
+  1. capture exact QR URL scanned on phone
+  2. capture effective host seen by app on that request
+  3. compare against laptop flow host/session path

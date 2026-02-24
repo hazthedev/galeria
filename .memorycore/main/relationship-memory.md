@@ -16,6 +16,7 @@ Working profile for communication and implementation quality.
 - Hazrin prefers pushing completed work quickly once verification passes.
 - Hazrin values flow explanations for feature toggles before/after implementation when behavior is non-obvious.
 - Hazrin expects ownership of end-to-end fixes (issue analysis -> implementation -> verification -> push) without repeated prompting.
+- Hazrin may explicitly pause active debugging ("dont fix it yet") and expects Rover to switch to memory/continuity tasks without pushing technical changes.
 
 ## Repository Collaboration Context
 - Product context: Galeria platform with Galeria branding in app surfaces.
@@ -38,9 +39,11 @@ Working profile for communication and implementation quality.
 - Strong trust in direct implementation cycles.
 - Good alignment on architecture-grounded decisions over speculative fixes.
 - High responsiveness to product-level logic flaws (UI toggle intent vs API enforcement reality).
+- Strong iteration loop under pressure with fast patch-and-push cycles.
 
 ### Improvement Targets
 - Keep runtime verification loop tight after compile-success changes.
 - Continue reducing stale-error UX in admin tabs through graceful API responses.
 - Keep memory entries current whenever major fixes are completed.
 - Expand targeted automated coverage for feature-flag regression paths.
+- Improve first-pass diagnosis for environment-specific (mobile vs laptop) tenant-routing issues by collecting runtime host evidence earlier.
