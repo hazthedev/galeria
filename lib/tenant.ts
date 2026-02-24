@@ -32,12 +32,80 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
  * 2. Subdomain (e.g., luxeevents.app.galeria.com)
  * 3. Master tenant (fallback)
  */
+/**
+ * Strip port from hostname
+ */
+function stripHostPort(hostHeader: string): string {
+  const host = hostHeader.trim().toLowerCase();
+
+  // IPv6 host format: [::1]:3000 or [::1]
+  if (host.startsWith('[')) {
+    const end = host.indexOf(']');
+    if (end > 0) {
+      return host.slice(1, end);
+    }
+    return host;
+  }
+
+  // IPv4/hostname format: host:port or host
+  const parts = host.split(':');
+  return parts[0];
+}
+
+/**
+ * Check if hostname is a private IPv4 address
+ */
+function isPrivateIpv4(host: string): boolean {
+  if (host.startsWith('10.') || host.startsWith('127.') || host.startsWith('192.168.')) {
+    return true;
+  }
+
+  // 172.16.0.0 - 172.31.255.255
+  const match172 = host.match(/^172\.(\d{1,3})\./);
+  if (match172) {
+    const secondOctet = Number(match172[1]);
+    if (secondOctet >= 16 && secondOctet <= 31) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Check if hostname is a local development host
+ * Includes: localhost, private IPs, .local mDNS, LAN hostnames without dots
+ */
+function isLocalDevHost(hostname: string): boolean {
+  const host = stripHostPort(hostname);
+
+  if (host === 'localhost' || host === '::1') {
+    return true;
+  }
+
+  if (isPrivateIpv4(host)) {
+    return true;
+  }
+
+  // mDNS / local machine hostnames often used by mobile testing
+  if (host.endsWith('.local')) {
+    return true;
+  }
+
+  // Hostnames without dots (e.g., DESKTOP-ABC123) in local LAN
+  if (!host.includes('.')) {
+    return true;
+  }
+
+  return false;
+}
+
 export function extractTenantIdentifier(hostname: string): {
   type: 'custom_domain' | 'subdomain' | 'master' | 'local';
   identifier: string | null;
 } {
-  // Local development
-  if (hostname === 'localhost' || hostname.startsWith('127.0.0.1')) {
+  // Local development - comprehensive detection
+  if (isLocalDevHost(hostname)) {
     return { type: 'local', identifier: null };
   }
 
@@ -320,6 +388,9 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 
   return response;
 }
+
+// Alias middleware as proxy for Next.js 16 compatibility
+export { middleware as proxy };
 
 // Configure which paths the middleware should run on
 export const config = {
