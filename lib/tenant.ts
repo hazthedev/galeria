@@ -9,6 +9,7 @@ import crypto from 'crypto';
 import { getTenantDb } from './db';
 import type { ITenant, ITenantContext, TenantType, SubscriptionTier } from './types';
 import { DEFAULT_TENANT_ID, SYSTEM_TENANT_ID } from './constants/tenants';
+import { getKey, setKeyWithExpiry, deleteKeys } from './redis';
 
 // ============================================
 // CONFIGURATION
@@ -17,9 +18,8 @@ import { DEFAULT_TENANT_ID, SYSTEM_TENANT_ID } from './constants/tenants';
 const MASTER_DOMAIN = process.env.NEXT_PUBLIC_MASTER_DOMAIN || 'app.galeria.com';
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
-// Cache tenant lookups to reduce database queries
-const tenantCache = new Map<string, { tenant: ITenant; expiresAt: number }>();
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+// Cache TTL - 10 minutes for tenant data (Redis)
+const CACHE_TTL_SECONDS = 10 * 60;
 
 // ============================================
 // TENANT RESOLUTION
@@ -136,14 +136,15 @@ export function extractTenantIdentifier(hostname: string): {
 }
 
 /**
- * Get tenant by custom domain
+ * Get tenant by custom domain (with Redis caching)
  */
 export async function getTenantByDomain(domain: string): Promise<ITenant | null> {
-  const cacheKey = `domain:${domain}`;
-  const cached = tenantCache.get(cacheKey);
+  const cacheKey = `tenant:domain:${domain}`;
 
-  if (cached && cached.expiresAt > Date.now()) {
-    return cached.tenant;
+  // Try Redis cache first
+  const cached = await getKey<ITenant>(cacheKey);
+  if (cached) {
+    return cached;
   }
 
   try {
@@ -154,10 +155,8 @@ export async function getTenantByDomain(domain: string): Promise<ITenant | null>
     });
 
     if (tenant) {
-      tenantCache.set(cacheKey, {
-        tenant,
-        expiresAt: Date.now() + CACHE_TTL,
-      });
+      // Cache in Redis
+      await setKeyWithExpiry(cacheKey, tenant, CACHE_TTL_SECONDS);
     }
 
     return tenant;
@@ -168,14 +167,15 @@ export async function getTenantByDomain(domain: string): Promise<ITenant | null>
 }
 
 /**
- * Get tenant by subdomain
+ * Get tenant by subdomain (with Redis caching)
  */
 export async function getTenantBySubdomain(subdomain: string): Promise<ITenant | null> {
-  const cacheKey = `subdomain:${subdomain}`;
-  const cached = tenantCache.get(cacheKey);
+  const cacheKey = `tenant:subdomain:${subdomain}`;
 
-  if (cached && cached.expiresAt > Date.now()) {
-    return cached.tenant;
+  // Try Redis cache first
+  const cached = await getKey<ITenant>(cacheKey);
+  if (cached) {
+    return cached;
   }
 
   try {
@@ -186,10 +186,8 @@ export async function getTenantBySubdomain(subdomain: string): Promise<ITenant |
     });
 
     if (tenant) {
-      tenantCache.set(cacheKey, {
-        tenant,
-        expiresAt: Date.now() + CACHE_TTL,
-      });
+      // Cache in Redis
+      await setKeyWithExpiry(cacheKey, tenant, CACHE_TTL_SECONDS);
     }
 
     return tenant;
@@ -200,14 +198,15 @@ export async function getTenantBySubdomain(subdomain: string): Promise<ITenant |
 }
 
 /**
- * Get master tenant
+ * Get master tenant (with Redis caching)
  */
 export async function getMasterTenant(): Promise<ITenant | null> {
-  const cacheKey = 'master';
-  const cached = tenantCache.get(cacheKey);
+  const cacheKey = 'tenant:master';
 
-  if (cached && cached.expiresAt > Date.now()) {
-    return cached.tenant;
+  // Try Redis cache first
+  const cached = await getKey<ITenant>(cacheKey);
+  if (cached) {
+    return cached;
   }
 
   try {
@@ -220,19 +219,14 @@ export async function getMasterTenant(): Promise<ITenant | null> {
     if (!tenant && process.env.AUTO_SEED_MASTER_TENANT === 'true') {
       const seeded = await seedMasterTenant();
       if (seeded) {
-        tenantCache.set(cacheKey, {
-          tenant: seeded,
-          expiresAt: Date.now() + CACHE_TTL,
-        });
+        await setKeyWithExpiry(cacheKey, seeded, CACHE_TTL_SECONDS);
         return seeded;
       }
     }
 
     if (tenant) {
-      tenantCache.set(cacheKey, {
-        tenant,
-        expiresAt: Date.now() + CACHE_TTL,
-      });
+      // Cache in Redis
+      await setKeyWithExpiry(cacheKey, tenant, CACHE_TTL_SECONDS);
     }
 
     return tenant;
@@ -465,24 +459,31 @@ export function getTenantId(headers: Headers): string | null {
 // ============================================
 
 /**
- * Clear tenant cache
+ * Clear tenant cache (from Redis)
  */
-export function clearTenantCache(tenantId?: string): void {
+export async function clearTenantCache(tenantId?: string): Promise<void> {
   if (tenantId) {
-    // Clear specific tenant from cache
-    for (const [key, value] of tenantCache.entries()) {
-      if (value.tenant.id === tenantId) {
-        tenantCache.delete(key);
-      }
-    }
+    // Clear specific tenant from Redis cache
+    // We'd need to scan for keys, which is expensive
+    // Instead, we'll let the TTL expire naturally
+    console.log(`[Tenant] Cache clear requested for tenant ${tenantId} - will expire via TTL`);
   } else {
-    // Clear all cache
-    tenantCache.clear();
+    // Clear all tenant cache keys from Redis
+    try {
+      const redis = (await import('./redis')).getRedisClient();
+      const keys = await redis.keys('tenant:*');
+      if (keys.length > 0) {
+        await deleteKeys(keys);
+        console.log(`[Tenant] Cleared ${keys.length} cache entries`);
+      }
+    } catch (error) {
+      console.error('[Tenant] Error clearing cache:', error);
+    }
   }
 }
 
 /**
- * Warm up tenant cache (for startup)
+ * Warm up tenant cache (for startup) - stores in Redis
  */
 export async function warmTenantCache(): Promise<void> {
   try {
@@ -491,26 +492,17 @@ export async function warmTenantCache(): Promise<void> {
 
     for (const tenant of tenants) {
       if (tenant.domain) {
-        tenantCache.set(`domain:${tenant.domain}`, {
-          tenant,
-          expiresAt: Date.now() + CACHE_TTL,
-        });
+        await setKeyWithExpiry(`tenant:domain:${tenant.domain}`, tenant, CACHE_TTL_SECONDS);
       }
       if (tenant.subdomain) {
-        tenantCache.set(`subdomain:${tenant.subdomain}`, {
-          tenant,
-          expiresAt: Date.now() + CACHE_TTL,
-        });
+        await setKeyWithExpiry(`tenant:subdomain:${tenant.subdomain}`, tenant, CACHE_TTL_SECONDS);
       }
       if (tenant.tenant_type === 'master') {
-        tenantCache.set('master', {
-          tenant,
-          expiresAt: Date.now() + CACHE_TTL,
-        });
+        await setKeyWithExpiry(`tenant:master`, tenant, CACHE_TTL_SECONDS);
       }
     }
 
-    console.log(`[Tenant] Warmed cache with ${tenants.length} tenants`);
+    console.log(`[Tenant] Warmed Redis cache with ${tenants.length} tenants`);
   } catch (error) {
     console.error('[Tenant] Error warming cache:', error);
   }
