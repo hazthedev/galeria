@@ -516,19 +516,6 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
                         </label>
                       )}
 
-                      {(photo.status === 'pending' || photo.status === 'rejected') && (
-                        <div className={clsx(
-                          'absolute inset-0 z-10 flex items-center justify-center text-center text-xs font-semibold uppercase tracking-wide',
-                          photo.status === 'pending'
-                            ? 'bg-black/55 text-yellow-100'
-                            : 'bg-black/70 text-red-100'
-                        )}>
-                          <span className="rounded-full bg-black/40 px-3 py-1">
-                            {photo.status === 'pending' ? 'Pending approval' : 'Rejected'}
-                          </span>
-                        </div>
-                      )}
-
                       {/* Love Icon at Top Right (when user has loved) */}
                       {userLoveCount > 0 && (
                         <div className="absolute top-2 right-2 flex items-center gap-1 rounded-full bg-pink-500 px-2 py-1 shadow-lg">
