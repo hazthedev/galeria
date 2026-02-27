@@ -12,6 +12,26 @@ import {
   isFeatureDisabledError,
 } from '@/lib/event-feature-gate';
 
+type LuckyDrawConfigRow = {
+  id: string;
+  status: string;
+  prizeTiers: unknown;
+  totalEntries: number;
+  createdAt: Date;
+  completedAt: Date | null;
+};
+
+type HistoryItem = {
+  configId: string;
+  status: string;
+  prizeTiers: unknown;
+  totalEntries: number;
+  createdAt: Date;
+  completedAt: Date | null;
+  winners: unknown[];
+  winnerCount: number;
+};
+
 export const runtime = 'nodejs';
 
 const isRecoverableReadError = (error: unknown) =>
@@ -47,14 +67,7 @@ export async function GET(
 
     const warnings: string[] = [];
     const [configsResult, winnersResult] = await Promise.allSettled([
-      db.query<{
-        id: string;
-        status: string;
-        prizeTiers: unknown;
-        totalEntries: number;
-        createdAt: Date;
-        completedAt: Date | null;
-      }>(
+      db.query<LuckyDrawConfigRow>(
         `SELECT
           id,
           status,
@@ -121,7 +134,7 @@ export async function GET(
       }
     }
 
-    const history = configsResult.value.rows.map((config) => {
+    const history = configsResult.value.rows.map((config: LuckyDrawConfigRow) => {
       const configWinners = winnersByConfig.get(config.id) || [];
       return {
         configId: config.id,
@@ -130,7 +143,7 @@ export async function GET(
         totalEntries: config.totalEntries,
         createdAt: config.createdAt,
         completedAt: config.completedAt,
-        winners: configWinners.map((winner) => ({
+        winners: configWinners.map((winner: Winner & { configId: string }) => ({
           id: winner.id,
           participantName: winner.participantName,
           prizeTier: winner.prizeTier,
@@ -147,7 +160,7 @@ export async function GET(
       data: history,
       summary: {
         totalDraws: history.length,
-        completedDraws: history.filter(h => h.status === 'completed').length,
+        completedDraws: history.filter((h: HistoryItem) => h.status === 'completed').length,
         totalWinners: winnersResult.status === 'fulfilled' ? winnersResult.value.rows.length : 0,
       },
       warnings: warnings.length > 0 ? warnings : undefined,
