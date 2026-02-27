@@ -14,6 +14,13 @@ import {
   isFeatureDisabledError,
 } from '@/lib/event-feature-gate';
 
+type AttendanceStatsRow = {
+  companions_count: number;
+  check_in_time: Date;
+  check_in_method: CheckInMethod;
+  guest_email: string | null;
+};
+
 // ============================================
 // GET /api/events/:eventId/attendance/stats
 // ============================================
@@ -72,12 +79,7 @@ export async function GET(
     assertEventFeatureEnabled(event, 'attendance_enabled');
 
     // Fetch all attendance records for this event
-    const result = await db.query<{
-      companions_count: number;
-      check_in_time: Date;
-      check_in_method: CheckInMethod;
-      guest_email: string | null;
-    }>(
+    const result = await db.query<AttendanceStatsRow>(
       `SELECT companions_count, check_in_time, check_in_method, guest_email
        FROM attendances
        WHERE event_id = $1`,
@@ -88,20 +90,20 @@ export async function GET(
 
     // Calculate statistics
     const totalCheckIns = attendances.length;
-    const totalGuests = attendances.reduce((sum: number, a) => sum + a.companions_count + 1, 0);
+    const totalGuests = attendances.reduce((sum: number, a: AttendanceStatsRow) => sum + a.companions_count + 1, 0);
 
     // Check-ins today
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const checkInsToday = attendances.filter(a => new Date(a.check_in_time) >= today).length;
+    const checkInsToday = attendances.filter((a: AttendanceStatsRow) => new Date(a.check_in_time) >= today).length;
 
     // Unique guests (with email)
-    const uniqueEmails = new Set(attendances.map(a => a.guest_email).filter(Boolean));
+    const uniqueEmails = new Set(attendances.map((a: AttendanceStatsRow) => a.guest_email).filter(Boolean));
     const uniqueGuests = uniqueEmails.size;
 
     // Average companions
     const avgCompanions = totalCheckIns > 0
-      ? attendances.reduce((sum: number, a) => sum + a.companions_count, 0) / totalCheckIns
+      ? attendances.reduce((sum: number, a: AttendanceStatsRow) => sum + a.companions_count, 0) / totalCheckIns
       : 0;
 
     // Method breakdown
@@ -112,7 +114,7 @@ export async function GET(
       organizer_qr: 0,
     };
 
-    attendances.forEach(a => {
+    attendances.forEach((a: AttendanceStatsRow) => {
       methodBreakdown[a.check_in_method] = (methodBreakdown[a.check_in_method] || 0) + 1;
     });
 
