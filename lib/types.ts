@@ -88,6 +88,7 @@ export interface ISystemSettings {
         photo_upload_enabled: boolean;
         lucky_draw_enabled: boolean;
         reactions_enabled: boolean;
+        moderation_required: boolean;
         anonymous_allowed: boolean;
         guest_download_enabled: boolean;
         photo_challenge_enabled: boolean;

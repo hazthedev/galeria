@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getTenantDb } from '@/lib/db';
 import { requireAuthForApi, isSuperAdmin } from '@/lib/auth';
 import { resolveOptionalAuth, resolveTenantId } from '@/lib/api-request-context';
+import type { IEvent } from '@/lib/types';
 import {
   createLuckyDrawConfig,
   getActiveConfig,
@@ -26,16 +27,6 @@ const isRecoverableReadError = (error: unknown) =>
   'code' in error &&
   ['42P01', '42703'].includes((error as { code?: string }).code || '');
 
-type EventAccessRecord = {
-  id: string;
-  organizer_id: string;
-  settings?: {
-    features?: {
-      lucky_draw_enabled?: boolean;
-    };
-  };
-};
-
 async function requireConfigWriteAccess(
   request: NextRequest,
   eventId: string
@@ -50,7 +41,7 @@ async function requireConfigWriteAccess(
   }
 
   const db = getTenantDb(tenantId);
-  const event = await db.findOne<EventAccessRecord>('events', { id: eventId });
+  const event = await db.findOne<IEvent>('events', { id: eventId });
   if (!event) {
     throw new Error('Event not found');
   }
@@ -116,7 +107,7 @@ export async function GET(
     const db = getTenantDb(tenantId);
 
     // Verify event exists
-    const event = await db.findOne('events', { id: eventId });
+    const event = await db.findOne<IEvent>('events', { id: eventId });
     if (!event) {
       return NextResponse.json(
         { error: 'Event not found', code: 'EVENT_NOT_FOUND' },

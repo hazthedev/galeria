@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getTenantDb } from '@/lib/db';
 import { verifyAccessToken } from '@/lib/auth';
 import { extractSessionId, validateSession } from '@/lib/session';
-import type { IAttendance, IAttendanceCreate, CheckInMethod } from '@/lib/types';
+import type { IAttendance, IAttendanceCreate, IEvent, CheckInMethod } from '@/lib/types';
 import { resolveOptionalAuth, resolveRequiredTenantId, resolveTenantId } from '@/lib/api-request-context';
 import {
   assertEventFeatureEnabled,
@@ -17,16 +17,6 @@ import {
 // ============================================
 // TYPES
 // ============================================
-
-interface EventWithAttendance {
-  id: string;
-  status: string;
-  settings: {
-    features?: {
-      attendance_enabled?: boolean;
-    };
-  };
-}
 
 const isMissingTableError = (error: unknown) =>
   typeof error === 'object' && error !== null &&
@@ -49,7 +39,7 @@ export async function GET(
     const db = getTenantDb(tenantId);
 
     // Verify event exists
-    const event = await db.findOne<EventWithAttendance>('events', { id: eventId });
+    const event = await db.findOne<IEvent>('events', { id: eventId });
 
     if (!event) {
       return NextResponse.json(
@@ -150,7 +140,7 @@ export async function POST(
     const db = getTenantDb(tenantId);
 
     // Verify event exists and is active
-    const event = await db.findOne<EventWithAttendance>('events', { id: eventId });
+    const event = await db.findOne<IEvent>('events', { id: eventId });
 
     if (!event) {
       return NextResponse.json(

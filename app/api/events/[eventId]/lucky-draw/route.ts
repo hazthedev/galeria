@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantDb } from '@/lib/db';
+import type { IEvent } from '@/lib/types';
 import {
   executeDraw,
   getActiveConfig,
@@ -38,7 +39,7 @@ export async function POST(
     const db = getTenantDb(tenantId);
 
     // Verify event exists and is active
-    const event = await db.findOne('events', { id: eventId });
+    const event = await db.findOne<IEvent>('events', { id: eventId });
     if (!event) {
       return NextResponse.json(
         { error: 'Event not found', code: 'EVENT_NOT_FOUND' },
@@ -206,7 +207,7 @@ export async function PUT(
     const db = getTenantDb(tenantId);
 
     // Verify event exists
-    const event = await db.findOne('events', { id: eventId });
+    const event = await db.findOne<IEvent>('events', { id: eventId });
     if (!event) {
       return NextResponse.json(
         { error: 'Event not found', code: 'EVENT_NOT_FOUND' },

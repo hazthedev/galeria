@@ -61,8 +61,6 @@ export function useGuestEventPageController(eventId: string) {
   const [challengeProgress, setChallengeProgress] = useState<IGuestPhotoProgress | null>(null);
   const [showPrizeModal, setShowPrizeModal] = useState(false);
   const fingerprint = useMemo(() => getClientFingerprint(), []);
-  const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
-  const [recaptchaError, setRecaptchaError] = useState<string | null>(null);
   const { winner, isDrawing } = useLuckyDraw(resolvedEventId || '');
   const [showDrawOverlay, setShowDrawOverlay] = useState(false);
   const [showWinnerOverlay, setShowWinnerOverlay] = useState(false);
@@ -913,10 +911,6 @@ export function useGuestEventPageController(eventId: string) {
       setUploadError('Please enter your name first');
       return;
     }
-    if ((isAnonymous || !guestName.trim()) && !recaptchaToken) {
-      setUploadError('Please complete the CAPTCHA');
-      return;
-    }
 
     setUploadError(null);
 
@@ -946,9 +940,6 @@ export function useGuestEventPageController(eventId: string) {
       }
       if (luckyDrawEnabled && joinLuckyDraw && !isAnonymous) {
         formData.append('join_lucky_draw', 'true');
-      }
-      if (recaptchaToken) {
-        formData.append('recaptchaToken', recaptchaToken);
       }
 
       const response = await fetch(`/api/events/${resolvedEventId}/photos`, {
@@ -1037,8 +1028,6 @@ export function useGuestEventPageController(eventId: string) {
         setCaption('');
         setOptimizedCount(0);
         setUploadSuccessMessage('Photo uploaded successfully!');
-        setRecaptchaToken(null);
-        setRecaptchaError(null);
       }, 1500);
     } catch (err) {
       console.error('[GUEST_EVENT] Upload error:', err);
@@ -1088,8 +1077,6 @@ export function useGuestEventPageController(eventId: string) {
     challengeProgress,
     showPrizeModal,
     fingerprint,
-    recaptchaToken,
-    recaptchaError,
     winner,
     isDrawing,
     showDrawOverlay,
@@ -1140,8 +1127,6 @@ export function useGuestEventPageController(eventId: string) {
     removeSelectedFile,
     handleUpload,
     setShowUploadModal,
-    setRecaptchaToken,
-    setRecaptchaError,
     setCaption,
     setJoinLuckyDraw,
     setSelectedFiles,

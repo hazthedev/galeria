@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantDb } from '@/lib/db';
+import type { IEvent } from '@/lib/types';
 import { redrawPrizeTier } from '@/lib/lucky-draw';
 import { extractSessionId, validateSession } from '@/lib/session';
 import { verifyAccessToken } from '@/lib/auth';
@@ -34,14 +35,7 @@ export async function POST(
 
         const db = getTenantDb(tenantId);
 
-        const event = await db.findOne<{
-            id: string;
-            settings?: {
-                features?: {
-                    lucky_draw_enabled?: boolean;
-                };
-            };
-        }>('events', { id: eventId });
+        const event = await db.findOne<IEvent>('events', { id: eventId });
 
         if (!event) {
             return NextResponse.json(

@@ -19,7 +19,6 @@ import clsx from 'clsx';
 import { motion, AnimatePresence } from 'motion/react';
 import { PhotoChallengeProgressBar } from '@/components/photo-challenge/progress-bar';
 import { PhotoChallengePrizeModal } from '@/components/photo-challenge/prize-modal';
-import { Recaptcha } from '@/components/auth/Recaptcha';
 import { SlotMachineAnimation } from '@/components/lucky-draw/SlotMachineAnimation';
 import { CheckInModal } from '@/components/attendance/CheckInModal';
 import type { IPhoto } from '@/lib/types';
@@ -56,7 +55,7 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
     resolvedEventId, event, isLoading, isResolving, error, showShareModal, showUploadModal, showCheckInModal,
     hasCheckedIn, isUploading, isOptimizing, uploadError, uploadSuccess, uploadSuccessMessage, optimizedCount,
     moderationNotice, moderationNoticeType, joinLuckyDraw, hasJoinedDraw, luckyDrawNumbers, hasActiveLuckyDrawConfig,
-    photoChallenge, challengeProgress, showPrizeModal, fingerprint, recaptchaToken, recaptchaError, winner,
+    photoChallenge, challengeProgress, showPrizeModal, fingerprint, winner,
     showDrawOverlay, showWinnerOverlay, mergedPhotos, guestName, isAnonymous, showGuestModal, allowAnonymous,
     luckyDrawEnabled, attendanceEnabled, photoCardStyle, themePrimary, themeSecondary, themeBackground, themeSurface,
     themeGradient, surfaceText, surfaceMuted, surfaceBorder, inputBackground, inputBorder, headerBackground,
@@ -64,7 +63,7 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
     loadMoreRef, hasMoreApproved, isLoadingMore, handleGuestModalSubmit, setShowGuestModal, handleLoveReaction,
     handleDownloadPhoto, handleDownloadAll, handleDownloadSelected, handleDownloadSelectedIndividually,
     toggleSelectedPhoto, loadMoreApproved, setShowShareModal, shareUrl, handleShare, copyToClipboard, handleFileSelect,
-    removeSelectedFile, handleUpload, setShowUploadModal, setRecaptchaToken, setRecaptchaError, setCaption,
+    removeSelectedFile, handleUpload, setShowUploadModal, setCaption,
     setJoinLuckyDraw, setSelectedFiles, setUploadError, setUploadSuccess, setUploadSuccessMessage, setOptimizedCount,
     setShowCheckInModal, setHasCheckedIn, setIsAnonymous, setShowPrizeModal, setShowDrawOverlay, setShowWinnerOverlay,
   } = controller;
@@ -422,8 +421,6 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
           <button
             onClick={() => {
               setShowUploadModal(true);
-              setRecaptchaToken(null);
-              setRecaptchaError(null);
             }}
             className="w-full rounded-2xl border-2 border-dashed p-8 text-center transition-colors"
             style={{ backgroundColor: themeSurface, borderColor: themePrimary, color: surfaceText }}
@@ -671,8 +668,6 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
                   setUploadSuccessMessage('Photo uploaded successfully!');
                   setCaption('');
                   setOptimizedCount(0);
-                  setRecaptchaToken(null);
-                  setRecaptchaError(null);
                 }}
                 className="hover:opacity-80"
                 style={{ color: surfaceMuted }}
@@ -892,34 +887,6 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
                   </div>
                 )}
 
-                {(isAnonymous || !guestName.trim()) && (
-                  <div
-                    className="rounded-lg border p-3"
-                    style={{ borderColor: surfaceBorder, backgroundColor: inputBackground }}
-                  >
-                    <Recaptcha
-                      onVerified={(token) => {
-                        setRecaptchaToken(token);
-                        setRecaptchaError(null);
-                      }}
-                      onExpired={() => {
-                        setRecaptchaToken(null);
-                      }}
-                      onError={(err) => setRecaptchaError(err)}
-                    />
-                    {recaptchaToken && (
-                      <p className="mt-2 text-xs text-green-600 dark:text-green-400">
-                        CAPTCHA verified
-                      </p>
-                    )}
-                    {!recaptchaToken && recaptchaError && (
-                      <p className="mt-2 text-xs text-red-600 dark:text-red-400">
-                        {recaptchaError}
-                      </p>
-                    )}
-                  </div>
-                )}
-
                 {/* Submit Button */}
                 {selectedFiles.length > 0 && (
                   <button
@@ -961,8 +928,6 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
         <motion.button
           onClick={() => {
             setShowUploadModal(true);
-            setRecaptchaToken(null);
-            setRecaptchaError(null);
           }}
           animate="idle"
           whileHover="hover"

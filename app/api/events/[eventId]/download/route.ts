@@ -49,7 +49,7 @@ export async function GET(
       includeManifest: true,
     });
 
-    return new NextResponse(stream, {
+    return new NextResponse(stream as any, {
       headers: {
         'Content-Type': 'application/zip',
         'Content-Disposition': `attachment; filename="${filename}"`,
@@ -128,7 +128,7 @@ export async function POST(
       includeManifest: true,
     });
 
-    return new NextResponse(stream, {
+    return new NextResponse(stream as any, {
       headers: {
         'Content-Type': 'application/zip',
         'Content-Disposition': `attachment; filename="${filename}"`,

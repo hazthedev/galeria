@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantDb } from '@/lib/db';
 import { resolveOptionalAuth, resolveTenantId } from '@/lib/api-request-context';
+import type { IEvent } from '@/lib/types';
 import {
   assertEventFeatureEnabled,
   buildFeatureDisabledPayload,
@@ -43,15 +44,7 @@ export async function GET(
     }
 
     // Verify event exists
-    const event = await db.findOne<{
-      id: string;
-      status: string;
-      settings: {
-        features?: {
-          attendance_enabled?: boolean;
-        };
-      };
-    }>('events', { id: eventId });
+    const event = await db.findOne<IEvent>('events', { id: eventId });
 
     if (!event) {
       return NextResponse.json(

@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantDb } from '@/lib/db';
 import { verifyAccessToken } from '@/lib/auth';
+import type { IEvent } from '@/lib/types';
 import { createManualEntries, getActiveConfig, getEventEntries } from '@/lib/lucky-draw';
 import { extractSessionId, validateSession } from '@/lib/session';
 import { resolveOptionalAuth, resolveRequiredTenantId, resolveTenantId } from '@/lib/api-request-context';
@@ -38,14 +39,7 @@ export async function GET(
     const db = getTenantDb(tenantId);
 
     // Verify event exists
-    const event = await db.findOne<{
-      id: string;
-      settings?: {
-        features?: {
-          lucky_draw_enabled?: boolean;
-        };
-      };
-    }>('events', { id: eventId });
+    const event = await db.findOne<IEvent>('events', { id: eventId });
     if (!event) {
       return NextResponse.json(
         { error: 'Event not found', code: 'EVENT_NOT_FOUND' },
@@ -187,14 +181,7 @@ export async function POST(
       );
     }
 
-    const event = await db.findOne<{
-      id: string;
-      settings?: {
-        features?: {
-          lucky_draw_enabled?: boolean;
-        };
-      };
-    }>('events', { id: eventId });
+    const event = await db.findOne<IEvent>('events', { id: eventId });
     if (!event) {
       return NextResponse.json(
         { error: 'Event not found', code: 'EVENT_NOT_FOUND' },
