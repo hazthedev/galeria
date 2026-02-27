@@ -490,7 +490,6 @@ export default function PhotoUploadPage() {
         <div className="mt-6 rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-900/20">
           <p className="text-sm text-blue-800 dark:text-blue-300">
             <strong>Note:</strong> By uploading photos, you agree to our terms of service.
-            {event.settings?.features?.moderation_required && ' Photos will be reviewed before being visible to other participants.'}
           </p>
         </div>
       </div>

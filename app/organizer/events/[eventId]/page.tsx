@@ -115,9 +115,6 @@ export default function EventDetailPage() {
     // We just need to handle photo updates from the channel
     const handleNewPhoto = (payload: { payload: IPhoto }) => {
       const photo = payload.payload;
-      if (event?.settings?.features?.moderation_required && photo.status !== 'approved') {
-        return;
-      }
       setPhotos((prev) => {
         if (prev.some((p) => p.id === photo.id)) {
           return prev;
@@ -126,18 +123,12 @@ export default function EventDetailPage() {
       });
     };
 
-    const handlePhotoUpdated = (payload: { payload: { photo_id: string; status: string } }) => {
+    const handlePhotoUpdated = (payload: { payload: { photo_id: string } }) => {
       const data = payload.payload;
       setPhotos((prev) => {
         const updated = prev.map((photo) =>
-          photo.id === data.photo_id
-            ? { ...photo, status: data.status as IPhoto['status'] }
-            : photo
+          photo.id === data.photo_id ? photo : photo
         );
-
-        if (event?.settings?.features?.moderation_required && data.status !== 'approved') {
-          return updated.filter((photo) => photo.status === 'approved');
-        }
 
         return updated;
       });

@@ -544,17 +544,6 @@ export function useAdminDashboard(eventId: string) {
         });
     };
 
-    const moderatePhoto = (photoId: string, action: 'approve' | 'reject') => {
-        channelRef.current?.send({
-            type: 'broadcast',
-            event: 'photo_updated',
-            payload: {
-                photo_id: photoId,
-                status: action === 'approve' ? 'approved' : 'rejected',
-            },
-        });
-    };
-
     const deletePhoto = async (photoId: string) => {
         await fetch(`/api/photos/${photoId}`, {
             method: 'DELETE',
@@ -571,7 +560,6 @@ export function useAdminDashboard(eventId: string) {
         recentActivity,
         startDraw,
         broadcastWinner,
-        moderatePhoto,
         deletePhoto,
         channel,
     };

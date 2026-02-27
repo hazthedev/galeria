@@ -240,8 +240,6 @@ export interface IEventUpdate {
 // PHOTO TYPES
 // ============================================
 
-export type PhotoStatus = 'pending' | 'approved' | 'rejected';
-
 export type DeviceType = 'mobile' | 'tablet' | 'desktop';
 
 export interface IPhotoImage {
@@ -277,11 +275,9 @@ export interface IPhoto {
   caption?: string;
   contributor_name?: string;
   is_anonymous: boolean;
-  status: PhotoStatus;
   reactions: IPhotoReactions;
   metadata: IPhotoMetadata;
   created_at: Date;
-  approved_at?: Date;
 }
 
 export interface IPhotoCreate {
@@ -601,7 +597,7 @@ export interface ISocketEventData {
   join_event: { event_id: string };
   leave_event: { event_id: string };
   new_photo: IPhoto;
-  photo_updated: { photo_id: string; status: PhotoStatus; event_id?: string };
+  photo_updated: { photo_id: string; event_id?: string };
   stats_update: IEventStats;
   draw_started: ILuckyDrawConfig;
   draw_winner: IWinner;
@@ -682,7 +678,6 @@ export interface IExportJob {
 
 export type WebhookEvent =
   | 'photo.uploaded'
-  | 'photo.moderated'
   | 'lucky_draw.completed'
   | 'event.created'
   | 'event.ended'

@@ -83,7 +83,6 @@ export function useGuestEventPageController(eventId: string) {
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [showGuestModal, setShowGuestModal] = useState(false);
   const allowAnonymous = event?.settings?.features?.anonymous_allowed !== false;
-  const moderationRequired = event?.settings?.features?.moderation_required || false;
   const luckyDrawEnabled = event?.settings?.features?.lucky_draw_enabled !== false;
   const attendanceEnabled = event?.settings?.features?.attendance_enabled !== false;
   const {
@@ -738,45 +737,29 @@ export function useGuestEventPageController(eventId: string) {
 
         setEvent(eventData.data);
 
-        const moderationRequired = eventData.data?.settings?.features?.moderation_required || false;
         const headers: Record<string, string> = {};
         if (fingerprint) {
           headers['x-fingerprint'] = fingerprint;
         }
 
-        // Fetch photos (approved for everyone, plus own pending/rejected if moderation enabled)
-        const approvedResponse = await fetch(
-          `/api/events/${actualEventId}/photos?status=approved&limit=${PHOTO_PAGE_SIZE}&offset=0`,
+        // Fetch photos
+        const photosResponse = await fetch(
+          `/api/events/${actualEventId}/photos?limit=${PHOTO_PAGE_SIZE}&offset=0`,
           { headers }
         );
-        const approvedData = await approvedResponse.json();
+        const photosData = await photosResponse.json();
 
-        let pendingData: { data?: IPhoto[] } = {};
-        let rejectedData: { data?: IPhoto[] } = {};
+        if (photosResponse.ok) {
+          const photosList = photosData.data || [];
+          const nextTotal = photosData.pagination?.total ?? photosList.length;
 
-        if (moderationRequired && fingerprint) {
-          const [pendingRes, rejectedRes] = await Promise.all([
-            fetch(`/api/events/${actualEventId}/photos?status=pending`, { headers }),
-            fetch(`/api/events/${actualEventId}/photos?status=rejected`, { headers }),
-          ]);
-
-          pendingData = await pendingRes.json();
-          rejectedData = await rejectedRes.json();
-        }
-
-        if (approvedResponse.ok) {
-          const approvedList = approvedData.data || [];
-          const pendingList = pendingData.data || [];
-          const rejectedList = rejectedData.data || [];
-          const nextTotal = approvedData.pagination?.total ?? approvedList.length;
-
-          setApprovedPhotos(approvedList);
-          setPendingPhotos(pendingList);
-          setRejectedPhotos(rejectedList);
+          setApprovedPhotos(photosList);
+          setPendingPhotos([]);
+          setRejectedPhotos([]);
           setApprovedTotal(nextTotal);
-          setHasMoreApproved(approvedList.length < nextTotal);
-          pendingIdsRef.current = new Set(pendingList.map((p) => p.id));
-          rejectedIdsRef.current = new Set(rejectedList.map((p) => p.id));
+          setHasMoreApproved(photosList.length < nextTotal);
+          pendingIdsRef.current = new Set();
+          rejectedIdsRef.current = new Set();
         }
 
         setError(null);
@@ -987,25 +970,11 @@ export function useGuestEventPageController(eventId: string) {
 
       // Add the new photo(s) to the gallery
       const uploadedPhotos = Array.isArray(data.data) ? data.data : [data.data];
-      const nextApproved = uploadedPhotos.filter((photo: IPhoto) => photo.status === 'approved');
-      const nextPending = uploadedPhotos.filter((photo: IPhoto) => photo.status === 'pending');
-      const nextRejected = uploadedPhotos.filter((photo: IPhoto) => photo.status === 'rejected');
-      if (nextApproved.length > 0) {
-        setApprovedPhotos((prev) => [...nextApproved, ...prev]);
-        setApprovedTotal((prev) => (prev === null ? prev : prev + nextApproved.length));
+      if (uploadedPhotos.length > 0) {
+        setApprovedPhotos((prev) => [...uploadedPhotos, ...prev]);
+        setApprovedTotal((prev) => (prev === null ? prev : prev + uploadedPhotos.length));
       }
-      if (nextPending.length > 0) {
-        setPendingPhotos((prev) => [...nextPending, ...prev]);
-      }
-      if (nextRejected.length > 0) {
-        setRejectedPhotos((prev) => [...nextRejected, ...prev]);
-      }
-      const hasPending = uploadedPhotos.some((photo: IPhoto) => photo.status === 'pending');
-      if (hasPending) {
-        setUploadSuccessMessage('Photo uploaded and pending approval.');
-      } else {
-        setUploadSuccessMessage('Photo uploaded successfully!');
-      }
+      setUploadSuccessMessage('Photo uploaded successfully!');
 
       const entryIds = uploadedPhotos.map((photo: IPhoto & { lucky_draw_entry_id?: string | null }) =>
         photo.lucky_draw_entry_id

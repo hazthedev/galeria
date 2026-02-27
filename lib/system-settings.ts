@@ -11,14 +11,6 @@ const DEFAULT_SYSTEM_SETTINGS: ISystemSettings = {
     max_file_mb: 10,
     allowed_types: ['image/jpeg', 'image/png', 'image/heic', 'image/webp'],
   },
-  moderation: {
-    enabled: false,
-    aws_region: 'us-east-1',
-    aws_access_key_id: undefined,
-    aws_secret_access_key: undefined,
-    confidence_threshold: 0.8,
-    auto_reject: true,
-  },
   events: {
     default_settings: {
       theme: {
@@ -32,7 +24,6 @@ const DEFAULT_SYSTEM_SETTINGS: ISystemSettings = {
         photo_upload_enabled: true,
         lucky_draw_enabled: true,
         reactions_enabled: true,
-        moderation_required: false,
         anonymous_allowed: true,
         guest_download_enabled: true,
         photo_challenge_enabled: false,
@@ -53,10 +44,6 @@ function mergeSettings(base: ISystemSettings, patch?: Partial<ISystemSettings>):
       ...base.uploads,
       ...(patch.uploads || {}),
       allowed_types: patch.uploads?.allowed_types || base.uploads.allowed_types,
-    },
-    moderation: {
-      ...base.moderation,
-      ...(patch.moderation || {}),
     },
     events: {
       default_settings: {

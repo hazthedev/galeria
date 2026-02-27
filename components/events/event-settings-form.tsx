@@ -109,9 +109,6 @@ export function EventSettingsForm({
     const [guestDownloadEnabled, setGuestDownloadEnabled] = useState(
         event.settings?.features?.guest_download_enabled !== false
     );
-    const [moderationRequired, setModerationRequired] = useState(
-        event.settings?.features?.moderation_required || false
-    );
     const [anonymousAllowed, setAnonymousAllowed] = useState(
         event.settings?.features?.anonymous_allowed !== false
     );
@@ -140,7 +137,6 @@ export function EventSettingsForm({
 
         const featuresChanged =
             guestDownloadEnabled !== (originalFeatures.guest_download_enabled !== false) ||
-            moderationRequired !== (originalFeatures.moderation_required || false) ||
             anonymousAllowed !== (originalFeatures.anonymous_allowed !== false) ||
             luckyDrawEnabled !== (originalFeatures.lucky_draw_enabled !== false) ||
             attendanceEnabled !== (originalFeatures.attendance_enabled !== false) ||
@@ -161,7 +157,6 @@ export function EventSettingsForm({
         setHasChanges(featuresChanged || themeChanged || securityChanged);
     }, [
         guestDownloadEnabled,
-        moderationRequired,
         anonymousAllowed,
         luckyDrawEnabled,
         attendanceEnabled,
@@ -199,7 +194,6 @@ export function EventSettingsForm({
                         features: {
                             ...event.settings?.features,
                             guest_download_enabled: guestDownloadEnabled,
-                            moderation_required: moderationRequired,
                             anonymous_allowed: anonymousAllowed,
                             lucky_draw_enabled: luckyDrawEnabled,
                             attendance_enabled: attendanceEnabled,
@@ -520,35 +514,6 @@ export function EventSettingsForm({
                                 className={clsx(
                                     'absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-md transition-transform',
                                     guestDownloadEnabled ? 'left-[22px]' : 'left-0.5'
-                                )}
-                            />
-                        </div>
-                    </label>
-
-                    {/* Moderation Toggle */}
-                    <label className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-4 cursor-pointer hover:border-violet-300 dark:border-gray-600 dark:bg-gray-800 dark:hover:border-violet-500 transition-colors">
-                        <div className="flex items-center gap-3">
-                            <Eye className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-                            <div>
-                                <p className="font-medium text-gray-900 dark:text-gray-100">
-                                    Require Photo Moderation
-                                </p>
-                                <p className="text-xs text-gray-500 dark:text-gray-400">
-                                    Photos need approval before appearing in gallery
-                                </p>
-                            </div>
-                        </div>
-                        <div
-                            onClick={() => setModerationRequired(!moderationRequired)}
-                            className={clsx(
-                                'relative h-6 w-11 rounded-full transition-colors cursor-pointer',
-                                moderationRequired ? 'bg-violet-600' : 'bg-gray-300 dark:bg-gray-600'
-                            )}
-                        >
-                            <div
-                                className={clsx(
-                                    'absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-md transition-transform',
-                                    moderationRequired ? 'left-[22px]' : 'left-0.5'
                                 )}
                             />
                         </div>

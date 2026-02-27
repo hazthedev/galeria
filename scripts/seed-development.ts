@@ -271,7 +271,6 @@ async function seedDevelopment() {
             photo_upload_enabled: true,
             lucky_draw_enabled: true,
             reactions_enabled: true,
-            moderation_required: true,
             anonymous_allowed: true,
           },
           limits: {
@@ -294,8 +293,8 @@ async function seedDevelopment() {
       await client.query(`
         INSERT INTO photos (
           id, event_id, user_fingerprint, images, caption, contributor_name,
-          is_anonymous, status, reactions, metadata
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+          is_anonymous, reactions, metadata
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         ON CONFLICT (id) DO NOTHING
       `, [
         photo.id,
@@ -314,7 +313,6 @@ async function seedDevelopment() {
         `Sample photo ${photo.index} from Picsum`,
         photo.index % 3 === 0 ? null : `Team Member ${photo.index}`,
         photo.index % 3 === 0, // Every 3rd photo is anonymous
-        photo.index % 5 === 0 ? 'pending' : 'approved', // Every 5th photo needs moderation
         JSON.stringify({ heart: photo.index, clap: Math.floor(photo.index / 2), laugh: 0, wow: 0 }),
         JSON.stringify({
           ip_address: crypto.createHash('sha256').update(`127.0.0.${photo.index}`).digest('hex'),
