@@ -532,7 +532,6 @@ export async function verifyMagicLinkToken(
 
 /**
  * Authenticate API request and return user info
- * Used by photo moderation endpoints
  */
 export async function requireAuthForApi(headers: Headers): Promise<{
   payload: IJWTPayload;
@@ -574,59 +573,5 @@ export async function requireAuthForApi(headers: Headers): Promise<{
     payload,
     userId: session.user.id,
     tenantId: session.user.tenant_id,
-  };
-}
-
-/**
- * Check if user has organizer or super_admin role (can moderate content)
- */
-export function hasModeratorRole(role: string): boolean {
-  return ['super_admin', 'organizer'].includes(role);
-}
-
-/**
- * Verify photo exists and user has permission to moderate it
- * Used by photo moderation endpoints
- */
-export async function verifyPhotoModerationAccess(
-  photoId: string,
-  tenantId: string,
-  userId: string,
-  userRole: string
-): Promise<{
-  photo: { id: string; organizer_id: string; event_id: string; user_fingerprint: string; is_anonymous: boolean };
-  isOwner: boolean;
-  isAdmin: boolean;
-}> {
-  const db = getTenantDb(tenantId);
-
-  const photoResult = await db.query<{
-    id: string;
-    organizer_id: string;
-    event_id: string;
-    user_fingerprint: string;
-    is_anonymous: boolean;
-  }>(
-    `SELECT p.id,
-            e.organizer_id,
-            p.event_id,
-            p.user_fingerprint,
-            p.is_anonymous
-     FROM photos p
-     JOIN events e ON p.event_id = e.id
-     WHERE p.id = $1`,
-    [photoId]
-  );
-
-  if (!photoResult.rows || photoResult.rows.length === 0) {
-    throw new Error('Photo not found');
-  }
-
-  const photo = photoResult.rows[0];
-
-  return {
-    photo,
-    isOwner: photo.organizer_id === userId,
-    isAdmin: hasModeratorRole(userRole),
   };
 }
