@@ -83,7 +83,7 @@ export async function GET(
 
     // Generate CSV
     const headers_row = 'Name,Email,Phone,Companions,Check-in Time,Method,Notes\n';
-    const rows = attendances.map(a =>
+    const rows = attendances.map((a: IAttendance) =>
       [
         `"${(a.guest_name || '').replace(/"/g, '""')}"`,
         `"${(a.guest_email || '').replace(/"/g, '""')}"`,
