@@ -28,7 +28,15 @@ type HistoryItem = {
   totalEntries: number;
   createdAt: Date;
   completedAt: Date | null;
-  winners: unknown[];
+  winners: {
+    id: string;
+    participantName: string;
+    prizeTier: string;
+    prizeName: string;
+    selectionOrder: number;
+    isClaimed: boolean;
+    drawnAt: Date;
+  }[];
   winnerCount: number;
 };
 
@@ -124,7 +132,7 @@ export async function GET(
       }
     }
 
-    const winnersByConfig = new Map<string, Winner[]>();
+    const winnersByConfig = new Map<string, (Winner & { configId: string })[]>();
     if (winnersResult.status === 'fulfilled') {
       for (const winner of winnersResult.value.rows) {
         const configId = winner.configId;
@@ -143,7 +151,7 @@ export async function GET(
         totalEntries: config.totalEntries,
         createdAt: config.createdAt,
         completedAt: config.completedAt,
-        winners: configWinners.map((winner: Winner & { configId: string }) => ({
+        winners: configWinners.map((winner) => ({
           id: winner.id,
           participantName: winner.participantName,
           prizeTier: winner.prizeTier,
