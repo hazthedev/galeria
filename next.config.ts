@@ -22,8 +22,6 @@ remotePatterns.push({
 const nextConfig: NextConfig = {
   images: {
     remotePatterns,
-    loader: 'custom',
-    loaderFile: './lib/images/loader.ts',
   },
 };
 
