@@ -74,14 +74,6 @@ export interface ISystemSettings {
     max_file_mb: number;
     allowed_types: string[];
   };
-  moderation: {
-    enabled: boolean;
-    aws_region?: string;
-    aws_access_key_id?: string;
-    aws_secret_access_key?: string;
-    confidence_threshold: number;
-    auto_reject: boolean;
-  };
   events: {
     default_settings: {
       theme: {
@@ -96,7 +88,6 @@ export interface ISystemSettings {
         photo_upload_enabled: boolean;
         lucky_draw_enabled: boolean;
         reactions_enabled: boolean;
-        moderation_required: boolean;
         anonymous_allowed: boolean;
         guest_download_enabled: boolean;
         photo_challenge_enabled: boolean;
@@ -164,7 +155,6 @@ export interface IEventFeatures {
   photo_upload_enabled: boolean;
   lucky_draw_enabled: boolean;
   reactions_enabled: boolean;
-  moderation_required: boolean;
   anonymous_allowed: boolean;
   guest_download_enabled: boolean;
   photo_challenge_enabled: boolean;
@@ -743,40 +733,6 @@ export type ReactionType = 'heart' | 'clap' | 'laugh' | 'wow';
 export interface IReactionCreate {
   photo_id: string;
   type: ReactionType;
-}
-
-// ============================================
-// MODERATION TYPES
-// ============================================
-
-export interface IModerationResult {
-  is_safe: boolean;
-  confidence: number;
-  labels: Array<{
-    name: string;
-    confidence: number;
-  }>;
-  flagged_reasons: string[];
-}
-
-export interface IModerationAction {
-  photo_id: string;
-  action: 'approve' | 'reject' | 'delete';
-  reason?: string;
-  ban_user?: boolean;
-}
-
-export type ModerationActionType = 'approve' | 'reject' | 'delete';
-
-export interface IPhotoModerationLog {
-  id: string;
-  photo_id: string;
-  event_id: string;
-  tenant_id: string;
-  moderator_id: string;
-  action: ModerationActionType;
-  reason?: string;
-  created_at: Date;
 }
 
 // ============================================

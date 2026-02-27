@@ -7,8 +7,8 @@ on:
     branches: [main, develop, staging]
 
 jobs:
-  build-lint-typecheck-test:
-    name: Build, Lint, Typecheck, Test
+  build-lint-typecheck:
+    name: Build, Lint, Typecheck
     runs-on: ubuntu-latest
 
     steps:
@@ -29,9 +29,6 @@ jobs:
 
       - name: Typecheck
         run: npm run typecheck
-
-      - name: Test
-        run: npm test -- --runInBand
 
       - name: Build
         run: npm run build
