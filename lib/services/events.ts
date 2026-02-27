@@ -237,6 +237,7 @@ export async function handleEventCreate(request: NextRequest) {
         photo_upload_enabled: true,
         lucky_draw_enabled: true,
         reactions_enabled: true,
+        moderation_required: false,
         anonymous_allowed: true,
         guest_download_enabled: true,
         photo_challenge_enabled: false,

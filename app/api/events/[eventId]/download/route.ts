@@ -38,7 +38,7 @@ export async function GET(
     }
 
     const photosResult = await db.query<IPhoto>(
-      `SELECT * FROM photos WHERE event_id = $1`,
+      `SELECT * FROM photos WHERE event_id = $1 AND status = 'approved'`,
       [eventId]
     );
 
@@ -113,12 +113,12 @@ export async function POST(
     }
 
     const photosResult = await db.query<IPhoto>(
-      `SELECT * FROM photos WHERE event_id = $1 AND id = ANY($2)`,
+      `SELECT * FROM photos WHERE event_id = $1 AND status = 'approved' AND id = ANY($2)`,
       [eventId, photoIds]
     );
 
     if (!photosResult.rows.length) {
-      return NextResponse.json({ error: 'No photos found', code: 'NOT_FOUND' }, { status: 404 });
+      return NextResponse.json({ error: 'No approved photos found', code: 'NOT_FOUND' }, { status: 404 });
     }
 
     const { stream, filename } = await createPhotoExportZip({

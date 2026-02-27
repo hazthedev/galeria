@@ -60,6 +60,10 @@ export function mergePhotos(approved: IPhoto[], pending: IPhoto[], rejected: IPh
     const existing = merged.get(photo.id);
     if (!existing) {
       merged.set(photo.id, photo);
+      return;
+    }
+    if (existing.status === 'approved' && photo.status !== 'approved') {
+      merged.set(photo.id, photo);
     }
   };
   approved.forEach(add);

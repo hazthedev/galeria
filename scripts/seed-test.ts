@@ -245,9 +245,9 @@ async function seedTest() {
     for (const photo of testPhotos) {
       await client.query(`
         INSERT INTO photos (
-          id, event_id, user_fingerprint, images, caption,
+          id, event_id, user_fingerprint, images, caption, status,
           reactions, metadata
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         ON CONFLICT (id) DO NOTHING
       `, [
         photo.id,
@@ -264,6 +264,7 @@ async function seedTest() {
           format: 'jpg',
         }),
         `Test photo ${photo.index}`,
+        'approved',
         JSON.stringify({ heart: photo.index, clap: 0, laugh: 0, wow: 0 }),
         JSON.stringify({
           ip_address: 'test-ip-hash',

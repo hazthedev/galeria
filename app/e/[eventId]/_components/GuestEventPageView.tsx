@@ -471,6 +471,7 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
                       whileHover="hover"
                       whileTap="tap"
                       onDoubleClick={() => {
+                        if (photo.status !== 'approved') return;
                         handleLoveReaction(photo.id);
                       }}
                       className={clsx(
@@ -488,7 +489,7 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
                       />
 
                       {/* Download button */}
-                      {canDownload && (
+                      {canDownload && photo.status === 'approved' && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -502,7 +503,7 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
                       )}
 
                       {/* Select checkbox */}
-                      {canDownload && (
+                      {canDownload && photo.status === 'approved' && (
                         <label
                           onClick={(e) => e.stopPropagation()}
                           className="absolute bottom-2 left-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/50 text-white"
@@ -514,6 +515,19 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
                             className="h-4 w-4 rounded border-white text-violet-600 focus:ring-violet-500"
                           />
                         </label>
+                      )}
+
+                      {(photo.status === 'pending' || photo.status === 'rejected') && (
+                        <div className={clsx(
+                          'absolute inset-0 z-10 flex items-center justify-center text-center text-xs font-semibold uppercase tracking-wide',
+                          photo.status === 'pending'
+                            ? 'bg-black/55 text-yellow-100'
+                            : 'bg-black/70 text-red-100'
+                        )}>
+                          <span className="rounded-full bg-black/40 px-3 py-1">
+                            {photo.status === 'pending' ? 'Pending approval' : 'Rejected'}
+                          </span>
+                        </div>
                       )}
 
                       {/* Love Icon at Top Right (when user has loved) */}

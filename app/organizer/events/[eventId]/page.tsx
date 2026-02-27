@@ -123,11 +123,13 @@ export default function EventDetailPage() {
       });
     };
 
-    const handlePhotoUpdated = (payload: { payload: { photo_id: string } }) => {
+    const handlePhotoUpdated = (payload: { payload: { photo_id: string; status: string } }) => {
       const data = payload.payload;
       setPhotos((prev) => {
         const updated = prev.map((photo) =>
-          photo.id === data.photo_id ? photo : photo
+          photo.id === data.photo_id
+            ? { ...photo, status: data.status as IPhoto['status'] }
+            : photo
         );
 
         return updated;

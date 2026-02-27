@@ -30,6 +30,8 @@ export const userRoleEnum = pgEnum('user_role', ['guest', 'organizer', 'super_ad
 export const eventTypeEnum = pgEnum('event_type', ['birthday', 'wedding', 'corporate', 'other']);
 export const eventStatusEnum = pgEnum('event_status', ['draft', 'active', 'ended', 'archived']);
 export const deviceTypeEnum = pgEnum('device_type', ['mobile', 'tablet', 'desktop']);
+export const photoStatusEnum = pgEnum('photo_status', ['pending', 'approved', 'rejected']);
+export const moderationActionEnum = pgEnum('moderation_action', ['approve', 'reject', 'delete']);
 
 // ============================================
 // MIGRATION VERSION TABLE
@@ -265,6 +267,7 @@ export const photos = pgTable('photos', {
   caption: text('caption'),
   contributorName: text('contributor_name'),
   isAnonymous: boolean('is_anonymous').notNull().default(false),
+  status: photoStatusEnum('status').notNull().default('pending'),
   // JSONB field for reaction counters
   reactions: jsonb('reactions').$type<{
     heart: number;
@@ -280,10 +283,32 @@ export const photos = pgTable('photos', {
     device_type: 'mobile' | 'tablet' | 'desktop';
   }>().notNull().default(sql`'{}'::jsonb`),
   createdAt: timestamp('created_at').notNull().defaultNow(),
+  approvedAt: timestamp('approved_at'),
 }, (table) => ({
   // Indexes for photo lookup optimization
   photoEventIdx: index('photo_event_idx').on(table.eventId),
+  photoStatusIdx: index('photo_status_idx').on(table.status),
   photoCreatedAtIdx: index('photo_created_at_idx').on(table.createdAt),
+}));
+
+// ============================================
+// PHOTO MODERATION LOGS
+// ============================================
+
+export const photoModerationLogs = pgTable('photo_moderation_logs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  photoId: uuid('photo_id').notNull().references(() => photos.id, { onDelete: 'cascade' }),
+  eventId: uuid('event_id').notNull().references(() => events.id, { onDelete: 'cascade' }),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  moderatorId: uuid('moderator_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  action: moderationActionEnum('action').notNull(),
+  reason: text('reason'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => ({
+  moderationLogEventIdx: index('moderation_log_event_idx').on(table.eventId),
+  moderationLogPhotoIdx: index('moderation_log_photo_idx').on(table.photoId),
+  moderationLogTenantIdx: index('moderation_log_tenant_idx').on(table.tenantId),
+  moderationLogActionIdx: index('moderation_log_action_idx').on(table.action),
 }));
 
 // ============================================
@@ -534,6 +559,8 @@ export type Event = typeof events.$inferSelect;
 export type NewEvent = typeof events.$inferInsert;
 export type Photo = typeof photos.$inferSelect;
 export type NewPhoto = typeof photos.$inferInsert;
+export type PhotoModerationLog = typeof photoModerationLogs.$inferSelect;
+export type NewPhotoModerationLog = typeof photoModerationLogs.$inferInsert;
 export type LuckyDrawConfig = typeof luckyDrawConfigs.$inferSelect;
 export type NewLuckyDrawConfig = typeof luckyDrawConfigs.$inferInsert;
 export type LuckyDrawEntry = typeof luckyDrawEntries.$inferSelect;
