@@ -344,7 +344,7 @@ export function useGuestEventPageController(eventId: string) {
       }
 
       const response = await fetch(
-        `/api/events/${resolvedEventId}/photos?status=approved&limit=${PHOTO_PAGE_SIZE}&offset=0`,
+        `/api/events/${resolvedEventId}/photos?limit=${PHOTO_PAGE_SIZE}&offset=0`,
         { headers }
       );
       if (!response.ok) return;
@@ -366,7 +366,7 @@ export function useGuestEventPageController(eventId: string) {
   }, [resolvedEventId, fingerprint, approvedTotal]);
 
   const reconcileModerationStatuses = useCallback(async () => {
-    if (!resolvedEventId || !fingerprint || !moderationRequired) return;
+    if (!resolvedEventId || !fingerprint) return;
 
     try {
       const headers: Record<string, string> = { 'x-fingerprint': fingerprint };
@@ -413,8 +413,7 @@ export function useGuestEventPageController(eventId: string) {
       let newlyApprovedPhotos: IPhoto[] = [];
       setPendingPhotos((prev) => {
         newlyApprovedPhotos = prev
-          .filter((photo) => newlyApproved.includes(photo.id))
-          .map((photo) => ({ ...photo, status: 'approved' }));
+          .filter((photo) => newlyApproved.includes(photo.id));
         return pendingJson.data || [];
       });
       setRejectedPhotos(rejectedJson.data || []);
@@ -430,7 +429,7 @@ export function useGuestEventPageController(eventId: string) {
     } catch (err) {
       console.error('[GUEST_EVENT] Realtime moderation reconcile failed:', err);
     }
-  }, [resolvedEventId, fingerprint, moderationRequired]);
+  }, [resolvedEventId, fingerprint]);
 
   const runRealtimeReconcile = useCallback(async () => {
     if (realtimeReconcileInFlightRef.current) {
@@ -457,7 +456,6 @@ export function useGuestEventPageController(eventId: string) {
 
   usePhotoGallery(resolvedEventId || '', {
     onNewPhoto: (photo) => {
-      if (photo.status !== 'approved') return;
       setApprovedPhotos((prev) => {
         if (prev.some((item) => item.id === photo.id)) {
           return prev;
@@ -509,7 +507,7 @@ export function useGuestEventPageController(eventId: string) {
       setSelectedPhotoIds(new Set());
       return;
     }
-    const approvedIds = new Set(mergedPhotos.filter((photo) => photo.status === 'approved').map((photo) => photo.id));
+    const approvedIds = new Set(mergedPhotos.map((photo) => photo.id));
     setSelectedPhotoIds((prev) => {
       const next = new Set(Array.from(prev).filter((id) => approvedIds.has(id)));
       return next;
@@ -784,7 +782,7 @@ export function useGuestEventPageController(eventId: string) {
       }
       const offset = approvedPhotos.length;
       const response = await fetch(
-        `/api/events/${resolvedEventId}/photos?status=approved&limit=${PHOTO_PAGE_SIZE}&offset=${offset}`,
+        `/api/events/${resolvedEventId}/photos?limit=${PHOTO_PAGE_SIZE}&offset=${offset}`,
         { headers }
       );
       const data = await response.json();
@@ -827,23 +825,6 @@ export function useGuestEventPageController(eventId: string) {
     if (approvedTotal === null) return;
     setHasMoreApproved(approvedPhotos.length < approvedTotal);
   }, [approvedPhotos.length, approvedTotal]);
-
-  useEffect(() => {
-    if (!resolvedEventId || !fingerprint || !moderationRequired) return;
-
-    let isCancelled = false;
-    const pollStatuses = async () => {
-      if (isCancelled) return;
-      await reconcileModerationStatuses();
-    };
-
-    void pollStatuses();
-    const interval = setInterval(pollStatuses, 15000);
-    return () => {
-      isCancelled = true;
-      clearInterval(interval);
-    };
-  }, [resolvedEventId, fingerprint, moderationRequired, reconcileModerationStatuses]);
 
   // Share functionality (always use short link)
   const shareUrl = useMemo(() => {
@@ -1084,7 +1065,6 @@ export function useGuestEventPageController(eventId: string) {
     isAnonymous,
     showGuestModal,
     allowAnonymous,
-    moderationRequired,
     luckyDrawEnabled,
     attendanceEnabled,
     photoCardStyle,

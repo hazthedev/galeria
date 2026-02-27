@@ -471,7 +471,6 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
                       whileHover="hover"
                       whileTap="tap"
                       onDoubleClick={() => {
-                        if (photo.status !== 'approved') return;
                         handleLoveReaction(photo.id);
                       }}
                       className={clsx(
@@ -489,7 +488,7 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
                       />
 
                       {/* Download button */}
-                      {canDownload && photo.status === 'approved' && (
+                      {canDownload && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -503,7 +502,7 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
                       )}
 
                       {/* Select checkbox */}
-                      {canDownload && photo.status === 'approved' && (
+                      {canDownload && (
                         <label
                           onClick={(e) => e.stopPropagation()}
                           className="absolute bottom-2 left-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/50 text-white"
