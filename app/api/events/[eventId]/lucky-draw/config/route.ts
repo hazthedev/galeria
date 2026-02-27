@@ -4,7 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantDb } from '@/lib/db';
-import { hasModeratorRole, requireAuthForApi } from '@/lib/auth';
+import { requireAuthForApi, isSuperAdmin } from '@/lib/auth';
 import { resolveOptionalAuth, resolveTenantId } from '@/lib/api-request-context';
 import {
   createLuckyDrawConfig,
@@ -45,7 +45,7 @@ async function requireConfigWriteAccess(
   userId: string;
 }> {
   const { userId, tenantId, payload } = await requireAuthForApi(request.headers);
-  if (!hasModeratorRole(payload.role)) {
+  if (payload.role !== 'organizer' && !isSuperAdmin(payload.role)) {
     throw new Error('Forbidden');
   }
 
