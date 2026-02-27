@@ -88,7 +88,7 @@ export async function GET(
 
     // Calculate statistics
     const totalCheckIns = attendances.length;
-    const totalGuests = attendances.reduce((sum, a) => sum + a.companions_count + 1, 0);
+    const totalGuests = attendances.reduce((sum: number, a) => sum + a.companions_count + 1, 0);
 
     // Check-ins today
     const today = new Date();
@@ -101,7 +101,7 @@ export async function GET(
 
     // Average companions
     const avgCompanions = totalCheckIns > 0
-      ? attendances.reduce((sum, a) => sum + a.companions_count, 0) / totalCheckIns
+      ? attendances.reduce((sum: number, a) => sum + a.companions_count, 0) / totalCheckIns
       : 0;
 
     // Method breakdown
