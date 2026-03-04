@@ -5,8 +5,9 @@
  * moderation system including the background worker for scanning photos.
  */
 
-import { initializeContentScanning } from '../../jobs/scan-content';
-import { cleanupExpiredQuarantine } from '../storage/quarantine';
+// NOTE: No top-level imports! This file is imported by instrumentation.ts
+// which can cause webpack to trace imports into client bundle.
+// All imports are done dynamically inside functions.
 
 let initialized = false;
 let cleanupInterval: NodeJS.Timeout | null = null;
@@ -22,12 +23,17 @@ export async function initializeContentModeration(): Promise<void> {
   }
 
   try {
+    // Dynamic import to avoid webpack tracing during build
+    const { initializeContentScanning } = await import('../../jobs/scan-content');
+
     // Initialize the scanning queue and worker
     await initializeContentScanning();
 
     // Start periodic cleanup of expired quarantine items (daily)
     cleanupInterval = setInterval(async () => {
       try {
+        // Dynamic import to avoid webpack tracing during build
+        const { cleanupExpiredQuarantine } = await import('../storage/quarantine');
         const cleaned = await cleanupExpiredQuarantine();
         if (cleaned > 0) {
           console.log(`[MODERATION] Cleaned up ${cleaned} expired quarantined photos`);

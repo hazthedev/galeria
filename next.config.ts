@@ -30,6 +30,7 @@ const nextConfig: NextConfig = {
   // Externalize server-only packages from client bundle (use webpack, not turbopack)
   webpack: (config, { isServer }) => {
     if (!isServer) {
+      // Externalize server-only packages
       config.externals = [
         ...config.externals,
         'ioredis',
@@ -40,6 +41,13 @@ const nextConfig: NextConfig = {
         'bullmq',
         'node-gyp-build',
       ];
+
+      // Exclude server-only files from client bundle
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        '@/jobs/scan-content': false,
+        '@/lib/moderation/init': false,
+      };
     }
     return config;
   },
