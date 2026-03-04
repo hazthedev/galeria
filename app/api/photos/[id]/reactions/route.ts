@@ -5,7 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { getTenantDb } from '@/lib/db';
-import { verifyAccessToken } from '@/lib/auth';
+import { verifyAccessToken } from '@/lib/domain/auth/auth';
 import type { ReactionType } from '@/lib/types';
 import { publishEventBroadcast } from '@/lib/realtime/server';
 import { resolveOptionalAuth, resolveTenantId } from '@/lib/api-request-context';

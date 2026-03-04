@@ -5,7 +5,7 @@
 // Registers a new user, creates their tenant, and creates session
 
 import { NextRequest, NextResponse } from 'next/server';
-import { hashPassword } from '@/lib/auth';
+import { hashPassword } from '@/lib/domain/auth/auth';
 import { getTenantDb } from '@/lib/db';
 import { createSession } from '@/lib/domain/auth/session';
 import { checkRegistrationRateLimit, createRateLimitErrorResponse } from '@/lib/api/middleware/rate-limit';

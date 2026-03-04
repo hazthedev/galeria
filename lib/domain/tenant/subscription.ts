@@ -4,7 +4,7 @@
 
 import { getTenantDb } from '@/lib/db';
 import { extractSessionId, validateSession } from '@/lib/domain/auth/session';
-import { verifyAccessToken } from '@/lib/auth';
+import { verifyAccessToken } from '@/lib/domain/auth/auth';
 import type { SubscriptionTier, IUser } from '@/lib/types';
 
 export async function resolveUserTier(

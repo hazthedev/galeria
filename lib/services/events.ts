@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { getTenantContextFromHeaders } from '@/lib/tenant';
 import { getTenantDb } from '@/lib/db';
-import { verifyAccessToken } from '@/lib/auth';
+import { verifyAccessToken } from '@/lib/domain/auth/auth';
 import { generateSlug, generateUUID, generateEventUrl } from '@/lib/utils';
 import { extractSessionId, validateSession } from '@/lib/domain/auth/session';
 import { generateUniqueShortCode } from '@/lib/utils';

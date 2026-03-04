@@ -8,7 +8,7 @@ import { uploadImageToStorage, validateImageFile, validateUploadedImage, getTier
 import { generatePhotoId } from '@/lib/utils';
 import { createEntryFromPhoto } from '@/lib/lucky-draw';
 import { updateGuestProgress } from '@/lib/lucky-draw';
-import { verifyAccessToken } from '@/lib/auth';
+import { verifyAccessToken } from '@/lib/domain/auth/auth';
 import { extractSessionId, validateSession } from '@/lib/domain/auth/session';
 import { checkPhotoLimit } from '@/lib/api/middleware/limit-check';
 import { checkUploadRateLimit } from '@/lib/api/middleware/rate-limit';

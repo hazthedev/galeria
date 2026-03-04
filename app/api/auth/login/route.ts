@@ -5,7 +5,7 @@
 // Authenticates user with email and password, creates session
 
 import { NextRequest, NextResponse } from 'next/server';
-import { comparePassword } from '@/lib/auth';
+import { comparePassword } from '@/lib/domain/auth/auth';
 import { getTenantDb } from '@/lib/db';
 import { createSession, deleteSession, extractSessionId } from '@/lib/domain/auth/session';
 import { checkLoginRateLimit, createRateLimitErrorResponse } from '@/lib/api/middleware/rate-limit';

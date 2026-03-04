@@ -4,7 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantDb } from '@/lib/db';
-import { verifyAccessToken } from '@/lib/auth';
+import { verifyAccessToken } from '@/lib/domain/auth/auth';
 import { createManualEntries, getActiveConfig, getEventEntries } from '@/lib/lucky-draw';
 import { extractSessionId, validateSession } from '@/lib/domain/auth/session';
 import { resolveOptionalAuth, resolveRequiredTenantId, resolveTenantId } from '@/lib/api-request-context';

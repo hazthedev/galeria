@@ -10,7 +10,7 @@ import {
   createLuckyDrawConfig,
 } from '@/lib/lucky-draw';
 import { extractSessionId, validateSession } from '@/lib/domain/auth/session';
-import { verifyAccessToken } from '@/lib/auth';
+import { verifyAccessToken } from '@/lib/domain/auth/auth';
 import { publishEventBroadcast } from '@/lib/realtime/server';
 import { resolveOptionalAuth, resolveRequiredTenantId } from '@/lib/api-request-context';
 
