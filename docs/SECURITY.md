@@ -33,7 +33,7 @@ npm run security:snyk:monitor
 npm run security:fix
 ```
 
-**Configuration**: `.snyk`
+**Configuration**: `monitoring/security/.snyk`
 
 ### 2. **Semgrep** - Static Code Analysis
 
@@ -51,7 +51,7 @@ npx semgrep --config=.semgrep.yaml lib/auth.ts
 npx semgrep --config=.semgrep.yaml --autofix
 ```
 
-**Configuration**: `.semgrep.yaml`
+**Configuration**: `monitoring/security/.semgrep.yaml`
 
 ### 3. **ESLint Security Plugin**
 
@@ -84,7 +84,7 @@ npm run lint
 
 **Usage**:
 ```typescript
-import { captureSecurityEvent, captureApiPerformance } from '@/sentry.config';
+import { captureSecurityEvent, captureApiPerformance } from '@/monitoring/config/sentry.config';
 
 // Track security event
 captureSecurityEvent({
@@ -99,7 +99,7 @@ captureSecurityEvent({
 captureApiPerformance("/api/events", 150, 200, { userId });
 ```
 
-**Configuration**: `sentry.config.ts`
+**Configuration**: `monitoring/config/sentry.config.ts`
 
 ---
 

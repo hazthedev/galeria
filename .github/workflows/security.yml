@@ -73,7 +73,7 @@ jobs:
       - name: Run Semgrep
         uses: returntocorp/semgrep-action@v1
         with:
-          config: .semgrep.yaml
+          config: monitoring/security/.semgrep.yaml
           # Only report new issues on PRs
           publishSarif: ${{ github.event_name == 'pull_request' }}
           # Don't fail on findings in PRs (just report them)
@@ -143,7 +143,7 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITLEAKS_CONFIG: .gitleaks.toml
+          GITLEAKS_CONFIG: monitoring/security/.gitleaks.toml
 
   # ============================================
   # CODE SECURITY CHECK (ESLint)
