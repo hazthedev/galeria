@@ -213,12 +213,16 @@ export async function setKeyWithExpiry<T>(
   value: T,
   ttlSeconds: number
 ): Promise<void> {
+  const client = getRedisClient();
+  console.log('[REDIS] Setting key:', key, 'TTL:', ttlSeconds + 's', 'Client status:', client.status);
+
   try {
-    const client = getRedisClient();
     await client.set(key, JSON.stringify(value), 'EX', ttlSeconds);
+    console.log('[REDIS] Key saved successfully:', key);
   } catch (error) {
-    console.warn('[REDIS] setKeyWithExpiry failed:', error instanceof Error ? error.message : error);
-    // Fail silently in development - session won't persist but auth won't crash
+    console.error('[REDIS] setKeyWithExpiry FAILED:', error instanceof Error ? error.message : error);
+    // Don't fail silently - this is critical for auth!
+    throw new Error(`Failed to save to Redis: ${error instanceof Error ? error.message : error}`);
   }
 }
 
@@ -226,9 +230,12 @@ export async function setKeyWithExpiry<T>(
  * Get a key from Redis
  */
 export async function getKey<T>(key: string): Promise<T | null> {
+  const client = getRedisClient();
+  console.log('[REDIS] Getting key:', key, 'Client status:', client.status);
+
   try {
-    const client = getRedisClient();
     const data = await client.get(key);
+    console.log('[REDIS] Got data:', data ? 'found' : 'null');
 
     if (!data) {
       return null;
