@@ -10,7 +10,7 @@
  */
 export function generateCheckInUrl(eventId: string, baseUrl?: string): string {
   const base = baseUrl || (typeof window !== 'undefined' ? window.location.origin : '');
-  return `${base}/attendances/${eventId}/checkin`;
+  return `${base}/attendance/${eventId}/checkin`;
 }
 
 /**
