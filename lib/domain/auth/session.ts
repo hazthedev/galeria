@@ -129,14 +129,10 @@ export async function createSession(
 
   // Store session in Redis with TTL
   await setKeyWithExpiry(getSessionKey(sessionId), sessionData, ttl);
+
+  // Also store in memory as backup for development
   if (USE_IN_MEMORY_SESSIONS) {
     inMemorySessions.set(sessionId, sessionData);
-  } else {
-    // In production/serverless, sessions must persist in Redis.
-    const persistedSession = await getKey<ISessionData>(getSessionKey(sessionId));
-    if (!persistedSession) {
-      throw new Error('[SESSION] Failed to persist session in Redis');
-    }
   }
 
   console.log(`[SESSION] Created session ${sessionId} for user ${user.id}`);
@@ -154,6 +150,15 @@ export async function createSession(
  * @returns The session data or null if not found
  */
 export async function getSession(sessionId: string): Promise<ISessionData | null> {
+  // In development, check in-memory sessions first (faster, works without Redis)
+  if (USE_IN_MEMORY_SESSIONS) {
+    const memorySession = getInMemorySession(sessionId);
+    if (memorySession) {
+      return memorySession;
+    }
+  }
+
+  // Fall back to Redis for production or if not found in memory
   const session = await getKey<ISessionData>(getSessionKey(sessionId));
   if (session) {
     if (USE_IN_MEMORY_SESSIONS) {
@@ -161,7 +166,8 @@ export async function getSession(sessionId: string): Promise<ISessionData | null
     }
     return session;
   }
-  return USE_IN_MEMORY_SESSIONS ? getInMemorySession(sessionId) : null;
+
+  return null;
 }
 
 // ============================================

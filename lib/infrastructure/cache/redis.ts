@@ -51,7 +51,7 @@ export function getRedisClient(): RedisType {
     const redisOptions = {
       password: REDIS_PASSWORD || undefined,
       db: REDIS_DB,
-      lazyConnect: true,
+      lazyConnect: false, // Connect immediately for session reliability
       retryStrategy: (times: number) => {
         const delay = Math.min(times * 100, 3000);
         if (times > 10) {
