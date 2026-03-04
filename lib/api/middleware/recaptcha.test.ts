@@ -58,7 +58,7 @@ async function runTest(name: string, testFn: () => Promise<TestResult>) {
 // Helper to clean up Redis keys
 async function cleanupKeys(keys: string[]) {
   try {
-    const { getRedisClient } = await import('./redis');
+    const { getRedisClient } = await import('@/lib/infrastructure/cache');
     const redis = getRedisClient();
     await Promise.all(keys.map(key => redis.del(key)));
   } catch {
@@ -493,7 +493,7 @@ export async function runAllTests() {
 
 async function checkRedisAvailable(): Promise<boolean> {
   try {
-    const { getRedisClient } = await import('./redis');
+    const { getRedisClient } = await import('@/lib/infrastructure/cache');
     const redis = getRedisClient();
     await redis.ping();
     return true;
