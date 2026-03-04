@@ -48,6 +48,9 @@ const logRedisEvents = !process.env.JEST_WORKER_ID;
  */
 export function getRedisClient(): RedisType {
   if (!redisClient) {
+    console.log('[REDIS] URL:', REDIS_URL ? 'configured' : 'NOT CONFIGURED!');
+    console.log('[REDIS] Password:', REDIS_PASSWORD ? 'set' : 'none');
+    console.log('[REDIS] DB:', REDIS_DB);
     const redisOptions = {
       password: REDIS_PASSWORD || undefined,
       db: REDIS_DB,

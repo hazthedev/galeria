@@ -16,9 +16,18 @@ import { getTenantDb } from '@/lib/db';
 const SESSION_TTL_SECONDS = parseInt(process.env.SESSION_TTL_SECONDS || '604800', 10); // 7 days default
 const SESSION_MAX_AGE_SECONDS = parseInt(process.env.SESSION_MAX_AGE_SECONDS || '2592000', 10); // 30 days absolute max
 const SESSION_REMEMBER_ME_TTL = parseInt(process.env.SESSION_REMEMBER_ME_TTL || '2592000', 10); // 30 days for remember me
-const USE_IN_MEMORY_SESSIONS = process.env.NODE_ENV !== 'production';
+
+// Use in-memory sessions ONLY if explicitly enabled (for local development without Redis)
+// On Vercel/production, always require Redis
+const USE_IN_MEMORY_SESSIONS = process.env.USE_IN_MEMORY_SESSIONS === 'true';
 
 const inMemorySessions = new Map<string, ISessionData>();
+
+if (!process.env.REDIS_URL && USE_IN_MEMORY_SESSIONS) {
+  console.warn('[SESSION] Using in-memory sessions (development only). Sessions will be lost on restart!');
+} else if (!process.env.REDIS_URL && !USE_IN_MEMORY_SESSIONS) {
+  console.error('[SESSION] REDIS_URL not configured! Sessions will not work. Set REDIS_URL or USE_IN_MEMORY_SESSIONS=true');
+}
 
 function getInMemorySession(sessionId: string): ISessionData | null {
   const session = inMemorySessions.get(sessionId);
