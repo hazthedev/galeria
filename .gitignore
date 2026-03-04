@@ -57,3 +57,9 @@ docker/volumes/
 *.txt
 !README.md
 nul
+
+# AI & IDE tools (personal development files)
+.memorycore/
+.claude/
+TODO.md
+nextjs-codebase-analysis-prompt.md
