@@ -123,11 +123,10 @@ export function LoginForm({ onSuccess, redirectTo = '/organizer', className }: L
       const successData = data as LoginResponse;
 
       if (successData.success) {
-        // Refresh auth context to ensure global state is updated BEFORE navigation
-        await refresh();
-
-        // Call onSuccess callback if provided
-        onSuccess?.();
+        console.log('[LOGIN] Login successful!', {
+          sessionId: successData.sessionId,
+          user: successData.user
+        });
 
         toast.success('Welcome back!');
 
@@ -140,6 +139,9 @@ export function LoginForm({ onSuccess, redirectTo = '/organizer', className }: L
           destination = '/organizer';
         }
 
+        console.log('[LOGIN] Redirecting to:', destination);
+        // Don't call refresh() here - let the next page load fetch the session
+        // The cookie should be set by the login response
         window.location.href = destination;
       } else {
         const msg = successData.error || 'Login failed. Please try again.';

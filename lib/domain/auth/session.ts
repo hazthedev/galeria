@@ -136,6 +136,8 @@ export async function createSession(
   }
 
   console.log(`[SESSION] Created session ${sessionId} for user ${user.id}`);
+  console.log(`[SESSION] Session key: ${getSessionKey(sessionId)}`);
+  console.log(`[SESSION] TTL: ${ttl}s (${rememberMe ? 'remember me' : 'default'})`);
 
   return sessionId;
 }
@@ -150,23 +152,30 @@ export async function createSession(
  * @returns The session data or null if not found
  */
 export async function getSession(sessionId: string): Promise<ISessionData | null> {
+  const sessionKey = getSessionKey(sessionId);
+  console.log(`[SESSION] Getting session: ${sessionId.substring(0, 10)}... (key: ${sessionKey})`);
+
   // In development, check in-memory sessions first (faster, works without Redis)
   if (USE_IN_MEMORY_SESSIONS) {
     const memorySession = getInMemorySession(sessionId);
     if (memorySession) {
+      console.log(`[SESSION] Found in memory for user ${memorySession.userId}`);
       return memorySession;
     }
+    console.log(`[SESSION] Not found in memory, checking Redis...`);
   }
 
   // Fall back to Redis for production or if not found in memory
-  const session = await getKey<ISessionData>(getSessionKey(sessionId));
+  const session = await getKey<ISessionData>(sessionKey);
   if (session) {
+    console.log(`[SESSION] Found in Redis for user ${session.userId}`);
     if (USE_IN_MEMORY_SESSIONS) {
       inMemorySessions.set(sessionId, session);
     }
     return session;
   }
 
+  console.log(`[SESSION] Session not found anywhere!`);
   return null;
 }
 
