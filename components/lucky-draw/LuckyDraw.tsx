@@ -8,7 +8,7 @@ import { useState, useEffect, useRef } from 'react';
 import { X, Sparkles, Trophy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import confetti from 'canvas-confetti';
-import { playSound, playDrumRoll, playRevealSound, stopDrumRoll } from '@/lib/sounds';
+import { playSound, playDrumRoll, playRevealSound, stopDrumRoll } from '@/lib/images';
 
 // ============================================
 // TYPES

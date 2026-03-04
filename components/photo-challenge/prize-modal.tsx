@@ -9,7 +9,7 @@ import { Gift, X, Download, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { QRCodeSVG } from 'qrcode.react';
 import type { IPhotoChallenge, IGuestPhotoProgress } from '@/lib/types';
-import { getClientFingerprint } from '@/lib/fingerprint';
+import { getClientFingerprint } from '@/lib/rate-limit';
 
 interface PhotoChallengePrizeModalProps {
   isOpen: boolean;

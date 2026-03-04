@@ -10,7 +10,7 @@ import Link from 'next/link';
 import { ArrowLeft, Upload, X, Check, AlertCircle, Loader2, Image as ImageIcon, Camera } from 'lucide-react';
 import { validateImageFile, formatFileSize, cn } from '@/lib/utils';
 import type { IEvent, IPhoto } from '@/lib/types';
-import { getClientFingerprint } from '@/lib/fingerprint';
+import { getClientFingerprint } from '@/lib/rate-limit';
 import { usePhotoGallery } from '@/lib/realtime/client';
 
 interface PhotoPreview {

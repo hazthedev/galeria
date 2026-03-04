@@ -11,7 +11,7 @@ import {
   getUploadRateLimitStatus,
   resetRateLimit,
 } from './rate-limit';
-import { closeRedis, getRedisClient } from './redis';
+import { closeRedis, getRedisClient } from '@/lib/redis';
 
 // ============================================
 // TEST UTILITIES

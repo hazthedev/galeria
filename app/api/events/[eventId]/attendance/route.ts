@@ -5,7 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantDb } from '@/lib/db';
 import { verifyAccessToken } from '@/lib/auth';
-import { extractSessionId, validateSession } from '@/lib/session';
+import { extractSessionId, validateSession } from '@/lib/auth';
 import type { IAttendance, IAttendanceCreate, CheckInMethod } from '@/lib/types';
 import { resolveOptionalAuth, resolveRequiredTenantId, resolveTenantId } from '@/lib/api-request-context';
 

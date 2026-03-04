@@ -5,7 +5,7 @@
 // Invalidates user session and clears cookie
 
 import { NextRequest, NextResponse } from 'next/server';
-import { deleteSession, getSession, extractSessionId } from '../../../../lib/session';
+import { deleteSession, getSession, extractSessionId } from '@/lib/auth';
 
 // Configure route to use Node.js runtime
 export const runtime = 'nodejs';

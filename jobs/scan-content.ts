@@ -13,8 +13,8 @@
 
 import { Queue, Worker, Job, QueueEvents } from 'bullmq';
 import type { Redis as RedisClient } from 'ioredis';
-import { getRedisClient } from '../lib/redis';
-import { getTenantDb } from '../lib/db';
+import { getRedisClient } from '@/lib/redis';
+import { getTenantDb } from '@/lib/db';
 import {
   scanImageForModeration,
   type ModerationResult,

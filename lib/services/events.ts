@@ -8,12 +8,12 @@ import { getTenantContextFromHeaders } from '@/lib/tenant';
 import { getTenantDb } from '@/lib/db';
 import { verifyAccessToken } from '@/lib/auth';
 import { generateSlug, generateUUID, generateEventUrl } from '@/lib/utils';
-import { extractSessionId, validateSession } from '@/lib/session';
-import { generateUniqueShortCode } from '@/lib/short-code';
-import { checkEventLimit } from '@/lib/limit-check';
+import { extractSessionId, validateSession } from '@/lib/auth';
+import { generateUniqueShortCode } from '@/lib/utils';
+import { checkEventLimit } from '@/lib/rate-limit';
 import { getSystemSettings } from '@/lib/system-settings';
 import type { IEvent, SubscriptionTier } from '@/lib/types';
-import { resolveUserTier } from '@/lib/subscription';
+import { resolveUserTier } from '@/lib/tenant';
 import { eventBulkUpdateSchema, eventCreateSchema } from '@/lib/validation/events';
 import { resolveOptionalAuth, resolveRequiredTenantId } from '@/lib/api-request-context';
 

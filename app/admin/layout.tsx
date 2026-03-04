@@ -14,7 +14,7 @@ import {
     Shield
 } from 'lucide-react';
 import clsx from 'clsx';
-import { useAuth } from '@/lib/auth-context';
+import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 

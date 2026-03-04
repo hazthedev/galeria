@@ -28,7 +28,7 @@ import { toast } from 'sonner';
 import clsx from 'clsx';
 import type { IEvent, IPhoto } from '@/lib/types';
 import { usePhotoGallery } from '@/lib/realtime/client';
-import { getClientFingerprint } from '@/lib/fingerprint';
+import { getClientFingerprint } from '@/lib/rate-limit';
 
 interface ReactionButtonsProps {
   photo: IPhoto;

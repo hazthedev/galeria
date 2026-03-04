@@ -5,7 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantDb } from '@/lib/db';
 import { requireAuthForApi, verifyPhotoModerationAccess } from '@/lib/auth';
-import { updateGuestProgress } from '@/lib/photo-challenge';
+import { updateGuestProgress } from '@/lib/lucky-draw';
 import { publishEventBroadcast } from '@/lib/realtime/server';
 
 const shouldLogModeration = async (db: ReturnType<typeof getTenantDb>) => {

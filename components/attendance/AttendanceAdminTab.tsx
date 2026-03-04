@@ -9,7 +9,7 @@ import { Users, Download, Upload, UserPlus, Loader2, Search, ChevronLeft, Chevro
 import { toast } from 'sonner';
 import clsx from 'clsx';
 import { OrganizerQRScanner } from '@/components/attendance/OrganizerQRScanner';
-import { generateCheckInUrl, generateCheckInQRCodeUrl } from '@/lib/qrcode';
+import { generateCheckInUrl, generateCheckInQRCodeUrl } from '@/lib/utils';
 
 interface AttendanceAdminTabProps {
   eventId: string;

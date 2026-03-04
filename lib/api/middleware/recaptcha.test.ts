@@ -16,7 +16,7 @@ import {
   shouldRenderRecaptcha,
   RATE_LIMIT_CONFIGS,
 } from './recaptcha';
-import { closeRedis } from './redis';
+import { closeRedis } from '@/lib/redis';
 
 // ============================================
 // TEST UTILITIES

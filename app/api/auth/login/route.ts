@@ -5,14 +5,14 @@
 // Authenticates user with email and password, creates session
 
 import { NextRequest, NextResponse } from 'next/server';
-import { comparePassword } from '../../../../lib/auth';
-import { getTenantDb } from '../../../../lib/db';
-import { createSession, deleteSession, extractSessionId } from '../../../../lib/session';
-import { checkLoginRateLimit, createRateLimitErrorResponse } from '../../../../lib/rate-limit';
+import { comparePassword } from '@/lib/auth';
+import { getTenantDb } from '@/lib/db';
+import { createSession, deleteSession, extractSessionId } from '@/lib/auth';
+import { checkLoginRateLimit, createRateLimitErrorResponse } from '@/lib/rate-limit';
 import { getRequestIp, getRequestUserAgent } from '../../../../middleware/auth';
 import type { IAuthResponseSession } from '../../../../lib/types';
 import { loginSchema } from '../../../../lib/validation/auth';
-import { getTenantId } from '../../../../lib/tenant';
+import { getTenantId } from '@/lib/tenant';
 import type { IUser, ITenant } from '../../../../lib/types';
 import { SYSTEM_TENANT_ID } from '@/lib/constants/tenants';
 

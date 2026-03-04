@@ -19,7 +19,7 @@ import {
     X
 } from 'lucide-react';
 import clsx from 'clsx';
-import { useAuth } from '@/lib/auth-context';
+import { useAuth } from '@/lib/auth';
 import { useEffect, useState } from 'react';
 
 const SIDEBAR_ITEMS = [

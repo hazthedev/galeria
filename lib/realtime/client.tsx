@@ -11,7 +11,7 @@ import { createContext, useContext, useEffect, useRef, useState, useCallback } f
 import { RealtimeChannel, RealtimePresenceState } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import type { IEventStats, IPhoto, IWinner, ILuckyDrawEntry, ILuckyDrawConfig } from '@/lib/types';
-import { getClientFingerprint } from '@/lib/fingerprint';
+import { getClientFingerprint } from '@/lib/rate-limit';
 
 // ============================================
 // TYPES

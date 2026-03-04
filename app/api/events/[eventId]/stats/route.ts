@@ -5,7 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantDb } from '@/lib/db';
 import { getActiveConfig } from '@/lib/lucky-draw';
-import { getTierConfig } from '@/lib/tier-config';
+import { getTierConfig } from '@/lib/tenant';
 import type { IPhoto, SubscriptionTier } from '@/lib/types';
 import { resolveOptionalAuth, resolveTenantId } from '@/lib/api-request-context';
 

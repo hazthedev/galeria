@@ -5,7 +5,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useAuth } from '@/lib/auth-context';
+import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
 import { Loader2, User, Lock, Save } from 'lucide-react';
 

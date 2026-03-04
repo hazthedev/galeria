@@ -7,7 +7,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { useAuth } from '../../lib/auth-context';
+import { useAuth } from '@/lib/auth';
 import { Loader2, LogOut, User, Settings } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 

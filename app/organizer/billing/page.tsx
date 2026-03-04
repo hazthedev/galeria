@@ -8,8 +8,8 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { CheckCircle, Crown, ShieldCheck } from 'lucide-react';
 import clsx from 'clsx';
-import { useAuth } from '@/lib/auth-context';
-import { TIER_CONFIGS } from '@/lib/tier-config';
+import { useAuth } from '@/lib/auth';
+import { TIER_CONFIGS } from '@/lib/tenant';
 import type { SubscriptionTier } from '@/lib/types';
 
 const ORDERED_TIERS: SubscriptionTier[] = ['free', 'pro', 'premium', 'enterprise', 'tester'];

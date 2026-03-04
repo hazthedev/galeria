@@ -10,7 +10,7 @@ import { useRouter } from 'next/navigation';
 import { Loader2, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import clsx from 'clsx';
-import { useAuth } from '@/lib/auth-context';
+import { useAuth } from '@/lib/auth';
 
 // ============================================
 // TYPES

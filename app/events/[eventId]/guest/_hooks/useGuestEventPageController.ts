@@ -6,7 +6,7 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import type { IEvent, IPhoto, IPhotoChallenge, IGuestPhotoProgress } from '@/lib/types';
-import { getClientFingerprint } from '@/lib/fingerprint';
+import { getClientFingerprint } from '@/lib/rate-limit';
 import { useLuckyDraw, usePhotoGallery } from '@/lib/realtime/client';
 import { useGuestTheme } from './useGuestTheme';
 import {

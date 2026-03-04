@@ -7,7 +7,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { Upload, X, Image as ImageIcon, Loader2, AlertCircle, Camera } from 'lucide-react';
 import { validateImageFile, formatFileSize, getImageDimensions } from '@/lib/utils';
-import { getClientFingerprint } from '@/lib/fingerprint';
+import { getClientFingerprint } from '@/lib/rate-limit';
 import { usePhotoGallery } from '@/lib/realtime/client';
 import type { IPhoto } from '@/lib/types';
 

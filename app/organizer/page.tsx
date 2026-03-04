@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useAuth } from '@/lib/auth-context';
+import { useAuth } from '@/lib/auth';
 import { IEvent, EventStatus } from '@/lib/types';
 import { EventCard } from '@/components/events/event-card';
 import {
