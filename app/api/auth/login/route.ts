@@ -161,11 +161,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Create new session (always regenerate session ID on login)
+    console.log('[LOGIN] About to create session for user:', user.id, user.email);
     const sessionId = await createSession(user, {
       ipAddress,
       userAgent,
       rememberMe,
     });
+    console.log('[LOGIN] Session created successfully:', sessionId.substring(0, 10) + '...');
 
     // Create response with session cookie
     const response = NextResponse.json<IAuthResponseSession>(
@@ -194,6 +196,7 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('[LOGIN] Error:', error);
+    console.error('[LOGIN] Error stack:', error instanceof Error ? error.stack : 'no stack');
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
       {
