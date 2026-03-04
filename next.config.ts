@@ -27,29 +27,10 @@ const nextConfig: NextConfig = {
   },
   // Exclude server-only packages from client bundle
   output: 'standalone',
-  // Webpack configuration to externalize server-only packages
-  webpack: (config, { isServer }) => {
-    if (!isServer) {
-      config.resolve.alias = {
-        ...config.resolve.alias,
-      };
-      config.externals = [
-        ...config.externals,
-        'ioredis',
-        'pg',
-        'pg-query-stream',
-        'pgpass',
-        'bcrypt',
-        'bullmq',
-        'node-gyp-build',
-      ];
-    }
-    return config;
-  },
-  // Optimize package imports for server-only packages
-  experimental: {
-    serverComponentsExternalPackages: ['ioredis', 'pg', 'bcrypt', 'bullmq'],
-  },
+  // Externalize server-only packages (moved from experimental.serverComponentsExternalPackages)
+  serverExternalPackages: ['ioredis', 'pg', 'bcrypt', 'bullmq'],
+  // Acknowledge Turbopack defaults (Next.js 16+ uses Turbopack by default)
+  turbopack: {},
 };
 
 export default nextConfig;
