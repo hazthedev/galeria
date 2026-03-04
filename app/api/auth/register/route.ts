@@ -7,8 +7,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { hashPassword } from '@/lib/auth';
 import { getTenantDb } from '@/lib/db';
-import { createSession } from '@/lib/auth';
-import { checkRegistrationRateLimit, createRateLimitErrorResponse } from '@/lib/rate-limit';
+import { createSession } from '@/lib/domain/auth/session';
+import { checkRegistrationRateLimit, createRateLimitErrorResponse } from '@/lib/api/middleware/rate-limit';
 import { validatePassword, DEFAULT_PASSWORD_REQUIREMENTS } from '@/lib/auth';
 import { getRequestIp, getRequestUserAgent } from '../../../../middleware/auth';
 import type { IAuthResponseSession } from '../../../../lib/types';

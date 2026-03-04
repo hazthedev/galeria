@@ -3,7 +3,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyRecaptchaToken } from '@/lib/rate-limit';
+import { verifyRecaptchaToken } from '@/lib/api/middleware/recaptcha';
 import type { SubscriptionTier } from '@/lib/types';
 import { resolveUserTier } from '@/lib/tenant';
 import { resolveOptionalAuth, resolveRequiredTenantId } from '@/lib/api-request-context';

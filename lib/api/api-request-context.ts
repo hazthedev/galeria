@@ -1,6 +1,6 @@
 import { verifyAccessToken } from '@/lib/auth';
 import { DEFAULT_TENANT_ID } from '@/lib/constants/tenants';
-import { extractSessionId, validateSession } from '@/lib/auth';
+import { extractSessionId, validateSession } from '@/lib/domain/auth/session';
 import { getTenantId } from '@/lib/tenant';
 
 export interface OptionalAuthContext {

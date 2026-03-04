@@ -3,7 +3,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { cleanupChallenge, generateMathChallenge, issueFallbackToken, storeChallenge, verifyChallenge } from '@/lib/rate-limit';
+import { cleanupChallenge, generateMathChallenge, issueFallbackToken, storeChallenge, verifyChallenge } from '@/lib/api/middleware/recaptcha';
 
 /**
  * POST /api/auth/recaptcha/challenge

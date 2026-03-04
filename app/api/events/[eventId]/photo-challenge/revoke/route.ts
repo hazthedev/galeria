@@ -4,7 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantDb } from '@/lib/db';
-import { requireAuthForApi } from '@/lib/auth';
+import { requireAuthForApi } from '@/lib/domain/auth/auth';
 
 type RouteContext = {
   params: Promise<{ eventId: string }>;

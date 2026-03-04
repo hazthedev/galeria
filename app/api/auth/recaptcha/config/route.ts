@@ -3,7 +3,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getRecaptchaSiteKey, shouldRenderRecaptcha } from '@/lib/rate-limit';
+import { getRecaptchaSiteKey, shouldRenderRecaptcha } from '@/lib/api/middleware/recaptcha';
 
 /**
  * GET /api/auth/recaptcha/config

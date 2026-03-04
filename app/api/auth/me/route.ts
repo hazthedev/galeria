@@ -5,7 +5,7 @@
 // Returns the current authenticated user's information
 
 import { NextRequest, NextResponse } from 'next/server';
-import { validateSession, extractSessionId } from '@/lib/auth';
+import { validateSession, extractSessionId } from '@/lib/domain/auth/session';
 import { getTenantDb } from '@/lib/db';
 import type { IMeResponse } from '../../../../lib/types';
 import type { IUser, ITenant } from '../../../../lib/types';

@@ -4,7 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantDb } from '@/lib/db';
-import { hasModeratorRole, requireAuthForApi } from '@/lib/auth';
+import { hasModeratorRole, requireAuthForApi } from '@/lib/domain/auth/auth';
 import { resolveOptionalAuth, resolveTenantId } from '@/lib/api-request-context';
 import {
   createLuckyDrawConfig,

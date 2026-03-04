@@ -4,7 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantDb } from '@/lib/db';
-import { requireAuthForApi } from '@/lib/auth';
+import { requireAuthForApi } from '@/lib/domain/auth/auth';
 import type { IEvent, IPhoto } from '@/lib/types';
 import { createPhotoExportZip } from '@/lib/export/zip-generator';
 

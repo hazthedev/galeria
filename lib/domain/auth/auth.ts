@@ -7,7 +7,7 @@ import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import type { IUser, IJWTPayload, IAuthTokens, IAuthResponse } from '@/lib/types';
 import { getTenantDb } from '@/lib/db';
-import { extractSessionId, validateSession } from '@/lib/auth';
+import { extractSessionId, validateSession } from '@/lib/domain/auth/session';
 
 // ============================================
 // CONFIGURATION

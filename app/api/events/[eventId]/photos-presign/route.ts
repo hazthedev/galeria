@@ -8,7 +8,7 @@ import { getTenantDb } from '@/lib/db';
 import { getPresignedUploadUrl } from '@/lib/images';
 import { getSystemSettings } from '@/lib/system-settings';
 import { generatePhotoId } from '@/lib/utils';
-import { checkPhotoLimit } from '@/lib/rate-limit';
+import { checkPhotoLimit } from '@/lib/api/middleware/limit-check';
 import { resolveUserTier } from '@/lib/tenant';
 import { resolveOptionalAuth, resolveRequiredTenantId } from '@/lib/api-request-context';
 

@@ -3,7 +3,7 @@
 // ============================================
 
 import { getTenantDb } from '@/lib/db';
-import { extractSessionId, validateSession } from '@/lib/auth';
+import { extractSessionId, validateSession } from '@/lib/domain/auth/session';
 import { verifyAccessToken } from '@/lib/auth';
 import type { SubscriptionTier, IUser } from '@/lib/types';
 
