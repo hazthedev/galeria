@@ -2,46 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSession, deleteSession, extractSessionId } from '@/lib/domain/auth/session';
 import { checkLoginRateLimit, createRateLimitErrorResponse } from '@/lib/api/middleware/rate-limit';
 import { getRequestIp, getRequestUserAgent } from '../../../../middleware/auth';
-import type { IAuthResponseSession, IUser, UserRole } from '../../../../lib/types';
+import type { IAuthResponseSession, IUser } from '../../../../lib/types';
 import { loginSchema } from '../../../../lib/validation/auth';
-import { DEFAULT_TENANT_ID } from '@/lib/constants/tenants';
 import { getSupabaseServerAuthClient, isSupabaseAuthConfigured } from '@/lib/infrastructure/auth/supabase-server';
+import { resolveOrProvisionAppUser } from '@/lib/domain/auth/provision-app-user';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-function normalizeRole(role: unknown): UserRole {
-  if (role === 'guest' || role === 'organizer' || role === 'super_admin') {
-    return role;
-  }
-  return 'organizer';
-}
-
-function mapSupabaseUserToAppUser(rawUser: {
-  id: string;
-  email?: string;
-  created_at?: string;
-  updated_at?: string;
-  email_confirmed_at?: string | null;
-  user_metadata?: Record<string, unknown>;
-}): IUser {
-  const metadata = rawUser.user_metadata || {};
-  const now = new Date();
-
-  return {
-    id: rawUser.id,
-    tenant_id: typeof metadata.tenant_id === 'string' ? metadata.tenant_id : DEFAULT_TENANT_ID,
-    email: rawUser.email || '',
-    name: typeof metadata.name === 'string' && metadata.name.trim() ? metadata.name : 'User',
-    role: normalizeRole(metadata.role),
-    email_verified: Boolean(rawUser.email_confirmed_at),
-    created_at: rawUser.created_at ? new Date(rawUser.created_at) : now,
-    updated_at: rawUser.updated_at ? new Date(rawUser.updated_at) : now,
-    subscription_tier: typeof metadata.subscription_tier === 'string'
-      ? metadata.subscription_tier as IUser['subscription_tier']
-      : 'free',
-  };
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -105,7 +72,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const user = mapSupabaseUserToAppUser(data.user);
+    const user = await resolveOrProvisionAppUser(data.user);
 
     const cookieHeader = request.headers.get('cookie');
     const authHeader = request.headers.get('authorization');

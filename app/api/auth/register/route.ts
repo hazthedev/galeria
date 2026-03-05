@@ -12,35 +12,10 @@ import {
   isSupabaseAdminConfigured,
   isSupabaseAuthConfigured,
 } from '@/lib/infrastructure/auth/supabase-server';
+import { resolveOrProvisionAppUser } from '@/lib/domain/auth/provision-app-user';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-type SupabaseUserLike = {
-  id: string;
-  email?: string;
-  created_at?: string;
-  updated_at?: string;
-  email_confirmed_at?: string | null;
-  user_metadata?: Record<string, unknown>;
-};
-
-function mapSupabaseUserToAppUser(rawUser: SupabaseUserLike): IUser {
-  const metadata = rawUser.user_metadata || {};
-  const now = new Date();
-
-  return {
-    id: rawUser.id,
-    tenant_id: typeof metadata.tenant_id === 'string' ? metadata.tenant_id : DEFAULT_TENANT_ID,
-    email: rawUser.email || '',
-    name: typeof metadata.name === 'string' && metadata.name.trim() ? metadata.name : 'User',
-    role: 'organizer',
-    email_verified: Boolean(rawUser.email_confirmed_at),
-    created_at: rawUser.created_at ? new Date(rawUser.created_at) : now,
-    updated_at: rawUser.updated_at ? new Date(rawUser.updated_at) : now,
-    subscription_tier: 'free',
-  };
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -156,7 +131,7 @@ export async function POST(request: NextRequest) {
       throw signInError || new Error('Failed to authenticate new user');
     }
 
-    const createdUser = mapSupabaseUserToAppUser(signInData.user);
+    const createdUser = await resolveOrProvisionAppUser(signInData.user);
     const sessionId = await createSession(createdUser, {
       ipAddress,
       userAgent,

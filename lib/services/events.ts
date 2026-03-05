@@ -10,6 +10,7 @@ import { generateSlug, generateUUID, generateEventUrl } from '@/lib/utils';
 import { extractSessionId, validateSession } from '@/lib/domain/auth/session';
 import { generateShortCode } from '@/lib/shared/utils/short-code';
 import { getSupabaseAdminClient, isSupabaseAdminConfigured } from '@/lib/infrastructure/auth/supabase-server';
+import { resolveOrProvisionAppUser } from '@/lib/domain/auth/provision-app-user';
 import type { IEvent } from '@/lib/types';
 import { eventBulkUpdateSchema, eventCreateSchema } from '@/lib/validation/events';
 import { resolveOptionalAuth, resolveRequiredTenantId } from '@/lib/api-request-context';
@@ -48,6 +49,20 @@ async function insertEventViaSupabase(payload: Record<string, unknown>): Promise
   }
 
   return normalizeSupabaseEventRow(data as Record<string, unknown>);
+}
+
+async function ensureOrganizerUserProvisioned(userId: string): Promise<void> {
+  if (!isSupabaseAdminConfigured()) {
+    return;
+  }
+
+  const supabase = getSupabaseAdminClient();
+  const { data, error } = await supabase.auth.admin.getUserById(userId);
+  if (error || !data.user) {
+    throw new Error(error?.message || 'Unable to fetch Supabase auth user for organizer provisioning');
+  }
+
+  await resolveOrProvisionAppUser(data.user);
 }
 
 // ============================================
@@ -304,6 +319,11 @@ export async function handleEventCreate(request: NextRequest) {
           continue;
         }
 
+        if (code === '23503' && attempt < maxCreateAttempts && isSupabaseAdminConfigured()) {
+          await ensureOrganizerUserProvisioned(userId);
+          continue;
+        }
+
         if (isDbSessionPoolExhausted(error) && isSupabaseAdminConfigured()) {
           try {
             const fallbackPayload: Record<string, unknown> = {
@@ -323,6 +343,10 @@ export async function handleEventCreate(request: NextRequest) {
           } catch (fallbackError) {
             const fallbackCode = (fallbackError as { code?: string }).code;
             if (fallbackCode === '23505' && attempt < maxCreateAttempts) {
+              continue;
+            }
+            if (fallbackCode === '23503' && attempt < maxCreateAttempts) {
+              await ensureOrganizerUserProvisioned(userId);
               continue;
             }
             throw fallbackError;
