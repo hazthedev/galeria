@@ -19,6 +19,13 @@ export const dynamic = 'force-dynamic';
  * Get current authenticated user information
  */
 export async function GET(request: NextRequest) {
+  const noStoreHeaders = {
+    'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+    Pragma: 'no-cache',
+    Expires: '0',
+    Vary: 'Cookie',
+  } as const;
+
   try {
     // Extract session ID from cookie or header
     const cookieHeader = request.headers.get('cookie');
@@ -37,7 +44,7 @@ export async function GET(request: NextRequest) {
           user: null,
           message: 'No session provided',
         },
-        { status: 200 }
+        { status: 200, headers: noStoreHeaders }
       );
     }
 
@@ -51,7 +58,7 @@ export async function GET(request: NextRequest) {
           user: null,
           message: result.error || 'Invalid session',
         },
-        { status: 200 }
+        { status: 200, headers: noStoreHeaders }
       );
     }
 
@@ -75,7 +82,7 @@ export async function GET(request: NextRequest) {
         } as IUser,
         tenant: tenant || undefined,
       },
-      { status: 200 }
+      { status: 200, headers: noStoreHeaders }
     );
 
   } catch (error) {
@@ -85,7 +92,7 @@ export async function GET(request: NextRequest) {
         error: 'internal_error',
         message: 'An error occurred fetching user information',
       },
-      { status: 500 }
+      { status: 500, headers: noStoreHeaders }
     );
   }
 }

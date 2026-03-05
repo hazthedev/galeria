@@ -75,6 +75,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       const response = await fetch('/api/auth/me', {
         credentials: 'include',
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache',
+          Pragma: 'no-cache',
+        },
       });
 
       if (response.ok) {

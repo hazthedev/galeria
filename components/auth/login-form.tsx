@@ -139,10 +139,12 @@ export function LoginForm({ onSuccess, redirectTo = '/organizer', className }: L
           destination = '/organizer';
         }
 
+        // Ensure auth context sees the new session before route guards run.
+        await refresh();
+
         console.log('[LOGIN] Redirecting to:', destination);
-        // Don't call refresh() here - let the next page load fetch the session
-        // The cookie should be set by the login response
-        window.location.href = destination;
+        router.replace(destination);
+        router.refresh();
       } else {
         const msg = successData.error || 'Login failed. Please try again.';
         setApiError(msg);
