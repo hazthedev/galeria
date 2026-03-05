@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import webpack from 'webpack';
 
 const R2_PUBLIC_URL = process.env.NEXT_PUBLIC_R2_PUBLIC_URL || process.env.R2_PUBLIC_URL;
 
@@ -30,29 +31,102 @@ const nextConfig: NextConfig = {
   // Externalize server-only packages from client bundle (use webpack, not turbopack)
   webpack: (config, { isServer }) => {
     if (!isServer) {
-      // Externalize server-only packages
-      config.externals = [
-        ...config.externals,
-        'ioredis',
-        'pg',
-        'pg-query-stream',
-        'pgpass',
-        'bcrypt',
-        'bullmq',
-        'node-gyp-build',
-      ];
-
-      // Exclude server-only files from client bundle
+      // Completely replace server-only packages with empty module on client
+      // This is more aggressive than externals - webpack won't even try to resolve them
       config.resolve.alias = {
         ...config.resolve.alias,
+        // Block server-only files
         '@/jobs/scan-content': false,
         '@/lib/moderation/init': false,
+        // Block server-only packages (completely ignore, don't trace)
+        'pg': false,
+        'pg-connection-string': false,
+        'pg-native': false,
+        'pg-query-stream': false,
+        'pgpass': false,
+        'bullmq': false,
+        'ioredis': false,
+        'bcrypt': false,
+        '@aws-sdk/client-rekognition': false,
+        '@aws-sdk/client-s3': false,
       };
+
+      // Tell webpack to ignore ALL Node.js-only modules on client
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        // Node.js built-ins
+        fs: false,
+        path: false,
+        net: false,
+        tls: false,
+        dns: false,
+        stream: false,
+        'string_decoder': false,
+        child_process: false,
+        crypto: false,
+        os: false,
+        http: false,
+        https: false,
+        zlib: false,
+        events: false,
+        util: false,
+        // Server-only packages (fallback protection)
+        'pg-native': false,
+        'pg-query-stream': false,
+        'pgpass': false,
+        'pg-connection-string': false,
+        'node-gyp-build': false,
+        'split2': false,
+        'bullmq': false,
+        'ioredis': false,
+        'bcrypt': false,
+      };
+    } else {
+      // For the server build (including instrumentation), mark Node.js-native
+      // packages as externals so webpack never tries to bundle them.
+      // This prevents errors like "Can't resolve 'path'" from bullmq/ioredis
+      // during the instrumentation compilation pass.
+      const nodeExternals = [
+        'bullmq',
+        'ioredis',
+        'bcrypt',
+        'pg',
+        'pg-native',
+        'pg-connection-string',
+        'pgpass',
+        'pg-query-stream',
+        'split2',
+        '@aws-sdk/client-rekognition',
+        '@aws-sdk/client-s3',
+      ];
+
+      config.externals = [
+        ...(Array.isArray(config.externals) ? config.externals : config.externals ? [config.externals] : []),
+        ({ request }: { request?: string }, callback: (err?: Error | null, result?: string) => void) => {
+          if (request && nodeExternals.some((pkg) => request === pkg || request.startsWith(pkg + '/'))) {
+            // Treat as a CommonJS external — require() at runtime, don't bundle
+            return callback(null, `commonjs ${request}`);
+          }
+          callback();
+        },
+      ];
     }
     return config;
   },
   // Externalize server-only packages for server components
-  serverExternalPackages: ['ioredis', 'pg', 'bcrypt', 'bullmq'],
+  serverExternalPackages: [
+    'pg',
+    'pg-native',
+    'pg-connection-string',
+    'pgpass',
+    'pg-query-stream',
+    'split2',
+    'ioredis',
+    'bcrypt',
+    'bullmq',
+    '@aws-sdk/client-rekognition',
+    '@aws-sdk/client-s3',
+  ],
 };
 
 export default nextConfig;

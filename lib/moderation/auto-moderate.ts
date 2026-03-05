@@ -11,6 +11,7 @@
  * After: ~$0.001 per image
  */
 
+import 'server-only';
 import {
   RekognitionClient,
   DetectModerationLabelsCommand,

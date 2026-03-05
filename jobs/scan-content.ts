@@ -11,20 +11,29 @@
  * - Dead letter queue for failed jobs
  */
 
-import { Queue, Worker, Job, QueueEvents } from 'bullmq';
-import type { Redis as RedisClient } from 'ioredis';
-import { getRedisClient } from '@/lib/redis';
-import { getTenantDb } from '@/lib/db';
-import {
-  scanImageForModeration,
-  type ModerationResult,
-  isModerationEnabled,
-} from '../lib/moderation/auto-moderate';
-import {
-  quarantinePhoto,
-  approveQuarantinedPhoto,
-  rejectQuarantinedPhoto,
-} from '../lib/storage/quarantine';
+import 'server-only';
+
+// Define types locally to avoid importing from server-only packages (prevents webpack tracing)
+export interface Job<TData = unknown, TResult = unknown> {
+  id: string;
+  name: string;
+  data: TData;
+  progress?: number | object;
+  returnvalue?: TResult;
+  failedReason?: string;
+  stacktrace?: string[];
+  attemptsMade: number;
+  processedOn?: number;
+  finishedOn?: number;
+}
+
+// Moderation result type (from auto-moderate)
+export interface ModerationResult {
+  action: 'approve' | 'reject' | 'review';
+  reason?: string;
+  categories: string[];
+  confidence?: number;
+}
 
 // ============================================
 // TYPES & INTERFACES
@@ -92,9 +101,9 @@ const PRIORITY_MAP: Record<ScanPriority, number> = {
 // QUEUE INSTANCE
 // ============================================
 
-let scanQueue: Queue<ScanJobData> | null = null;
-let scanWorker: Worker<ScanJobData, ScanJobResult> | null = null;
-let queueEvents: QueueEvents | null = null;
+let scanQueue: any = null;
+let scanWorker: any = null;
+let queueEvents: any = null;
 
 function isQueueProcessingEnabled(): boolean {
   return process.env.MODERATION_QUEUE_ENABLED === 'true';
@@ -103,16 +112,23 @@ function isQueueProcessingEnabled(): boolean {
 /**
  * Get or create the scan queue
  */
-function getQueue(): Queue<ScanJobData> {
+async function getQueue() {
   if (!scanQueue) {
-    const redis = getRedisClient() as RedisClient;
+    // Dynamic import to avoid webpack tracing during build
+    const { default: Redis } = await import('ioredis');
+    const { getRedisClient } = await import('@/lib/redis');
+    const redis = getRedisClient() as any; // Redis type, but any works for runtime
+
+    // Dynamic import of bullmq Queue
+    const { Queue } = await import('bullmq');
+
     scanQueue = new Queue<ScanJobData>(QUEUE_NAME, {
       connection: redis,
       defaultJobOptions: JOB_OPTIONS,
     });
 
     // Error handling
-    scanQueue.on('error', (error) => {
+    scanQueue.on('error', (error: Error) => {
       console.error('[SCAN_QUEUE] Queue error:', error);
     });
 
@@ -138,13 +154,16 @@ export async function queuePhotoScan(jobData: ScanJobData): Promise<string> {
     return 'queue-disabled';
   }
 
+  // Dynamic import for moderation check
+  const { isModerationEnabled } = await import('../lib/moderation/auto-moderate');
+
   // Check if moderation is enabled
   if (!(await isModerationEnabled())) {
     console.log('[SCAN_QUEUE] Moderation not enabled, skipping scan');
     return 'moderation-disabled';
   }
 
-  const queue = getQueue();
+  const queue = await getQueue();
 
   // Determine priority
   const priority = jobData.isReported
@@ -173,7 +192,6 @@ export async function queuePhotoScan(jobData: ScanJobData): Promise<string> {
  * @returns Number of jobs queued
  */
 export async function queuePhotoScanBatch(jobDataArray: ScanJobData[]): Promise<number> {
-  const queue = getQueue();
   let count = 0;
 
   for (const jobData of jobDataArray) {
@@ -203,8 +221,11 @@ export async function reportPhoto(
   tenantId: string,
   reportReason?: string
 ): Promise<void> {
-  // Get photo details from database
+  // Dynamic imports
+  const { getTenantDb } = await import('@/lib/db');
   const db = getTenantDb(tenantId);
+
+  // Get photo details from database
   const photo = await db.findOne<{
     id: string;
     images: { full_url: string };
@@ -239,7 +260,7 @@ export async function getQueueStats(): Promise<{
   failed: number;
   delayed: number;
 }> {
-  const queue = getQueue();
+  const queue = await getQueue();
 
   const [waiting, active, completed, failed, delayed] = await Promise.all([
     queue.getWaitingCount(),
@@ -262,7 +283,7 @@ export async function getQueueStats(): Promise<{
  * Pause the queue (stop processing new jobs)
  */
 export async function pauseQueue(): Promise<void> {
-  const queue = getQueue();
+  const queue = await getQueue();
   await queue.pause();
   console.log('[SCAN_QUEUE] Queue paused');
 }
@@ -270,8 +291,8 @@ export async function pauseQueue(): Promise<void> {
 /**
  * Resume the queue
  */
-export async function resumeQueue():Promise<void> {
-  const queue = getQueue();
+export async function resumeQueue(): Promise<void> {
+  const queue = await getQueue();
   await queue.resume();
   console.log('[SCAN_QUEUE] Queue resumed');
 }
@@ -281,7 +302,7 @@ export async function resumeQueue():Promise<void> {
  * Use with caution!
  */
 export async function clearQueue(): Promise<void> {
-  const queue = getQueue();
+  const queue = await getQueue();
   await queue.drain();
   console.log('[SCAN_QUEUE] Queue cleared');
 }
@@ -299,7 +320,9 @@ async function processScanJob(job: Job<ScanJobData, ScanJobResult>): Promise<Sca
   console.log(`[SCAN_WORKER] Processing scan for photo ${photoId} (priority: ${priority || 'normal'})`);
 
   try {
-    // 1. Scan the image
+    // 1. Scan the image (dynamic import)
+    const { scanImageForModeration } = await import('../lib/moderation/auto-moderate');
+
     const moderationResult = await scanImageForModeration(imageUrl, {
       autoReject: !isReported, // Don't auto-reject reported content, flag for review
     });
@@ -315,9 +338,11 @@ async function processScanJob(job: Job<ScanJobData, ScanJobResult>): Promise<Sca
       throw new Error('Missing tenant context for scan job');
     }
 
+    // 3. Get database (dynamic import)
+    const { getTenantDb } = await import('@/lib/db');
     const db = getTenantDb(effectiveTenantId);
 
-    // 3. Check if photo exists
+    // 4. Check if photo exists
     const photo = await db.findOne<{
       id: string;
       status: string;
@@ -327,7 +352,7 @@ async function processScanJob(job: Job<ScanJobData, ScanJobResult>): Promise<Sca
       throw new Error(`Photo ${photoId} not found in database`);
     }
 
-    // 4. Handle moderation result
+    // 5. Handle moderation result
     switch (moderationResult.action) {
       case 'approve':
         // Photo is safe, update status to approved
@@ -335,7 +360,9 @@ async function processScanJob(job: Job<ScanJobData, ScanJobResult>): Promise<Sca
         break;
 
       case 'reject':
-        // Photo is inappropriate, move to quarantine
+        // Photo is inappropriate, move to quarantine (dynamic import)
+        const { quarantinePhoto } = await import('../lib/storage/quarantine');
+
         await quarantinePhoto(
           eventId,
           photoId,
@@ -350,7 +377,9 @@ async function processScanJob(job: Job<ScanJobData, ScanJobResult>): Promise<Sca
       case 'review':
         // Flagged for manual review
         if (moderationResult.categories.length > 0) {
-          await quarantinePhoto(
+          const { quarantinePhoto: quarantinePhoto2 } = await import('../lib/storage/quarantine');
+
+          await quarantinePhoto2(
             eventId,
             photoId,
             moderationResult.reason,
@@ -397,32 +426,41 @@ export async function startScanWorker(): Promise<void> {
     return;
   }
 
+  // Dynamic import for moderation check
+  const { isModerationEnabled } = await import('../lib/moderation/auto-moderate');
+
   if (!(await isModerationEnabled())) {
     console.log('[SCAN_WORKER] Moderation not enabled, worker not started');
     return;
   }
 
+  // Dynamic imports
+  const { default: Redis } = await import('ioredis') as { default: typeof RedisClient };
+  const { getRedisClient } = await import('@/lib/redis');
   const redis = getRedisClient() as RedisClient;
+
+  // Dynamic import of bullmq
+  const { Worker, QueueEvents } = await import('bullmq');
 
   // Create queue events listener
   queueEvents = new QueueEvents(QUEUE_NAME, {
     connection: redis,
   });
 
-  queueEvents.on('waiting', ({ jobId }) => {
+  queueEvents.on('waiting', ({ jobId }: { jobId: string }) => {
     console.log(`[SCAN_WORKER] Job ${jobId} is waiting`);
   });
 
-  queueEvents.on('active', ({ jobId, prev }) => {
+  queueEvents.on('active', ({ jobId, prev }: { jobId: string; prev?: string }) => {
     console.log(`[SCAN_WORKER] Job ${jobId} is now active (was: ${prev})`);
   });
 
-  queueEvents.on('completed', ({ jobId, returnvalue }) => {
-    const result = returnvalue as unknown as ScanJobResult;
+  queueEvents.on('completed', ({ jobId, returnvalue }: { jobId: string; returnvalue: unknown }) => {
+    const result = returnvalue as ScanJobResult;
     console.log(`[SCAN_WORKER] Job ${jobId} completed: ${result.photoId}`);
   });
 
-  queueEvents.on('failed', ({ jobId, failedReason }) => {
+  queueEvents.on('failed', ({ jobId, failedReason }: { jobId: string; failedReason: string }) => {
     console.error(`[SCAN_WORKER] Job ${jobId} failed: ${failedReason}`);
   });
 
@@ -439,7 +477,7 @@ export async function startScanWorker(): Promise<void> {
   );
 
   // Worker error handling
-  scanWorker.on('error', (error) => {
+  scanWorker.on('error', (error: Error) => {
     console.error('[SCAN_WORKER] Worker error:', error);
   });
 
@@ -490,7 +528,7 @@ export function getWorkerStatus(): {
  */
 export async function initializeContentScanning(): Promise<void> {
   // Get queue (initializes it)
-  getQueue();
+  await getQueue();
 
   // Start worker
   await startScanWorker();

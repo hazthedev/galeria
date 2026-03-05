@@ -9,7 +9,7 @@ import { getTenantDb } from '@/lib/db';
 import { verifyAccessToken } from '@/lib/domain/auth/auth';
 import { generateSlug, generateUUID, generateEventUrl } from '@/lib/utils';
 import { extractSessionId, validateSession } from '@/lib/domain/auth/session';
-import { generateUniqueShortCode } from '@/lib/utils';
+import { generateUniqueShortCode } from '@/lib/shared/utils/short-code';
 import { checkEventLimit } from '@/lib/api/middleware/limit-check';
 import { getSystemSettings } from '@/lib/system-settings';
 import type { IEvent, SubscriptionTier } from '@/lib/types';

@@ -3,6 +3,7 @@
 // ============================================
 // Multi-tenant PostgreSQL with Row-Level Security
 
+import 'server-only';
 import { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
 import type { ITenant } from '@/lib/types';
 

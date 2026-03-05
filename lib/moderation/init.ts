@@ -5,6 +5,8 @@
  * moderation system including the background worker for scanning photos.
  */
 
+import 'server-only';
+
 // NOTE: No top-level imports! This file is imported by instrumentation.ts
 // which can cause webpack to trace imports into client bundle.
 // All imports are done dynamically inside functions.

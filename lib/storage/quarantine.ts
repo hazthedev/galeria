@@ -6,6 +6,7 @@
  * Auto-deletes unreviewed content after 7 days.
  */
 
+import 'server-only';
 import {
   PutObjectCommand,
   S3Client,

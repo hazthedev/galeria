@@ -9,7 +9,7 @@ import Link from 'next/link';
 import { CheckCircle, Crown, ShieldCheck } from 'lucide-react';
 import clsx from 'clsx';
 import { useAuth } from '@/lib/auth';
-import { TIER_CONFIGS } from '@/lib/tenant';
+import { TIER_CONFIGS } from '@/lib/domain/tenant/tier-config';
 import type { SubscriptionTier } from '@/lib/types';
 
 const ORDERED_TIERS: SubscriptionTier[] = ['free', 'pro', 'premium', 'enterprise', 'tester'];

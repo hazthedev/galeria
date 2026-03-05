@@ -4,6 +4,7 @@
 // Multi-tenant Redis with automatic reconnection, connection pooling
 // Used for: Session storage, rate limiting, WebSocket pub/sub
 
+import 'server-only';
 import Redis from 'ioredis';
 import type { Redis as RedisType } from 'ioredis';
 
