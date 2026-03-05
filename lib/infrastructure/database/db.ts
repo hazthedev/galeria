@@ -11,14 +11,25 @@ import type { ITenant } from '@/lib/types';
 // CONFIGURATION
 // ============================================
 
+const isProduction = process.env.NODE_ENV === 'production';
+const defaultPoolMin = isProduction ? 0 : 2;
+const defaultPoolMax = isProduction ? 3 : 20;
+
+const configuredPoolMin = parseInt(process.env.DATABASE_POOL_MIN || `${defaultPoolMin}`, 10);
+const configuredPoolMax = parseInt(process.env.DATABASE_POOL_MAX || `${defaultPoolMax}`, 10);
+const normalizedPoolMax = Number.isFinite(configuredPoolMax) ? Math.max(1, configuredPoolMax) : defaultPoolMax;
+const normalizedPoolMinRaw = Number.isFinite(configuredPoolMin) ? Math.max(0, configuredPoolMin) : defaultPoolMin;
+const normalizedPoolMin = Math.min(normalizedPoolMinRaw, normalizedPoolMax);
+
 const poolConfig = {
   connectionString: process.env.DATABASE_URL,
-  min: parseInt(process.env.DATABASE_POOL_MIN || '2', 10),
-  max: parseInt(process.env.DATABASE_POOL_MAX || '20', 10),
+  min: normalizedPoolMin,
+  max: normalizedPoolMax,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 30000,  // Increased from 2000ms to 30s
   statement_timeout: 60000,  // 60 second query timeout
   query_timeout: 60000,  // 60 second query timeout
+  allowExitOnIdle: true,
 };
 
 // ============================================

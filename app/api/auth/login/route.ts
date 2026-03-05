@@ -25,12 +25,18 @@ type LoginUserMatch = {
   user: IUser;
 };
 
+type LoginLookupResult = {
+  match: LoginUserMatch | null;
+  tenantDiscoveryFailed: boolean;
+};
+
 async function findUserForLogin(
   normalizedEmail: string,
   hintedTenantId: string | null
-): Promise<LoginUserMatch | null> {
+): Promise<LoginLookupResult> {
   const systemDb = getTenantDb(SYSTEM_TENANT_ID);
   const tenantIds: string[] = [];
+  let tenantDiscoveryFailed = false;
 
   if (hintedTenantId) {
     tenantIds.push(hintedTenantId);
@@ -43,6 +49,7 @@ async function findUserForLogin(
     const activeTenants = await systemDb.findMany<ITenant>('tenants', { status: 'active' });
     tenantIds.push(...activeTenants.map((tenant) => tenant.id));
   } catch (error) {
+    tenantDiscoveryFailed = true;
     console.error('[LOGIN] Failed to load active tenants:', error);
   }
 
@@ -57,14 +64,14 @@ async function findUserForLogin(
       const tenantDb = getTenantDb(tenantId);
       const user = await tenantDb.findOne<IUser>('users', { email: normalizedEmail });
       if (user) {
-        return { db: tenantDb, user };
+        return { match: { db: tenantDb, user }, tenantDiscoveryFailed };
       }
     } catch (error) {
       console.error(`[LOGIN] Tenant lookup failed for ${tenantId}:`, error);
     }
   }
 
-  return null;
+  return { match: null, tenantDiscoveryFailed };
 }
 
 /**
@@ -112,12 +119,23 @@ export async function POST(request: NextRequest) {
     }
 
     const tenantHintId = getTenantId(request.headers);
-    const loginMatch = await findUserForLogin(normalizedEmail, tenantHintId);
+    const { match: loginMatch, tenantDiscoveryFailed } = await findUserForLogin(normalizedEmail, tenantHintId);
 
     const user = loginMatch?.user;
     const passwordHash = user?.password_hash;
 
     if (!user || !passwordHash) {
+      if (tenantDiscoveryFailed) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'LOGIN_TEMPORARILY_UNAVAILABLE',
+            message: 'Login is temporarily unavailable. Please try again shortly.',
+          },
+          { status: 503 }
+        );
+      }
+
       // Don't reveal whether user exists for security
       return NextResponse.json(
         {
