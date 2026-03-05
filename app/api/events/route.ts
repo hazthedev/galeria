@@ -10,6 +10,9 @@ import {
   handleEventsList,
 } from '@/lib/services/events';
 
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 // ============================================
 // GET /api/events - List events
 // ============================================

@@ -9,11 +9,8 @@ import { getTenantDb } from '@/lib/db';
 import { verifyAccessToken } from '@/lib/domain/auth/auth';
 import { generateSlug, generateUUID, generateEventUrl } from '@/lib/utils';
 import { extractSessionId, validateSession } from '@/lib/domain/auth/session';
-import { generateUniqueShortCode } from '@/lib/shared/utils/short-code';
-import { checkEventLimit } from '@/lib/api/middleware/limit-check';
-import { getSystemSettings } from '@/lib/system-settings';
+import { generateShortCode } from '@/lib/shared/utils/short-code';
 import type { IEvent, SubscriptionTier } from '@/lib/types';
-import { resolveUserTier } from '@/lib/tenant';
 import { eventBulkUpdateSchema, eventCreateSchema } from '@/lib/validation/events';
 import { resolveOptionalAuth, resolveRequiredTenantId } from '@/lib/api-request-context';
 
@@ -131,29 +128,46 @@ export async function handleEventCreate(request: NextRequest) {
     const authContext = await resolveOptionalAuth(headers);
     const tenantId = resolveRequiredTenantId(headers, authContext);
 
-    // Get user from session or JWT token
+    // Reuse already-resolved auth context first to avoid duplicate auth work.
     const cookieHeader = headers.get('cookie');
     const authHeader = headers.get('authorization');
-    let userId: string | null = null;
+    let userId: string | null = authContext?.userId || null;
+    let userRole: string | null = authContext?.role || null;
 
-    // Try session-based auth first
-    const sessionResult = extractSessionId(cookieHeader, authHeader);
-    if (sessionResult.sessionId) {
-      const session = await validateSession(sessionResult.sessionId, false);
-      if (session.valid && session.session) {
-        userId = session.session.userId;
+    if (!userId) {
+      const sessionResult = extractSessionId(cookieHeader, authHeader);
+      if (sessionResult.sessionId) {
+        const session = await validateSession(sessionResult.sessionId, false);
+        if (session.valid && session.session) {
+          userId = session.session.userId;
+          userRole = session.session.role;
+        }
       }
     }
 
-    // Fallback to JWT token
     if (!userId && authHeader) {
       try {
         const token = authHeader.replace('Bearer ', '');
         const payload = verifyAccessToken(token);
         userId = payload.sub;
+        userRole = payload.role;
       } catch {
         // Token invalid
       }
+    }
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Authentication required', code: 'AUTH_REQUIRED' },
+        { status: 401 }
+      );
+    }
+
+    if (userRole && !['organizer', 'super_admin'].includes(userRole)) {
+      return NextResponse.json(
+        { error: 'Insufficient permissions', code: 'FORBIDDEN' },
+        { status: 403 }
+      );
     }
 
     // Parse and validate request body
@@ -169,58 +183,10 @@ export async function handleEventCreate(request: NextRequest) {
     // Get database connection
     const db = getTenantDb(tenantId);
 
-    // Check tenant limits (if authenticated)
-    if (userId) {
-      const tenantContext = getTenantContextFromHeaders(headers);
-      if (tenantContext) {
-        // Get subscription tier from tenant context
-        const subscriptionTier = await resolveUserTier(headers, tenantId, 'free');
-
-        // Check if event limit is reached
-        const limitResult = await checkEventLimit(tenantId, subscriptionTier);
-        if (!limitResult.allowed) {
-          return NextResponse.json(
-            {
-              error: limitResult.message || 'Event limit reached',
-              code: 'LIMIT_REACHED',
-              upgradeRequired: true,
-              currentCount: limitResult.currentCount,
-              limit: limitResult.limit,
-            },
-            { status: 403 }
-          );
-        }
-      }
-    }
-
-    // Generate unique slug
-    let slug = generateSlug(body.name);
-    let slugExists = await db.findOne<IEvent>('events', { slug });
-
-    // If slug exists, add random suffix
-    let attempts = 0;
-    while (slugExists && attempts < 10) {
-      slug = `${slug}-${crypto.randomBytes(2).toString('hex')}`;
-      slugExists = await db.findOne<IEvent>('events', { slug });
-      attempts++;
-    }
-
-    if (slugExists) {
-      return NextResponse.json(
-        { error: 'Could not generate unique slug', code: 'SLUG_ERROR' },
-        { status: 500 }
-      );
-    }
-
     // Generate event ID (use UUID for database compatibility)
     const eventId = generateUUID();
-
-    // Generate short code for sharing (e.g., "helo", "party123")
-    const shortCode = await generateUniqueShortCode(tenantId);
-
-    // Generate QR code URL
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-    const eventUrl = generateEventUrl(baseUrl, eventId, slug);
+    const baseSlug = generateSlug(body.name) || 'event';
 
     // Default settings
     let defaultSettings: IEvent['settings'] = {
@@ -257,63 +223,54 @@ export async function handleEventCreate(request: NextRequest) {
         },
       },
     };
+    // Use insert-and-retry on uniqueness collisions to avoid extra pre-insert DB lookups.
+    const maxCreateAttempts = 5;
+    for (let attempt = 1; attempt <= maxCreateAttempts; attempt++) {
+      const slug = `${baseSlug}-${crypto.randomBytes(2).toString('hex')}`;
+      const shortCode = generateShortCode(6);
+      const eventUrl = generateEventUrl(baseUrl, eventId, slug);
 
-    try {
-      const systemSettings = await getSystemSettings();
-      if (systemSettings?.events?.default_settings) {
-        defaultSettings = {
-          ...defaultSettings,
-          ...systemSettings.events.default_settings,
-          theme: {
-            ...defaultSettings.theme,
-            ...(systemSettings.events.default_settings.theme || {}),
+      try {
+        const event = await db.insert<IEvent>('events', {
+          id: eventId,
+          tenant_id: tenantId,
+          organizer_id: userId,
+          name: body.name,
+          slug,
+          short_code: shortCode,
+          description: body.description,
+          event_type: body.event_type,
+          event_date: new Date(body.event_date),
+          timezone: 'UTC',
+          location: body.location,
+          expected_guests: body.expected_guests,
+          custom_hashtag: body.custom_hashtag,
+          settings: { ...defaultSettings, ...body.settings },
+          status: 'active',
+          qr_code_url: eventUrl,
+          created_at: new Date(),
+          updated_at: new Date(),
+        });
+
+        return NextResponse.json(
+          {
+            data: event,
+            message: 'Event created successfully',
           },
-          features: {
-            ...defaultSettings.features,
-            ...(systemSettings.events.default_settings.features || {}),
-          },
-        };
+          { status: 201 }
+        );
+      } catch (error) {
+        const code = (error as { code?: string }).code;
+        if (code === '23505' && attempt < maxCreateAttempts) {
+          continue;
+        }
+        throw error;
       }
-    } catch (error) {
-      console.warn('[API] Failed to load system defaults:', error);
     }
-
-    // Require authentication for event creation
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'Authentication required', code: 'AUTH_REQUIRED' },
-        { status: 401 }
-      );
-    }
-
-    // Create event
-    const event = await db.insert<IEvent>('events', {
-      id: eventId,
-      tenant_id: tenantId,
-      organizer_id: userId, // Authenticated user
-      name: body.name,
-      slug,
-      short_code: shortCode,
-      description: body.description,
-      event_type: body.event_type,
-      event_date: new Date(body.event_date),
-      timezone: 'UTC',
-      location: body.location,
-      expected_guests: body.expected_guests,
-      custom_hashtag: body.custom_hashtag,
-      settings: { ...defaultSettings, ...body.settings },
-      status: 'active',
-      qr_code_url: eventUrl,
-      created_at: new Date(),
-      updated_at: new Date(),
-    });
 
     return NextResponse.json(
-      {
-        data: event,
-        message: 'Event created successfully',
-      },
-      { status: 201 }
+      { error: 'Could not create a unique event slug/code', code: 'EVENT_CREATE_RETRY_EXHAUSTED' },
+      { status: 500 }
     );
   } catch (error) {
     console.error('[API] Error creating event:', error);
