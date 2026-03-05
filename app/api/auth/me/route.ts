@@ -6,9 +6,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { validateSession, extractSessionId } from '@/lib/domain/auth/session';
-import { getTenantDb } from '@/lib/db';
 import type { IMeResponse } from '../../../../lib/types';
-import type { IUser, ITenant } from '../../../../lib/types';
+import type { IUser } from '../../../../lib/types';
 
 // Configure route to use Node.js runtime
 export const runtime = 'nodejs';
@@ -73,15 +72,6 @@ export async function GET(request: NextRequest) {
 
     const user = result.user;
 
-    // Fetch tenant information
-    let tenant: ITenant | null = null;
-    try {
-      const db = getTenantDb(user.tenant_id);
-      tenant = await db.findOne<ITenant>('tenants', { id: user.tenant_id });
-    } catch (error) {
-      console.error('[ME] Error fetching tenant:', error);
-    }
-
     // Return user and tenant info
     return NextResponse.json<IMeResponse>(
       {
@@ -89,7 +79,6 @@ export async function GET(request: NextRequest) {
           ...user,
           password_hash: undefined, // Never send password hash
         } as IUser,
-        tenant: tenant || undefined,
       },
       { status: 200, headers: noStoreHeaders }
     );

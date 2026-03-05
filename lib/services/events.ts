@@ -4,15 +4,51 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { getTenantContextFromHeaders } from '@/lib/tenant';
 import { getTenantDb } from '@/lib/db';
 import { verifyAccessToken } from '@/lib/domain/auth/auth';
 import { generateSlug, generateUUID, generateEventUrl } from '@/lib/utils';
 import { extractSessionId, validateSession } from '@/lib/domain/auth/session';
 import { generateShortCode } from '@/lib/shared/utils/short-code';
-import type { IEvent, SubscriptionTier } from '@/lib/types';
+import { getSupabaseAdminClient, isSupabaseAdminConfigured } from '@/lib/infrastructure/auth/supabase-server';
+import type { IEvent } from '@/lib/types';
 import { eventBulkUpdateSchema, eventCreateSchema } from '@/lib/validation/events';
 import { resolveOptionalAuth, resolveRequiredTenantId } from '@/lib/api-request-context';
+
+function isDbSessionPoolExhausted(error: unknown): boolean {
+  const code = typeof error === 'object' && error && 'code' in error ? String(error.code || '') : '';
+  const message = error instanceof Error ? error.message : String(error || '');
+
+  return code === 'XX000' && message.includes('MaxClientsInSessionMode');
+}
+
+function normalizeSupabaseEventRow(data: Record<string, unknown>): IEvent {
+  return {
+    ...(data as unknown as IEvent),
+    event_date: data.event_date ? new Date(String(data.event_date)) : new Date(),
+    created_at: data.created_at ? new Date(String(data.created_at)) : new Date(),
+    updated_at: data.updated_at ? new Date(String(data.updated_at)) : new Date(),
+    expires_at: data.expires_at ? new Date(String(data.expires_at)) : undefined,
+  };
+}
+
+async function insertEventViaSupabase(payload: Record<string, unknown>): Promise<IEvent> {
+  const supabase = getSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from('events')
+    .insert(payload)
+    .select('*')
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!data) {
+    throw new Error('Supabase insert returned no event row');
+  }
+
+  return normalizeSupabaseEventRow(data as Record<string, unknown>);
+}
 
 // ============================================
 // GET /api/events - List events (service)
@@ -229,28 +265,31 @@ export async function handleEventCreate(request: NextRequest) {
       const slug = `${baseSlug}-${crypto.randomBytes(2).toString('hex')}`;
       const shortCode = generateShortCode(6);
       const eventUrl = generateEventUrl(baseUrl, eventId, slug);
+      const now = new Date();
+      const eventDate = new Date(body.event_date);
+      const eventPayload: Record<string, unknown> = {
+        id: eventId,
+        tenant_id: tenantId,
+        organizer_id: userId,
+        name: body.name,
+        slug,
+        short_code: shortCode,
+        description: body.description,
+        event_type: body.event_type,
+        event_date: eventDate,
+        timezone: 'UTC',
+        location: body.location,
+        expected_guests: body.expected_guests,
+        custom_hashtag: body.custom_hashtag,
+        settings: { ...defaultSettings, ...body.settings },
+        status: 'active',
+        qr_code_url: eventUrl,
+        created_at: now,
+        updated_at: now,
+      };
 
       try {
-        const event = await db.insert<IEvent>('events', {
-          id: eventId,
-          tenant_id: tenantId,
-          organizer_id: userId,
-          name: body.name,
-          slug,
-          short_code: shortCode,
-          description: body.description,
-          event_type: body.event_type,
-          event_date: new Date(body.event_date),
-          timezone: 'UTC',
-          location: body.location,
-          expected_guests: body.expected_guests,
-          custom_hashtag: body.custom_hashtag,
-          settings: { ...defaultSettings, ...body.settings },
-          status: 'active',
-          qr_code_url: eventUrl,
-          created_at: new Date(),
-          updated_at: new Date(),
-        });
+        const event = await db.insert<IEvent>('events', eventPayload);
 
         return NextResponse.json(
           {
@@ -264,6 +303,32 @@ export async function handleEventCreate(request: NextRequest) {
         if (code === '23505' && attempt < maxCreateAttempts) {
           continue;
         }
+
+        if (isDbSessionPoolExhausted(error) && isSupabaseAdminConfigured()) {
+          try {
+            const fallbackPayload: Record<string, unknown> = {
+              ...eventPayload,
+              event_date: eventDate.toISOString(),
+              created_at: now.toISOString(),
+              updated_at: now.toISOString(),
+            };
+            const fallbackEvent = await insertEventViaSupabase(fallbackPayload);
+            return NextResponse.json(
+              {
+                data: fallbackEvent,
+                message: 'Event created successfully',
+              },
+              { status: 201 }
+            );
+          } catch (fallbackError) {
+            const fallbackCode = (fallbackError as { code?: string }).code;
+            if (fallbackCode === '23505' && attempt < maxCreateAttempts) {
+              continue;
+            }
+            throw fallbackError;
+          }
+        }
+
         throw error;
       }
     }
