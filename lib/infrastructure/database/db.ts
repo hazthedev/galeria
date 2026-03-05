@@ -25,7 +25,7 @@ const poolConfig = {
   connectionString: process.env.DATABASE_URL,
   min: normalizedPoolMin,
   max: normalizedPoolMax,
-  idleTimeoutMillis: 30000,
+  idleTimeoutMillis: isProduction ? 2000 : 30000,
   connectionTimeoutMillis: 30000,  // Increased from 2000ms to 30s
   statement_timeout: 60000,  // 60 second query timeout
   query_timeout: 60000,  // 60 second query timeout
@@ -179,8 +179,11 @@ export class TenantDatabase {
 
         await sleep(DB_RETRY_BASE_DELAY_MS * attempt);
       } finally {
-        // Always release the connection back to the pool
-        client?.release();
+        // In production serverless, destroy clients on release to avoid
+        // holding session-mode pool slots across warm invocations.
+        if (client) {
+          client.release(isProduction);
+        }
       }
     }
 
@@ -244,7 +247,7 @@ export class TenantDatabase {
       throw error;
     } finally {
       // Always release connection
-      client.release();
+      client.release(isProduction);
     }
   }
 
@@ -463,7 +466,7 @@ export async function queryWithTenant<T extends QueryResultRow = QueryResultRow>
     const result = await client.query(text, params);
     return result;
   } finally {
-    client.release();
+    client.release(isProduction);
   }
 }
 
