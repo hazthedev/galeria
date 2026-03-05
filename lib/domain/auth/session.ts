@@ -16,6 +16,7 @@ import { getTenantDb } from '@/lib/db';
 const SESSION_TTL_SECONDS = parseInt(process.env.SESSION_TTL_SECONDS || '604800', 10); // 7 days default
 const SESSION_MAX_AGE_SECONDS = parseInt(process.env.SESSION_MAX_AGE_SECONDS || '2592000', 10); // 30 days absolute max
 const SESSION_REMEMBER_ME_TTL = parseInt(process.env.SESSION_REMEMBER_ME_TTL || '2592000', 10); // 30 days for remember me
+const AUTH_VALIDATE_SESSION_USER_DB = process.env.AUTH_VALIDATE_SESSION_USER_DB === 'true';
 
 // Use in-memory sessions ONLY if explicitly enabled (for local development without Redis)
 // On Vercel/production, always require Redis
@@ -227,7 +228,30 @@ export async function validateSession(
     return { valid: false, error: 'Session exceeded maximum age' };
   }
 
-  // Get user from database to verify they still exist
+  if (!AUTH_VALIDATE_SESSION_USER_DB) {
+    if (refreshTTL) {
+      await refreshSession(sessionId);
+    }
+
+    const user: IUser = {
+      id: session.userId,
+      tenant_id: session.tenantId,
+      email: session.email,
+      name: session.name,
+      role: session.role,
+      email_verified: true,
+      created_at: new Date(session.createdAt),
+      updated_at: new Date(session.lastActivity),
+    };
+
+    return {
+      valid: true,
+      session,
+      user,
+    };
+  }
+
+  // Optional strict mode: verify session user still exists in database.
   try {
     const db = getTenantDb(session.tenantId);
     const user = await db.findOne<IUser>('users', { id: session.userId });
@@ -237,7 +261,6 @@ export async function validateSession(
       return { valid: false, error: 'User not found' };
     }
 
-    // Refresh session TTL if requested (sliding window)
     if (refreshTTL) {
       await refreshSession(sessionId);
     }

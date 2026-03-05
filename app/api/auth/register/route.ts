@@ -1,55 +1,49 @@
-// ============================================
-// Galeria - Register API Endpoint
-// ============================================
-// POST /api/auth/register
-// Registers a new user, creates their tenant, and creates session
-
 import { NextRequest, NextResponse } from 'next/server';
-import { hashPassword } from '@/lib/domain/auth/auth';
-import { getTenantDb } from '@/lib/db';
 import { createSession } from '@/lib/domain/auth/session';
 import { checkRegistrationRateLimit, createRateLimitErrorResponse } from '@/lib/api/middleware/rate-limit';
 import { validatePassword, DEFAULT_PASSWORD_REQUIREMENTS } from '@/lib/auth';
 import { getRequestIp, getRequestUserAgent } from '../../../../middleware/auth';
-import type { IAuthResponseSession } from '../../../../lib/types';
+import type { IAuthResponseSession, IUser } from '../../../../lib/types';
 import { registerSchema } from '../../../../lib/validation/auth';
-import type { IUser, ITenant } from '../../../../lib/types';
-import { randomBytes } from 'crypto';
-import { SYSTEM_TENANT_ID } from '@/lib/constants/tenants';
+import { DEFAULT_TENANT_ID } from '@/lib/constants/tenants';
+import {
+  getSupabaseAdminClient,
+  getSupabaseServerAuthClient,
+  isSupabaseAdminConfigured,
+  isSupabaseAuthConfigured,
+} from '@/lib/infrastructure/auth/supabase-server';
 
-// Configure route to use Node.js runtime
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-/**
- * Generate a unique slug for tenant
- */
-function generateTenantSlug(name: string): string {
-  const baseSlug = name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .substring(0, 50);
+type SupabaseUserLike = {
+  id: string;
+  email?: string;
+  created_at?: string;
+  updated_at?: string;
+  email_confirmed_at?: string | null;
+  user_metadata?: Record<string, unknown>;
+};
 
-  // Add random suffix for uniqueness
-  const randomSuffix = randomBytes(4).toString('hex');
-  return `${baseSlug}-${randomSuffix}`;
+function mapSupabaseUserToAppUser(rawUser: SupabaseUserLike): IUser {
+  const metadata = rawUser.user_metadata || {};
+  const now = new Date();
+
+  return {
+    id: rawUser.id,
+    tenant_id: typeof metadata.tenant_id === 'string' ? metadata.tenant_id : DEFAULT_TENANT_ID,
+    email: rawUser.email || '',
+    name: typeof metadata.name === 'string' && metadata.name.trim() ? metadata.name : 'User',
+    role: 'organizer',
+    email_verified: Boolean(rawUser.email_confirmed_at),
+    created_at: rawUser.created_at ? new Date(rawUser.created_at) : now,
+    updated_at: rawUser.updated_at ? new Date(rawUser.updated_at) : now,
+    subscription_tier: 'free',
+  };
 }
 
-/**
- * Generate UUID v4
- */
-function generateUUID(): string {
-  return randomBytes(16).toString('hex').replace(/(.{8})(.{4})(.{4})(.{4})(.{12})/, '$1-$2-$3-$4-$5');
-}
-
-/**
- * POST /api/auth/register
- * Register new user and create their own tenant
- */
 export async function POST(request: NextRequest) {
   try {
-    // Parse and validate request body
     const parsed = registerSchema.safeParse(await request.json());
     if (!parsed.success) {
       return NextResponse.json(
@@ -62,13 +56,22 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    const { email, password, name, tenantName } = parsed.data;
 
-    // Normalize email
+    if (!isSupabaseAuthConfigured() || !isSupabaseAdminConfigured()) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'AUTH_NOT_CONFIGURED',
+          message: 'Authentication is not configured on the server.',
+        },
+        { status: 503 }
+      );
+    }
+
+    const { email, password, name } = parsed.data;
     const normalizedEmail = email.toLowerCase().trim();
-
-    // Validate name
     const trimmedName = name.trim();
+
     if (trimmedName.length < 2) {
       return NextResponse.json(
         {
@@ -80,7 +83,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate password
     const passwordValidation = validatePassword(password, DEFAULT_PASSWORD_REQUIREMENTS);
     if (!passwordValidation.valid) {
       return NextResponse.json(
@@ -93,13 +95,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get client IP and user agent
     const ipAddress = getRequestIp(request);
     const userAgent = getRequestUserAgent(request);
 
-    // Check rate limits
     const rateLimitResult = await checkRegistrationRateLimit(normalizedEmail, ipAddress);
-
     if (!rateLimitResult.allowed) {
       const errorResponse = createRateLimitErrorResponse(rateLimitResult);
       return NextResponse.json(errorResponse, {
@@ -113,54 +112,22 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // For Phase 2, we use the default tenant ID
-    // In a full multi-tenant system, we would create a new tenant here
-    const defaultTenantId = SYSTEM_TENANT_ID;
-    const db = getTenantDb(defaultTenantId);
-
-    // Check if user already exists
-    const existingUser = await db.findOne<IUser>('users', {
+    const adminClient = getSupabaseAdminClient();
+    const { data: createData, error: createError } = await adminClient.auth.admin.createUser({
       email: normalizedEmail,
+      password,
+      email_confirm: true,
+      user_metadata: {
+        name: trimmedName,
+        tenant_id: DEFAULT_TENANT_ID,
+        role: 'organizer',
+        subscription_tier: 'free',
+      },
     });
 
-    if (existingUser) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'USER_ALREADY_EXISTS',
-          message: 'An account with this email already exists',
-        },
-        { status: 409 }
-      );
-    }
-
-    // Hash password
-    const passwordHash = await hashPassword(password);
-
-    // Create user
-    const userId = generateUUID();
-    const now = new Date();
-
-    const newUser: Partial<IUser> = {
-      id: userId,
-      tenant_id: defaultTenantId,
-      email: normalizedEmail,
-      password_hash: passwordHash,
-      name: trimmedName,
-      role: 'organizer', // First user is organizer of their tenant
-      subscription_tier: 'free',
-      email_verified: false, // Phase 3: implement email verification
-      created_at: now,
-      updated_at: now,
-    };
-
-    // SECURITY: Handle race condition - wrap insert in try-catch
-    // to handle duplicate email errors from concurrent registration attempts
-    try {
-      await db.insert('users', newUser);
-    } catch (error: unknown) {
-      // Check for unique constraint violation (PostgreSQL error code 23505)
-      if (error && typeof error === 'object' && 'code' in error && error.code === '23505') {
+    if (createError) {
+      const duplicate = /already|exists|registered/i.test(createError.message || '');
+      if (duplicate) {
         return NextResponse.json(
           {
             success: false,
@@ -170,25 +137,32 @@ export async function POST(request: NextRequest) {
           { status: 409 }
         );
       }
-      // Re-throw other errors
-      throw error;
+
+      throw createError;
     }
 
-    // Fetch the created user (without password hash)
-    const createdUser = await db.findOne<IUser>('users', { id: userId });
-
-    if (!createdUser) {
-      throw new Error('Failed to create user');
+    if (!createData.user) {
+      throw new Error('Failed to create user in Supabase');
     }
 
-    // Create session
+    // Verify credentials once and align with login path behavior.
+    const supabase = getSupabaseServerAuthClient();
+    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+      email: normalizedEmail,
+      password,
+    });
+
+    if (signInError || !signInData.user) {
+      throw signInError || new Error('Failed to authenticate new user');
+    }
+
+    const createdUser = mapSupabaseUserToAppUser(signInData.user);
     const sessionId = await createSession(createdUser, {
       ipAddress,
       userAgent,
       rememberMe: false,
     });
 
-    // Create response with session cookie
     const response = NextResponse.json<IAuthResponseSession>(
       {
         success: true,
@@ -202,17 +176,14 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
 
-    // Set session cookie
     const cookieOptions = getCookieOptions(false);
     response.cookies.set('session', sessionId, cookieOptions);
 
-    // Set rate limit headers
     response.headers.set('X-RateLimit-Limit', rateLimitResult.limit.toString());
     response.headers.set('X-RateLimit-Remaining', rateLimitResult.remaining.toString());
     response.headers.set('X-RateLimit-Reset', Math.floor(rateLimitResult.resetAt.getTime() / 1000).toString());
 
     return response;
-
   } catch (error) {
     console.error('[REGISTER] Error:', error);
     return NextResponse.json(
@@ -226,12 +197,9 @@ export async function POST(request: NextRequest) {
   }
 }
 
-/**
- * Get cookie options for session cookie
- */
 function getCookieOptions(rememberMe: boolean) {
   const isSecure = process.env.NODE_ENV === 'production';
-  const maxAge = rememberMe ? 2592000 : 604800; // 30 days or 7 days
+  const maxAge = rememberMe ? 2592000 : 604800;
 
   return {
     httpOnly: true,

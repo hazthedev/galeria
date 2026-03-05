@@ -1,72 +1,50 @@
-// ============================================
-// Galeria - Login API Endpoint
-// ============================================
-// POST /api/auth/login
-// Authenticates user with email and password, creates session
-
 import { NextRequest, NextResponse } from 'next/server';
-import { comparePassword } from '@/lib/domain/auth/auth';
-import { getTenantDb } from '@/lib/db';
 import { createSession, deleteSession, extractSessionId } from '@/lib/domain/auth/session';
 import { checkLoginRateLimit, createRateLimitErrorResponse } from '@/lib/api/middleware/rate-limit';
 import { getRequestIp, getRequestUserAgent } from '../../../../middleware/auth';
-import type { IAuthResponseSession } from '../../../../lib/types';
+import type { IAuthResponseSession, IUser, UserRole } from '../../../../lib/types';
 import { loginSchema } from '../../../../lib/validation/auth';
-import { getTenantId } from '@/lib/tenant';
-import type { IUser } from '../../../../lib/types';
-import { DEFAULT_TENANT_ID, SYSTEM_TENANT_ID } from '@/lib/constants/tenants';
+import { DEFAULT_TENANT_ID } from '@/lib/constants/tenants';
+import { getSupabaseServerAuthClient, isSupabaseAuthConfigured } from '@/lib/infrastructure/auth/supabase-server';
 
-// Configure route to use Node.js runtime
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-type LoginUserMatch = {
-  db: ReturnType<typeof getTenantDb>;
-  user: IUser;
-};
-
-async function findUserForLogin(
-  normalizedEmail: string,
-  hintedTenantId: string | null
-): Promise<LoginUserMatch | null> {
-  const tenantIds: string[] = [];
-
-  if (hintedTenantId) {
-    tenantIds.push(hintedTenantId);
+function normalizeRole(role: unknown): UserRole {
+  if (role === 'guest' || role === 'organizer' || role === 'super_admin') {
+    return role;
   }
-
-  // Keep backward compatibility for existing data that may still live in system tenant.
-  tenantIds.push(DEFAULT_TENANT_ID);
-  tenantIds.push(SYSTEM_TENANT_ID);
-
-  const checked = new Set<string>();
-  for (const tenantId of tenantIds) {
-    if (!tenantId || checked.has(tenantId)) {
-      continue;
-    }
-    checked.add(tenantId);
-
-    try {
-      const tenantDb = getTenantDb(tenantId);
-      const user = await tenantDb.findOne<IUser>('users', { email: normalizedEmail });
-      if (user) {
-        return { db: tenantDb, user };
-      }
-    } catch (error) {
-      console.error(`[LOGIN] Tenant lookup failed for ${tenantId}:`, error);
-    }
-  }
-
-  return null;
+  return 'organizer';
 }
 
-/**
- * POST /api/auth/login
- * Authenticate user and create session
- */
+function mapSupabaseUserToAppUser(rawUser: {
+  id: string;
+  email?: string;
+  created_at?: string;
+  updated_at?: string;
+  email_confirmed_at?: string | null;
+  user_metadata?: Record<string, unknown>;
+}): IUser {
+  const metadata = rawUser.user_metadata || {};
+  const now = new Date();
+
+  return {
+    id: rawUser.id,
+    tenant_id: typeof metadata.tenant_id === 'string' ? metadata.tenant_id : DEFAULT_TENANT_ID,
+    email: rawUser.email || '',
+    name: typeof metadata.name === 'string' && metadata.name.trim() ? metadata.name : 'User',
+    role: normalizeRole(metadata.role),
+    email_verified: Boolean(rawUser.email_confirmed_at),
+    created_at: rawUser.created_at ? new Date(rawUser.created_at) : now,
+    updated_at: rawUser.updated_at ? new Date(rawUser.updated_at) : now,
+    subscription_tier: typeof metadata.subscription_tier === 'string'
+      ? metadata.subscription_tier as IUser['subscription_tier']
+      : 'free',
+  };
+}
+
 export async function POST(request: NextRequest) {
   try {
-    // Parse and validate request body
     const parsed = loginSchema.safeParse(await request.json());
     if (!parsed.success) {
       return NextResponse.json(
@@ -79,18 +57,24 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    if (!isSupabaseAuthConfigured()) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'AUTH_NOT_CONFIGURED',
+          message: 'Authentication is not configured on the server.',
+        },
+        { status: 503 }
+      );
+    }
+
     const { email, password, rememberMe = false } = parsed.data;
-
-    // Normalize email
     const normalizedEmail = email.toLowerCase().trim();
-
-    // Get client IP and user agent
     const ipAddress = getRequestIp(request);
     const userAgent = getRequestUserAgent(request);
 
-    // Check rate limits
     const rateLimitResult = await checkLoginRateLimit(normalizedEmail, ipAddress);
-
     if (!rateLimitResult.allowed) {
       const errorResponse = createRateLimitErrorResponse(rateLimitResult);
       return NextResponse.json(errorResponse, {
@@ -104,14 +88,13 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const tenantHintId = getTenantId(request.headers);
-    const loginMatch = await findUserForLogin(normalizedEmail, tenantHintId);
+    const supabase = getSupabaseServerAuthClient();
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: normalizedEmail,
+      password,
+    });
 
-    const user = loginMatch?.user;
-    const passwordHash = user?.password_hash;
-
-    if (!user || !passwordHash) {
-      // Don't reveal whether user exists for security
+    if (error || !data.user) {
       return NextResponse.json(
         {
           success: false,
@@ -122,29 +105,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify password
-    const passwordValid = await comparePassword(password, passwordHash);
+    const user = mapSupabaseUserToAppUser(data.user);
 
-    if (!passwordValid) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'INVALID_CREDENTIALS',
-          message: 'Invalid email or password',
-        },
-        { status: 401 }
-      );
-    }
-
-    // Update last login timestamp
-    await loginMatch.db.update(
-      'users',
-      { last_login_at: new Date() },
-      { id: user.id }
-    );
-
-    // SECURITY: Invalidate any existing session to prevent session fixation attacks
-    // Check if there's an existing session cookie and invalidate it before creating a new one
     const cookieHeader = request.headers.get('cookie');
     const authHeader = request.headers.get('authorization');
     const { sessionId: existingSessionId } = extractSessionId(cookieHeader, authHeader);
@@ -153,22 +115,18 @@ export async function POST(request: NextRequest) {
       await deleteSession(existingSessionId);
     }
 
-    // Create new session (always regenerate session ID on login)
-    console.log('[LOGIN] About to create session for user:', user.id, user.email);
     const sessionId = await createSession(user, {
       ipAddress,
       userAgent,
       rememberMe,
     });
-    console.log('[LOGIN] Session created successfully:', sessionId.substring(0, 10) + '...');
 
-    // Create response with session cookie
     const response = NextResponse.json<IAuthResponseSession>(
       {
         success: true,
         user: {
           ...user,
-          password_hash: undefined, // Remove password hash from response
+          password_hash: undefined,
         } as IUser,
         sessionId,
         message: 'Login successful',
@@ -176,40 +134,32 @@ export async function POST(request: NextRequest) {
       { status: 200 }
     );
 
-    // Set session cookie
     const cookieOptions = getCookieOptions(rememberMe);
     response.cookies.set('session', sessionId, cookieOptions);
 
-    // Set rate limit headers
     response.headers.set('X-RateLimit-Limit', rateLimitResult.limit.toString());
     response.headers.set('X-RateLimit-Remaining', rateLimitResult.remaining.toString());
     response.headers.set('X-RateLimit-Reset', Math.floor(rateLimitResult.resetAt.getTime() / 1000).toString());
 
     return response;
-
   } catch (error) {
     console.error('[LOGIN] Error:', error);
-    console.error('[LOGIN] Error stack:', error instanceof Error ? error.stack : 'no stack');
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
       {
         success: false,
         error: 'INTERNAL_ERROR',
         message: process.env.NODE_ENV === 'production'
           ? 'An error occurred during login'
-          : `Login error: ${errorMessage}`,
+          : `Login error: ${error instanceof Error ? error.message : 'Unknown error'}`,
       },
       { status: 500 }
     );
   }
 }
 
-/**
- * Get cookie options based on remember me preference
- */
 function getCookieOptions(rememberMe: boolean) {
   const isSecure = process.env.NODE_ENV === 'production';
-  const maxAge = rememberMe ? 2592000 : 604800; // 30 days or 7 days
+  const maxAge = rememberMe ? 2592000 : 604800;
 
   return {
     httpOnly: true,
