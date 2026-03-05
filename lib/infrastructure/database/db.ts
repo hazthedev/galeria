@@ -13,7 +13,7 @@ import type { ITenant } from '@/lib/types';
 
 const isProduction = process.env.NODE_ENV === 'production';
 const defaultPoolMin = isProduction ? 0 : 2;
-const defaultPoolMax = isProduction ? 3 : 20;
+const defaultPoolMax = isProduction ? 1 : 20;
 
 const configuredPoolMin = parseInt(process.env.DATABASE_POOL_MIN || `${defaultPoolMin}`, 10);
 const configuredPoolMax = parseInt(process.env.DATABASE_POOL_MAX || `${defaultPoolMax}`, 10);
@@ -31,6 +31,32 @@ const poolConfig = {
   query_timeout: 60000,  // 60 second query timeout
   allowExitOnIdle: true,
 };
+
+const RETRYABLE_DB_ERROR_MESSAGES = [
+  'MaxClientsInSessionMode',
+  'too many clients already',
+];
+
+const DB_RETRY_MAX_ATTEMPTS = parseInt(process.env.DB_RETRY_MAX_ATTEMPTS || '3', 10);
+const DB_RETRY_BASE_DELAY_MS = parseInt(process.env.DB_RETRY_BASE_DELAY_MS || '120', 10);
+
+function isRetryableDbConnectionError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+
+  const maybeMessage = 'message' in error ? String(error.message || '') : '';
+  const maybeCode = 'code' in error ? String(error.code || '') : '';
+
+  return (
+    maybeCode === 'XX000' ||
+    RETRYABLE_DB_ERROR_MESSAGES.some((fragment) => maybeMessage.includes(fragment))
+  );
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 // ============================================
 // SQL IDENTIFIER ESCAPING
@@ -123,22 +149,42 @@ export class TenantDatabase {
     params?: unknown[]
   ): Promise<QueryResult<T>> {
     const pool = getPool();
-    const client = await pool.connect();
 
-    try {
-      // Set tenant context for THIS connection
-      await client.query('SELECT set_tenant_id($1)', [this.tenantId]);
+    for (let attempt = 1; attempt <= DB_RETRY_MAX_ATTEMPTS; attempt++) {
+      let client: PoolClient | null = null;
 
-      // Execute the query on the SAME connection
-      const result = await client.query(text, params);
-      return result;
-    } catch (error) {
-      console.error('[DB] Query error:', error);
-      throw error;
-    } finally {
-      // Always release the connection back to the pool
-      client.release();
+      try {
+        client = await pool.connect();
+
+        // Set tenant context for THIS connection
+        await client.query('SELECT set_tenant_id($1)', [this.tenantId]);
+
+        // Execute the query on the SAME connection
+        const result = await client.query(text, params);
+        return result;
+      } catch (error) {
+        const retryable = isRetryableDbConnectionError(error);
+        const isFinalAttempt = attempt >= DB_RETRY_MAX_ATTEMPTS;
+
+        console.error('[DB] Query error:', {
+          attempt,
+          retryable,
+          code: typeof error === 'object' && error && 'code' in error ? error.code : undefined,
+          message: error instanceof Error ? error.message : String(error),
+        });
+
+        if (!retryable || isFinalAttempt) {
+          throw error;
+        }
+
+        await sleep(DB_RETRY_BASE_DELAY_MS * attempt);
+      } finally {
+        // Always release the connection back to the pool
+        client?.release();
+      }
     }
+
+    throw new Error('Database query failed after retries');
   }
 
   /**
