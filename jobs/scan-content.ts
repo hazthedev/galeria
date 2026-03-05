@@ -15,7 +15,7 @@ import 'server-only';
 
 // Define types locally to avoid importing from server-only packages (prevents webpack tracing)
 export interface Job<TData = unknown, TResult = unknown> {
-  id: string;
+  id?: string;
   name: string;
   data: TData;
   progress?: number | object;
@@ -314,7 +314,7 @@ export async function clearQueue(): Promise<void> {
 /**
  * Process a single scan job
  */
-async function processScanJob(job: Job<ScanJobData, ScanJobResult>): Promise<ScanJobResult> {
+async function processScanJob(job: { data: ScanJobData }): Promise<ScanJobResult> {
   const { photoId, eventId, tenantId, imageUrl, priority, isReported } = job.data;
 
   console.log(`[SCAN_WORKER] Processing scan for photo ${photoId} (priority: ${priority || 'normal'})`);
@@ -435,9 +435,8 @@ export async function startScanWorker(): Promise<void> {
   }
 
   // Dynamic imports
-  const { default: Redis } = await import('ioredis') as { default: typeof RedisClient };
   const { getRedisClient } = await import('@/lib/redis');
-  const redis = getRedisClient() as RedisClient;
+  const redis = getRedisClient() as any; // Redis type, but any works for runtime
 
   // Dynamic import of bullmq
   const { Worker, QueueEvents } = await import('bullmq');
