@@ -11,6 +11,7 @@ import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import clsx from 'clsx';
 import { useAuth } from '@/lib/auth';
+import type { IUser } from '@/lib/types';
 
 // ============================================
 // TYPES
@@ -30,12 +31,7 @@ interface LoginFormProps {
 
 interface LoginResponse {
   success: boolean;
-  user?: {
-    id: string;
-    email: string;
-    name: string;
-    role: string;
-  };
+  user?: IUser;
   sessionId?: string;
   message?: string;
   error?: string;
@@ -53,7 +49,7 @@ interface ApiError {
 
 export function LoginForm({ onSuccess, redirectTo = '/organizer', className }: LoginFormProps) {
   const router = useRouter();
-  const { refresh } = useAuth();
+  const { setAuthenticatedUser } = useAuth();
   const [formData, setFormData] = useState<LoginFormData>({
     email: '',
     password: '',
@@ -139,8 +135,9 @@ export function LoginForm({ onSuccess, redirectTo = '/organizer', className }: L
           destination = '/organizer';
         }
 
-        // Ensure auth context sees the new session before route guards run.
-        await refresh();
+        if (successData.user) {
+          setAuthenticatedUser(successData.user, formData.rememberMe);
+        }
 
         console.log('[LOGIN] Redirecting to:', destination);
         router.replace(destination);

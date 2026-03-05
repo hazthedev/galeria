@@ -11,6 +11,7 @@ import { Loader2, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import clsx from 'clsx';
 import { useAuth } from '@/lib/auth';
+import type { IUser } from '@/lib/types';
 
 // ============================================
 // TYPES
@@ -29,12 +30,7 @@ interface AdminLoginFormProps {
 
 interface LoginResponse {
     success: boolean;
-    user?: {
-        id: string;
-        email: string;
-        name: string;
-        role: string;
-    };
+    user?: IUser;
     sessionId?: string;
     message?: string;
     error?: string;
@@ -52,7 +48,7 @@ interface ApiError {
 
 export function AdminLoginForm({ onSuccess, className }: AdminLoginFormProps) {
     const router = useRouter();
-    const { refresh } = useAuth();
+    const { setAuthenticatedUser } = useAuth();
     const [formData, setFormData] = useState<LoginFormData>({
         email: '',
         password: '',
@@ -140,9 +136,9 @@ export function AdminLoginForm({ onSuccess, className }: AdminLoginFormProps) {
                     return;
                 }
 
-                // Refresh auth context to ensure global state is updated BEFORE navigation
-                // This prevents the protected layout from bouncing us back
-                await refresh();
+                if (successData.user) {
+                    setAuthenticatedUser(successData.user, formData.rememberMe);
+                }
 
                 // Call onSuccess callback if provided
                 onSuccess?.();

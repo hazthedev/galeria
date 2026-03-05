@@ -14,6 +14,10 @@ import type { IUser, ITenant } from '../../../../lib/types';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 /**
  * GET /api/auth/me
  * Get current authenticated user information
@@ -48,8 +52,13 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Validate session
-    const result = await validateSession(sessionId);
+    // Validate session. Retry briefly to handle edge propagation timing
+    // right after login on distributed/serverless infrastructure.
+    let result = await validateSession(sessionId);
+    if (!result.valid && result.error === 'Session not found or expired') {
+      await delay(120);
+      result = await validateSession(sessionId);
+    }
     console.log('[ME] Session valid:', result.valid, 'Error:', result.error);
 
     if (!result.valid || !result.user) {

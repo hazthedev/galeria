@@ -29,6 +29,7 @@ interface AuthContextValue {
   error: string | null;
   refresh: () => Promise<void>;
   logout: () => Promise<void>;
+  setAuthenticatedUser: (user: IUser, rememberMe?: boolean) => void;
 }
 
 interface AuthProviderProps {
@@ -116,6 +117,23 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, []);
 
+  const setAuthenticatedUser = useCallback((nextUser: IUser, rememberMe: boolean = false) => {
+    setError(null);
+    setUser(nextUser);
+    setSession({
+      userId: nextUser.id,
+      tenantId: nextUser.tenant_id,
+      role: nextUser.role,
+      email: nextUser.email,
+      name: nextUser.name,
+      createdAt: Date.now(),
+      lastActivity: Date.now(),
+      expiresAt: Date.now() + (rememberMe ? 2592000000 : 604800000),
+      rememberMe,
+    });
+    setIsLoading(false);
+  }, []);
+
   // Logout function
   const logout = useCallback(async () => {
     try {
@@ -149,6 +167,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     error,
     refresh,
     logout,
+    setAuthenticatedUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -500,11 +500,25 @@ export function extractSessionId(
   // Try cookie first
   if (cookieHeader) {
     const cookies = cookieHeader.split(';').map(c => c.trim());
-    const sessionCookie = cookies.find(c => c.startsWith('session='));
+    const sessionCookies = cookies.filter(c => c.startsWith('session='));
+
+    // If duplicate session cookies exist, prefer the last one (usually the most recent).
+    const sessionCookie = sessionCookies.length > 0 ? sessionCookies[sessionCookies.length - 1] : null;
 
     if (sessionCookie) {
+      let sessionId = sessionCookie.substring('session='.length);
+      // Handle quoted/encoded cookie values defensively.
+      if (sessionId.startsWith('"') && sessionId.endsWith('"')) {
+        sessionId = sessionId.slice(1, -1);
+      }
+      try {
+        sessionId = decodeURIComponent(sessionId);
+      } catch {
+        // Ignore decode failures and use raw value.
+      }
+
       return {
-        sessionId: sessionCookie.substring('session='.length),
+        sessionId,
         source: 'cookie',
       };
     }
