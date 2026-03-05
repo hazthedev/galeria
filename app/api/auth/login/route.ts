@@ -13,7 +13,7 @@ import { getRequestIp, getRequestUserAgent } from '../../../../middleware/auth';
 import type { IAuthResponseSession } from '../../../../lib/types';
 import { loginSchema } from '../../../../lib/validation/auth';
 import { getTenantId } from '@/lib/tenant';
-import type { IUser, ITenant } from '../../../../lib/types';
+import type { IUser } from '../../../../lib/types';
 import { DEFAULT_TENANT_ID, SYSTEM_TENANT_ID } from '@/lib/constants/tenants';
 
 // Configure route to use Node.js runtime
@@ -25,18 +25,11 @@ type LoginUserMatch = {
   user: IUser;
 };
 
-type LoginLookupResult = {
-  match: LoginUserMatch | null;
-  tenantDiscoveryFailed: boolean;
-};
-
 async function findUserForLogin(
   normalizedEmail: string,
   hintedTenantId: string | null
-): Promise<LoginLookupResult> {
-  const systemDb = getTenantDb(SYSTEM_TENANT_ID);
+): Promise<LoginUserMatch | null> {
   const tenantIds: string[] = [];
-  let tenantDiscoveryFailed = false;
 
   if (hintedTenantId) {
     tenantIds.push(hintedTenantId);
@@ -45,14 +38,6 @@ async function findUserForLogin(
   // Keep backward compatibility for existing data that may still live in system tenant.
   tenantIds.push(DEFAULT_TENANT_ID);
   tenantIds.push(SYSTEM_TENANT_ID);
-
-  try {
-    const activeTenants = await systemDb.findMany<ITenant>('tenants', { status: 'active' });
-    tenantIds.push(...activeTenants.map((tenant) => tenant.id));
-  } catch (error) {
-    tenantDiscoveryFailed = true;
-    console.error('[LOGIN] Failed to load active tenants:', error);
-  }
 
   const checked = new Set<string>();
   for (const tenantId of tenantIds) {
@@ -65,14 +50,14 @@ async function findUserForLogin(
       const tenantDb = getTenantDb(tenantId);
       const user = await tenantDb.findOne<IUser>('users', { email: normalizedEmail });
       if (user) {
-        return { match: { db: tenantDb, user }, tenantDiscoveryFailed };
+        return { db: tenantDb, user };
       }
     } catch (error) {
       console.error(`[LOGIN] Tenant lookup failed for ${tenantId}:`, error);
     }
   }
 
-  return { match: null, tenantDiscoveryFailed };
+  return null;
 }
 
 /**
@@ -120,23 +105,12 @@ export async function POST(request: NextRequest) {
     }
 
     const tenantHintId = getTenantId(request.headers);
-    const { match: loginMatch, tenantDiscoveryFailed } = await findUserForLogin(normalizedEmail, tenantHintId);
+    const loginMatch = await findUserForLogin(normalizedEmail, tenantHintId);
 
     const user = loginMatch?.user;
     const passwordHash = user?.password_hash;
 
     if (!user || !passwordHash) {
-      if (tenantDiscoveryFailed) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: 'LOGIN_TEMPORARILY_UNAVAILABLE',
-            message: 'Login is temporarily unavailable. Please try again shortly.',
-          },
-          { status: 503 }
-        );
-      }
-
       // Don't reveal whether user exists for security
       return NextResponse.json(
         {
