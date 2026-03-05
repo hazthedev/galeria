@@ -14,7 +14,7 @@ import type { IAuthResponseSession } from '../../../../lib/types';
 import { loginSchema } from '../../../../lib/validation/auth';
 import { getTenantId } from '@/lib/tenant';
 import type { IUser, ITenant } from '../../../../lib/types';
-import { SYSTEM_TENANT_ID } from '@/lib/constants/tenants';
+import { DEFAULT_TENANT_ID, SYSTEM_TENANT_ID } from '@/lib/constants/tenants';
 
 // Configure route to use Node.js runtime
 export const runtime = 'nodejs';
@@ -43,6 +43,7 @@ async function findUserForLogin(
   }
 
   // Keep backward compatibility for existing data that may still live in system tenant.
+  tenantIds.push(DEFAULT_TENANT_ID);
   tenantIds.push(SYSTEM_TENANT_ID);
 
   try {
