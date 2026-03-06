@@ -20,6 +20,9 @@ interface EventStatsData {
   luckyDrawStatus: 'active' | 'not_set';
   luckyDrawEntryCount: number;
   tierMaxPhotosPerEvent: number;
+  configuredMaxPhotosPerEvent: number;
+  effectiveMaxPhotosPerEvent: number;
+  remainingPhotosInEvent: number;
   tierDisplayName: string;
   topLikedPhotos: {
     id: string;
@@ -161,6 +164,18 @@ export function EventStats({ eventId, refreshInterval = 30000, className }: Even
     stats.tierMaxPhotosPerEvent < 0
       ? 'Unlimited'
       : stats.tierMaxPhotosPerEvent.toLocaleString();
+  const configuredLimitLabel =
+    stats.configuredMaxPhotosPerEvent < 0
+      ? 'Unlimited'
+      : stats.configuredMaxPhotosPerEvent.toLocaleString();
+  const effectiveLimitLabel =
+    stats.effectiveMaxPhotosPerEvent < 0
+      ? 'Unlimited'
+      : stats.effectiveMaxPhotosPerEvent.toLocaleString();
+  const remainingEventLabel =
+    stats.remainingPhotosInEvent < 0
+      ? 'Unlimited'
+      : stats.remainingPhotosInEvent.toLocaleString();
 
   return (
     <div className={clsx('space-y-6', className)}>
@@ -225,10 +240,16 @@ export function EventStats({ eventId, refreshInterval = 30000, className }: Even
             <ImageIcon className="h-8 w-8 text-blue-600" />
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Photo Limit ({stats.tierDisplayName})
+                Event Photo Remaining
               </p>
               <p className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
-                {tierLimitLabel}
+                {remainingEventLabel}
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-500">
+                {stats.totalPhotos.toLocaleString()} used of {effectiveLimitLabel}
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-500">
+                Configured: {configuredLimitLabel} · Tier: {tierLimitLabel}
               </p>
             </div>
           </div>

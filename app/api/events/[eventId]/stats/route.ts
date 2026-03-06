@@ -23,6 +23,9 @@ interface EventStats {
   luckyDrawStatus: 'active' | 'not_set';
   luckyDrawEntryCount: number;
   tierMaxPhotosPerEvent: number;
+  configuredMaxPhotosPerEvent: number;
+  effectiveMaxPhotosPerEvent: number;
+  remainingPhotosInEvent: number;
   tierDisplayName: string;
   topLikedPhotos: {
     id: string;
@@ -33,7 +36,12 @@ interface EventStats {
   }[];
 }
 
-function buildEmptyStats(tierMaxPhotosPerEvent = 0, tierDisplayName = 'Free'): EventStats {
+function buildEmptyStats(
+  tierMaxPhotosPerEvent = 0,
+  tierDisplayName = 'Free',
+  configuredMaxPhotosPerEvent = 0,
+  effectiveMaxPhotosPerEvent = 0
+): EventStats {
   return {
     totalPhotos: 0,
     totalParticipants: 0,
@@ -46,6 +54,9 @@ function buildEmptyStats(tierMaxPhotosPerEvent = 0, tierDisplayName = 'Free'): E
     luckyDrawStatus: 'not_set',
     luckyDrawEntryCount: 0,
     tierMaxPhotosPerEvent,
+    configuredMaxPhotosPerEvent,
+    effectiveMaxPhotosPerEvent,
+    remainingPhotosInEvent: effectiveMaxPhotosPerEvent < 0 ? -1 : effectiveMaxPhotosPerEvent,
     tierDisplayName,
     topLikedPhotos: [],
   };
@@ -65,6 +76,7 @@ interface CombinedStatsRow {
 interface EventAccessRow {
   organizer_id: string;
   subscription_tier: SubscriptionTier | null;
+  settings: unknown;
 }
 
 interface LuckyDrawRow {
@@ -139,6 +151,45 @@ function getTimelineDate(value: string | Date): string {
   return new Date(value).toISOString().split('T')[0];
 }
 
+function normalizeConfiguredEventPhotoLimit(settings: unknown): number {
+  if (!settings || typeof settings !== 'object') {
+    return 50;
+  }
+  const limitsRaw = (settings as Record<string, unknown>).limits;
+  if (!limitsRaw || typeof limitsRaw !== 'object') {
+    return 50;
+  }
+  const value = (limitsRaw as Record<string, unknown>).max_total_photos;
+  const parsed = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(parsed)) {
+    return 50;
+  }
+  if (parsed === -1) {
+    return -1;
+  }
+  if (parsed <= 0) {
+    return 50;
+  }
+  return parsed;
+}
+
+function getEffectiveEventPhotoLimit(tierLimit: number, configuredLimit: number): number {
+  if (tierLimit === -1) {
+    return configuredLimit;
+  }
+  if (configuredLimit === -1) {
+    return tierLimit;
+  }
+  return Math.min(tierLimit, configuredLimit);
+}
+
+function getRemaining(limit: number, used: number): number {
+  if (limit === -1) {
+    return -1;
+  }
+  return Math.max(0, limit - used);
+}
+
 // ============================================
 // GET /api/events/:id/stats - Get event statistics
 // ============================================
@@ -168,7 +219,8 @@ export async function GET(
       `
         SELECT
           e.organizer_id,
-          t.subscription_tier
+          t.subscription_tier,
+          e.settings
         FROM events e
         LEFT JOIN tenants t ON t.id = $2
         WHERE e.id = $1
@@ -196,7 +248,17 @@ export async function GET(
 
     const effectiveTier = (access.subscription_tier as SubscriptionTier) || 'free';
     const tierConfig = getTierConfig(effectiveTier);
-    const stats = buildEmptyStats(tierConfig.limits.max_photos_per_event, tierConfig.displayName);
+    const configuredMaxPhotosPerEvent = normalizeConfiguredEventPhotoLimit(access.settings);
+    const effectiveMaxPhotosPerEvent = getEffectiveEventPhotoLimit(
+      tierConfig.limits.max_photos_per_event,
+      configuredMaxPhotosPerEvent
+    );
+    const stats = buildEmptyStats(
+      tierConfig.limits.max_photos_per_event,
+      tierConfig.displayName,
+      configuredMaxPhotosPerEvent,
+      effectiveMaxPhotosPerEvent
+    );
     const warnings: string[] = [];
 
     const combinedResult = await db.query<CombinedStatsRow>(
@@ -283,6 +345,7 @@ export async function GET(
     const combined = combinedResult.rows[0];
 
     stats.totalPhotos = toNumber(combined?.total_photos);
+    stats.remainingPhotosInEvent = getRemaining(stats.effectiveMaxPhotosPerEvent, stats.totalPhotos);
     stats.totalParticipants = toNumber(combined?.total_participants);
     stats.photosToday = toNumber(combined?.photos_today);
     stats.totalReactions = toNumber(combined?.total_reactions);
