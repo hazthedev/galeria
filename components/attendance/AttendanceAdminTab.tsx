@@ -270,9 +270,9 @@ export function AttendanceAdminTab({ eventId, initialTab, attendanceEnabled = tr
 
   if (!attendanceEnabled || featureDisabled) {
     return (
-      <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-amber-100">
-        <h3 className="text-base font-semibold">Attendance is disabled</h3>
-        <p className="mt-2 text-sm">
+      <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-5 py-6 text-amber-900 dark:text-amber-100">
+        <h3 className="text-lg font-semibold">Attendance is disabled</h3>
+        <p className="mt-2 text-sm text-amber-700 dark:text-amber-200">
           Enable Attendance in Event Settings to use check-ins, guest lists, and attendance export.
         </p>
       </div>

@@ -249,7 +249,7 @@ export function useGuestEventPageController(eventId: string) {
 
   // Check if user has already checked in
   useEffect(() => {
-    if (!resolvedEventId || !fingerprint || !attendanceEnabled) return;
+    if (!resolvedEventId || !fingerprint || !event || !attendanceEnabled) return;
 
     const checkAttendanceStatus = async () => {
       try {
@@ -274,7 +274,7 @@ export function useGuestEventPageController(eventId: string) {
       }
     };
     checkAttendanceStatus();
-  }, [resolvedEventId, fingerprint, attendanceEnabled]);
+  }, [resolvedEventId, fingerprint, event, attendanceEnabled]);
 
   useEffect(() => {
     if (hasActiveLuckyDrawConfig === false && joinLuckyDraw) {
