@@ -845,22 +845,40 @@ export function useGuestEventPageController(eventId: string) {
     setHasMoreApproved(approvedPhotos.length < approvedTotal);
   }, [approvedPhotos.length, approvedTotal]);
 
+  const hasModerationTrackedPhotos = pendingPhotos.length > 0 || rejectedPhotos.length > 0;
+
   useEffect(() => {
-    if (!resolvedEventId || !fingerprint || !moderationRequired) return;
+    if (!resolvedEventId || !fingerprint || !moderationRequired || !hasModerationTrackedPhotos) return;
 
     let isCancelled = false;
     const pollStatuses = async () => {
       if (isCancelled) return;
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
       await reconcileModerationStatuses();
     };
 
     void pollStatuses();
-    const interval = setInterval(pollStatuses, 15000);
+    const interval = setInterval(() => {
+      void pollStatuses();
+    }, 15000);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void pollStatuses();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => {
       isCancelled = true;
       clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [resolvedEventId, fingerprint, moderationRequired, reconcileModerationStatuses]);
+  }, [
+    resolvedEventId,
+    fingerprint,
+    moderationRequired,
+    hasModerationTrackedPhotos,
+    reconcileModerationStatuses,
+  ]);
 
   // Share functionality (always use short link)
   const shareUrl = useMemo(() => {

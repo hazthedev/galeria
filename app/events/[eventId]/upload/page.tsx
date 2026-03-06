@@ -12,6 +12,7 @@ import { validateImageFile, formatFileSize, cn } from '@/lib/utils';
 import type { IEvent, IPhoto } from '@/lib/types';
 import { getClientFingerprint } from '@/lib/rate-limit';
 import { usePhotoGallery } from '@/lib/realtime/client';
+import { useAuth } from '@/lib/auth';
 
 interface PhotoPreview {
   file: File;
@@ -24,6 +25,7 @@ export default function PhotoUploadPage() {
   const params = useParams();
   const router = useRouter();
   const eventId = params.eventId as string;
+  const { user } = useAuth();
 
   const [event, setEvent] = useState<IEvent | null>(null);
   const [isLoadingEvent, setIsLoadingEvent] = useState(true);
@@ -36,33 +38,10 @@ export default function PhotoUploadPage() {
   const [contributorName, setContributorName] = useState('');
   const [isAnonymous, setIsAnonymous] = useState(false);
   const { broadcastNewPhoto } = usePhotoGallery(eventId);
-  const [eventHref, setEventHref] = useState(`/e/${eventId}`);
-
-  useEffect(() => {
-    setEventHref(`/e/${eventId}`);
-  }, [eventId]);
-
-  useEffect(() => {
-    let isMounted = true;
-    const resolveEventHref = async () => {
-      try {
-        const response = await fetch('/api/auth/me', { credentials: 'include' });
-        if (!response.ok) return;
-        const data = await response.json() as { user?: { role?: string } | null };
-        if (!isMounted) return;
-        const role = data.user?.role;
-        if (role === 'organizer' || role === 'admin' || role === 'super_admin') {
-          setEventHref(`/organizer/events/${eventId}`);
-        }
-      } catch {
-        // Default to guest view
-      }
-    };
-    resolveEventHref();
-    return () => {
-      isMounted = false;
-    };
-  }, [eventId]);
+  const eventHref =
+    user?.role === 'organizer' || user?.role === 'super_admin'
+      ? `/organizer/events/${eventId}`
+      : `/e/${eventId}`;
 
   // Fetch event info
   useEffect(() => {

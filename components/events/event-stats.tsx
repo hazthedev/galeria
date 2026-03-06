@@ -107,8 +107,25 @@ export function EventStats({ eventId, refreshInterval = 30000, className }: Even
     fetchStats();
 
     if (refreshInterval > 0) {
-      const interval = setInterval(fetchStats, refreshInterval);
-      return () => clearInterval(interval);
+      const poll = () => {
+        if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
+          return;
+        }
+        void fetchStats();
+      };
+
+      const interval = setInterval(poll, refreshInterval);
+      const handleVisibilityChange = () => {
+        if (document.visibilityState === 'visible') {
+          void fetchStats();
+        }
+      };
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+
+      return () => {
+        clearInterval(interval);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      };
     }
   }, [eventId, refreshInterval]);
 

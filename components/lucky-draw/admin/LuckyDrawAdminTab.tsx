@@ -19,6 +19,7 @@ import {
 import clsx from 'clsx';
 import { toast } from 'sonner';
 import type { LuckyDrawConfig, LuckyDrawEntry, Winner } from '@/lib/types';
+import { useAuth } from '@/lib/auth';
 import { WinnerModal } from './WinnerModal';
 import { ConfigTab } from './tabs/ConfigTab';
 import { DrawTab } from './tabs/DrawTab';
@@ -92,9 +93,8 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
   // Pagination state for entries
   const [entriesPage, setEntriesPage] = useState(0);
   const entriesPageSize = 20;
-
-  // Fetch user info
-  const [userRole, setUserRole] = useState<string | null>(null);
+  const { user } = useAuth();
+  const userRole = user?.role || null;
 
   // Fetch all data on mount
   useEffect(() => {
@@ -117,16 +117,37 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
     setIsEditingConfig(true);
   }, [config]);
 
-  // Poll for updates every 30s
+  // Poll for updates every 30s when the tab is visible
   useEffect(() => {
-    const interval = setInterval(() => {
-      // Only poll if tab is active (user is viewing)
+    const poll = () => {
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
+        return;
+      }
+      if (activeSubTab === 'config') {
+        return;
+      }
+
       fetchEntries();
       fetchDraws();
-    }, 30000);
 
-    return () => clearInterval(interval);
-  }, [eventId]);
+      if (activeSubTab === 'participants') {
+        fetchParticipants();
+      }
+    };
+
+    const interval = setInterval(poll, 30000);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        poll();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [activeSubTab, eventId, entriesPage]);
 
   // Clear success messages after 3 seconds
   useEffect(() => {
@@ -146,24 +167,6 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
   // ============================================
   // DATA FETCHING FUNCTIONS
   // ============================================
-
-  const fetchUserinfo = async () => {
-    try {
-      const response = await fetch('/api/auth/me', {
-        credentials: 'include',
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setUserRole(data.user?.role || null);
-      } else {
-        setUserRole(null);
-      }
-    } catch (err) {
-      console.error('[LUCKY_DRAW_ADMIN] Failed to fetch user info:', err);
-      setUserRole(null);
-    }
-  };
 
   const fetchConfig = async () => {
     try {
@@ -290,7 +293,6 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
     setIsLoading(true);
     setError(null);
     await Promise.all([
-      fetchUserinfo(),
       fetchConfig(),
       fetchEntries(),
       fetchDraws(),
