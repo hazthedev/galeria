@@ -26,6 +26,18 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* Let numeric inputs behave like plain typed fields without browser steppers */
+input[type='number'] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 /* Heart burst animation for photo reactions */
 @keyframes heartBurst {
   0% {
