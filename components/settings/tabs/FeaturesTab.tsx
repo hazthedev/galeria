@@ -1,4 +1,4 @@
-import type { Dispatch, SetStateAction } from 'react';
+import type { ComponentType, Dispatch, SetStateAction } from 'react';
 import clsx from 'clsx';
 import { Check, Download, Eye, Hash, Loader2, Sparkles, Target, Users } from 'lucide-react';
 
@@ -19,6 +19,62 @@ interface FeaturesTabProps {
   hasChanges: boolean;
   onSave: () => void;
   onDirty: () => void;
+}
+
+interface FeatureToggleCardProps {
+  title: string;
+  description: string;
+  enabled: boolean;
+  onToggle: (nextValue: boolean) => void;
+  icon: ComponentType<{ className?: string }>;
+}
+
+function FeatureToggleCard({
+  title,
+  description,
+  enabled,
+  onToggle,
+  icon: Icon,
+}: FeatureToggleCardProps) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={enabled}
+      onClick={() => onToggle(!enabled)}
+      className={clsx(
+        'w-full rounded-lg border bg-white p-4 text-left transition-colors',
+        'dark:bg-gray-800',
+        enabled
+          ? 'border-violet-400 dark:border-violet-500'
+          : 'border-gray-200 hover:border-violet-300 dark:border-gray-600 dark:hover:border-violet-500'
+      )}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <Icon className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+          <div>
+            <p className="font-medium text-gray-900 dark:text-gray-100">{title}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">{description}</p>
+          </div>
+        </div>
+        <span
+          className={clsx(
+            'relative h-6 w-11 rounded-full transition-colors',
+            enabled ? 'bg-violet-600' : 'bg-gray-300 dark:bg-gray-600'
+          )}
+          aria-hidden="true"
+        >
+          <span
+            className={clsx(
+              'absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-all',
+              enabled ? 'left-[22px]' : 'left-0.5'
+            )}
+          />
+        </span>
+      </div>
+    </button>
+  );
 }
 
 export function FeaturesTab({
@@ -58,125 +114,66 @@ export function FeaturesTab({
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <label className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-4 cursor-pointer hover:border-violet-300 dark:border-gray-600 dark:bg-gray-800 dark:hover:border-violet-500 transition-colors">
-          <div className="flex items-center gap-3">
-            <Sparkles className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-            <div>
-              <p className="font-medium text-gray-900 dark:text-gray-100">
-                Lucky Draw
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Allow guests to enter photos into draws
-              </p>
-            </div>
-          </div>
-          <input
-            type="checkbox"
-            checked={luckyDrawEnabled}
-            onChange={(event) => { setLuckyDrawEnabled(event.target.checked); onDirty(); }}
-            className="h-5 w-5 rounded text-violet-600 focus:ring-violet-500"
-          />
-        </label>
-
-        <label className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-4 cursor-pointer hover:border-violet-300 dark:border-gray-600 dark:bg-gray-800 dark:hover:border-violet-500 transition-colors">
-          <div className="flex items-center gap-3">
-            <Users className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-            <div>
-              <p className="font-medium text-gray-900 dark:text-gray-100">
-                Attendance Check-in
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Allow guests to check in to the event
-              </p>
-            </div>
-          </div>
-          <input
-            type="checkbox"
-            checked={attendanceEnabled}
-            onChange={(event) => { setAttendanceEnabled(event.target.checked); onDirty(); }}
-            className="h-5 w-5 rounded text-violet-600 focus:ring-violet-500"
-          />
-        </label>
-
-        <label className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-4 cursor-pointer hover:border-violet-300 dark:border-gray-600 dark:bg-gray-800 dark:hover:border-violet-500 transition-colors">
-          <div className="flex items-center gap-3">
-            <Target className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-            <div>
-              <p className="font-medium text-gray-900 dark:text-gray-100">
-                Photo Challenge
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Motivate guests with photo goals
-              </p>
-            </div>
-          </div>
-          <input
-            type="checkbox"
-            checked={photoChallengeEnabled}
-            onChange={(event) => { setPhotoChallengeEnabled(event.target.checked); onDirty(); }}
-            className="h-5 w-5 rounded text-violet-600 focus:ring-violet-500"
-          />
-        </label>
-
-        <label className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-4 cursor-pointer hover:border-violet-300 dark:border-gray-600 dark:bg-gray-800 dark:hover:border-violet-500 transition-colors">
-          <div className="flex items-center gap-3">
-            <Download className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-            <div>
-              <p className="font-medium text-gray-900 dark:text-gray-100">
-                Photo Downloads
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Guests can download photos
-              </p>
-            </div>
-          </div>
-          <input
-            type="checkbox"
-            checked={guestDownloadEnabled}
-            onChange={(event) => { setGuestDownloadEnabled(event.target.checked); onDirty(); }}
-            className="h-5 w-5 rounded text-violet-600 focus:ring-violet-500"
-          />
-        </label>
-
-        <label className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-4 cursor-pointer hover:border-violet-300 dark:border-gray-600 dark:bg-gray-800 dark:hover:border-violet-500 transition-colors">
-          <div className="flex items-center gap-3">
-            <Eye className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-            <div>
-              <p className="font-medium text-gray-900 dark:text-gray-100">
-                Photo Moderation
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Require approval before showing photos
-              </p>
-            </div>
-          </div>
-          <input
-            type="checkbox"
-            checked={moderationRequired}
-            onChange={(event) => { setModerationRequired(event.target.checked); onDirty(); }}
-            className="h-5 w-5 rounded text-violet-600 focus:ring-violet-500"
-          />
-        </label>
-
-        <label className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-4 cursor-pointer hover:border-violet-300 dark:border-gray-600 dark:bg-gray-800 dark:hover:border-violet-500 transition-colors">
-          <div className="flex items-center gap-3">
-            <Hash className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-            <div>
-              <p className="font-medium text-gray-900 dark:text-gray-100">
-                Anonymous Uploads
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Allow guests to upload without name
-              </p>
-            </div>
-          </div>
-          <input
-            type="checkbox"
-            checked={anonymousAllowed}
-            onChange={(event) => { setAnonymousAllowed(event.target.checked); onDirty(); }}
-            className="h-5 w-5 rounded text-violet-600 focus:ring-violet-500"
-          />
-        </label>
+        <FeatureToggleCard
+          title="Lucky Draw"
+          description="Allow guests to enter photos into draws"
+          enabled={luckyDrawEnabled}
+          onToggle={(nextValue) => {
+            setLuckyDrawEnabled(nextValue);
+            onDirty();
+          }}
+          icon={Sparkles}
+        />
+        <FeatureToggleCard
+          title="Attendance Check-in"
+          description="Allow guests to check in to the event"
+          enabled={attendanceEnabled}
+          onToggle={(nextValue) => {
+            setAttendanceEnabled(nextValue);
+            onDirty();
+          }}
+          icon={Users}
+        />
+        <FeatureToggleCard
+          title="Photo Challenge"
+          description="Motivate guests with photo goals"
+          enabled={photoChallengeEnabled}
+          onToggle={(nextValue) => {
+            setPhotoChallengeEnabled(nextValue);
+            onDirty();
+          }}
+          icon={Target}
+        />
+        <FeatureToggleCard
+          title="Photo Downloads"
+          description="Guests can download photos"
+          enabled={guestDownloadEnabled}
+          onToggle={(nextValue) => {
+            setGuestDownloadEnabled(nextValue);
+            onDirty();
+          }}
+          icon={Download}
+        />
+        <FeatureToggleCard
+          title="Photo Moderation"
+          description="Require approval before showing photos"
+          enabled={moderationRequired}
+          onToggle={(nextValue) => {
+            setModerationRequired(nextValue);
+            onDirty();
+          }}
+          icon={Eye}
+        />
+        <FeatureToggleCard
+          title="Anonymous Uploads"
+          description="Allow guests to upload without name"
+          enabled={anonymousAllowed}
+          onToggle={(nextValue) => {
+            setAnonymousAllowed(nextValue);
+            onDirty();
+          }}
+          icon={Hash}
+        />
       </div>
 
       <div className="flex justify-end">

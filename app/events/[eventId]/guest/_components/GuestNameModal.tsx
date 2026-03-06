@@ -23,6 +23,7 @@ interface GuestNameModalProps {
   inputBackground: string;
   inputBorder: string;
   allowAnonymous?: boolean;
+  luckyDrawEnabled?: boolean;
 }
 
 export function GuestNameModal({
@@ -41,6 +42,7 @@ export function GuestNameModal({
   inputBackground,
   inputBorder,
   allowAnonymous = true,
+  luckyDrawEnabled = true,
 }: GuestNameModalProps) {
   const [name, setName] = useState('');
   const [isAnonymous, setIsAnonymous] = useState(false);
@@ -158,10 +160,10 @@ export function GuestNameModal({
               </div>
             )}
 
-            {isAnonymous && (
+            {isAnonymous && luckyDrawEnabled && (
               <div className="rounded-lg p-3" style={{ backgroundColor: hexToRgba('#F59E0B', 0.15) }}>
                 <p className="text-xs" style={{ color: '#F59E0B' }}>
-                  ?????? Anonymous users cannot participate in the lucky draw
+                  Anonymous users cannot participate in the lucky draw
                 </p>
               </div>
             )}

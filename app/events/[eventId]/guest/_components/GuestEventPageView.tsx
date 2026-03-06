@@ -127,6 +127,7 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
         inputBackground={inputBackground}
         inputBorder={inputBorder}
         allowAnonymous={allowAnonymous}
+        luckyDrawEnabled={luckyDrawEnabled}
       />
 
       {/* Lucky Draw Overlays */}
@@ -884,10 +885,10 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
                   />
                 )}
 
-                {allowAnonymous && isAnonymous && (
+                {allowAnonymous && isAnonymous && luckyDrawEnabled && (
                   <div className="rounded-lg bg-amber-50 p-3 dark:bg-amber-900/20">
                     <p className="text-xs text-amber-800 dark:text-amber-300">
-                      ⚠️ Anonymous users cannot participate in the lucky draw
+                      Anonymous users cannot participate in the lucky draw
                     </p>
                   </div>
                 )}
@@ -1041,3 +1042,4 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
     </div>
   );
 }
+
