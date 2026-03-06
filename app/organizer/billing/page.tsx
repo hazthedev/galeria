@@ -10,7 +10,7 @@ import { CheckCircle, Crown, ShieldCheck } from 'lucide-react';
 import clsx from 'clsx';
 import { useAuth } from '@/lib/auth';
 import { TIER_CONFIGS } from '@/lib/domain/tenant/tier-config';
-import type { SubscriptionTier } from '@/lib/types';
+import type { ITenantFeatures, ITenantLimits, SubscriptionTier } from '@/lib/types';
 
 const ORDERED_TIERS: SubscriptionTier[] = ['free', 'pro', 'premium', 'enterprise', 'tester'];
 
@@ -29,11 +29,15 @@ export default function OrganizerBillingPage() {
     totalEvents: number;
     totalPhotos: number;
   } | null>(null);
+  const [effectiveLimits, setEffectiveLimits] = useState<ITenantLimits | null>(null);
+  const [effectiveFeatures, setEffectiveFeatures] = useState<ITenantFeatures | null>(null);
   const [usageLoading, setUsageLoading] = useState(true);
 
   const visibleTiers = useMemo(() => {
     return ORDERED_TIERS.filter((tier) => tier !== 'tester' || currentTier === 'tester');
   }, [currentTier]);
+  const currentLimits = effectiveLimits || TIER_CONFIGS[currentTier].limits;
+  const currentFeatures = effectiveFeatures || TIER_CONFIGS[currentTier].features;
 
   useEffect(() => {
     const fetchUsage = async () => {
@@ -44,13 +48,19 @@ export default function OrganizerBillingPage() {
         if (response.ok) {
           setUsageTier((data.data?.tier || null) as SubscriptionTier | null);
           setUsage(data.data?.usage || null);
+          setEffectiveLimits((data.data?.limits || null) as ITenantLimits | null);
+          setEffectiveFeatures((data.data?.features || null) as ITenantFeatures | null);
         } else {
           setUsageTier(null);
           setUsage(null);
+          setEffectiveLimits(null);
+          setEffectiveFeatures(null);
         }
       } catch {
         setUsageTier(null);
         setUsage(null);
+        setEffectiveLimits(null);
+        setEffectiveFeatures(null);
       } finally {
         setUsageLoading(false);
       }
@@ -88,7 +98,7 @@ export default function OrganizerBillingPage() {
             {usageLoading ? '...' : usage?.eventsThisMonth ?? 0}
             <span className="text-sm font-medium text-gray-500">
               {' '}
-              / {formatLimit(TIER_CONFIGS[currentTier].limits.max_events_per_month)}
+              / {formatLimit(currentLimits.max_events_per_month)}
             </span>
           </p>
           <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
@@ -101,16 +111,16 @@ export default function OrganizerBillingPage() {
             {usageLoading ? '...' : usage?.totalPhotos ?? 0}
           </p>
           <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            Limit per event: {formatLimit(TIER_CONFIGS[currentTier].limits.max_photos_per_event)}
+            Limit per event: {formatLimit(currentLimits.max_photos_per_event)}
           </p>
         </div>
         <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
           <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Draw entries per event</p>
           <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">
-            {formatLimit(TIER_CONFIGS[currentTier].limits.max_draw_entries_per_event)}
+            {formatLimit(currentLimits.max_draw_entries_per_event)}
           </p>
           <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            {TIER_CONFIGS[currentTier].features.lucky_draw ? 'Lucky draw enabled' : 'Lucky draw disabled'}
+            {currentFeatures.lucky_draw ? 'Lucky draw enabled' : 'Lucky draw disabled'}
           </p>
         </div>
       </div>

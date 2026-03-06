@@ -9,9 +9,57 @@ import { verifyAccessToken } from '@/lib/domain/auth/auth';
 import type { ReactionType } from '@/lib/types';
 import { publishEventBroadcast } from '@/lib/realtime/server';
 import { resolveOptionalAuth, resolveTenantId } from '@/lib/api-request-context';
+import { isTenantFeatureEnabled } from '@/lib/tenant';
 
 // Maximum reactions per user per photo
 const MAX_REACTIONS_PER_USER = 10;
+
+type PhotoReactionContext = {
+  id: string;
+  eventId: string;
+  reactions: Record<ReactionType, number> | null;
+  eventSettings: {
+    features?: {
+      reactions_enabled?: boolean;
+    };
+  } | null;
+};
+
+function createReactionFeatureUnavailableResponse(message: string) {
+  return NextResponse.json(
+    { error: message, code: 'FEATURE_NOT_AVAILABLE' },
+    { status: 403 }
+  );
+}
+
+function areReactionsEnabledForEvent(settings: unknown): boolean {
+  if (!settings || typeof settings !== 'object') {
+    return true;
+  }
+
+  const features = (settings as { features?: { reactions_enabled?: boolean } }).features;
+  return features?.reactions_enabled !== false;
+}
+
+async function getPhotoReactionContext(
+  db: ReturnType<typeof getTenantDb>,
+  photoId: string
+): Promise<PhotoReactionContext | null> {
+  const result = await db.query<PhotoReactionContext>(
+    `SELECT
+      p.id,
+      p.event_id AS "eventId",
+      p.reactions,
+      e.settings AS "eventSettings"
+    FROM photos p
+    JOIN events e ON e.id = p.event_id
+    WHERE p.id = $1
+    LIMIT 1`,
+    [photoId]
+  );
+
+  return result.rows[0] || null;
+}
 
 // ============================================
 // GET /api/photos/:id/reactions - Get reaction counts
@@ -27,13 +75,15 @@ export async function GET(
     const auth = await resolveOptionalAuth(headers);
     const tenantId = resolveTenantId(headers, auth);
 
+    if (!(await isTenantFeatureEnabled(tenantId, 'photo_reactions'))) {
+      return createReactionFeatureUnavailableResponse(
+        'Photo reactions are not available on your current plan'
+      );
+    }
+
     const db = getTenantDb(tenantId);
 
-    // Get photo with reactions
-    const photo = await db.findOne<{
-      id: string;
-      reactions: Record<ReactionType, number>;
-    }>('photos', { id: photoId });
+    const photo = await getPhotoReactionContext(db, photoId);
 
     if (!photo) {
       return NextResponse.json(
@@ -41,6 +91,14 @@ export async function GET(
         { status: 404 }
       );
     }
+
+    if (!areReactionsEnabledForEvent(photo.eventSettings)) {
+      return createReactionFeatureUnavailableResponse(
+        'Photo reactions are disabled for this event'
+      );
+    }
+
+    const reactionCounts: Partial<Record<ReactionType, number>> = photo.reactions || {};
 
     // Get user's reaction count for this photo
     const userId = getUserId(headers);
@@ -54,7 +112,7 @@ export async function GET(
 
     return NextResponse.json({
       data: {
-        reactions: photo.reactions,
+        reactions: reactionCounts,
         userReactionCount,
         maxReactions: MAX_REACTIONS_PER_USER,
         remainingReactions: Math.max(0, MAX_REACTIONS_PER_USER - userReactionCount),
@@ -92,14 +150,15 @@ export async function POST(
     const auth = await resolveOptionalAuth(headers);
     const tenantId = resolveTenantId(headers, auth);
 
+    if (!(await isTenantFeatureEnabled(tenantId, 'photo_reactions'))) {
+      return createReactionFeatureUnavailableResponse(
+        'Photo reactions are not available on your current plan'
+      );
+    }
+
     const db = getTenantDb(tenantId);
 
-    // Get photo
-    const photo = await db.findOne<{
-      id: string;
-      event_id: string;
-      reactions: Record<ReactionType, number>;
-    }>('photos', { id: photoId });
+    const photo = await getPhotoReactionContext(db, photoId);
 
     if (!photo) {
       return NextResponse.json(
@@ -107,6 +166,14 @@ export async function POST(
         { status: 404 }
       );
     }
+
+    if (!areReactionsEnabledForEvent(photo.eventSettings)) {
+      return createReactionFeatureUnavailableResponse(
+        'Photo reactions are disabled for this event'
+      );
+    }
+
+    const reactionCounts: Partial<Record<ReactionType, number>> = photo.reactions || {};
 
     // Parse request body
     const body = await request.json();
@@ -140,7 +207,7 @@ export async function POST(
         return NextResponse.json({
           data: {
             type,
-            count: photo.reactions[type] || 0,
+            count: reactionCounts[type] || 0,
             userCount: currentUserCount,
             added: false,
             reason: 'max_reached',
@@ -159,18 +226,18 @@ export async function POST(
       });
 
       // Increment count on photo
-      const newCount = (photo.reactions[type] || 0) + 1;
+      const newCount = (reactionCounts[type] || 0) + 1;
       await db.update(
         'photos',
-        { reactions: { ...photo.reactions, [type]: newCount } },
+        { reactions: { ...reactionCounts, [type]: newCount } },
         { id: photoId }
       );
 
-      await publishEventBroadcast(photo.event_id, 'reaction_added', {
+      await publishEventBroadcast(photo.eventId, 'reaction_added', {
         photo_id: photoId,
         emoji: type,
         count: newCount,
-        event_id: photo.event_id,
+        event_id: photo.eventId,
       });
 
       return NextResponse.json({
@@ -198,18 +265,18 @@ export async function POST(
         });
 
         // Decrement count
-        const newCount = Math.max(0, (photo.reactions[type] || 0) - 1);
+        const newCount = Math.max(0, (reactionCounts[type] || 0) - 1);
         await db.update(
           'photos',
-          { reactions: { ...photo.reactions, [type]: newCount } },
+          { reactions: { ...reactionCounts, [type]: newCount } },
           { id: photoId }
         );
 
-        await publishEventBroadcast(photo.event_id, 'reaction_added', {
+        await publishEventBroadcast(photo.eventId, 'reaction_added', {
           photo_id: photoId,
           emoji: type,
           count: newCount,
-          event_id: photo.event_id,
+          event_id: photo.eventId,
         });
 
         return NextResponse.json({
@@ -233,18 +300,18 @@ export async function POST(
       });
 
       // Increment count
-      const newCount = (photo.reactions[type] || 0) + 1;
+      const newCount = (reactionCounts[type] || 0) + 1;
       await db.update(
         'photos',
-        { reactions: { ...photo.reactions, [type]: newCount } },
+        { reactions: { ...reactionCounts, [type]: newCount } },
         { id: photoId }
       );
 
-      await publishEventBroadcast(photo.event_id, 'reaction_added', {
+      await publishEventBroadcast(photo.eventId, 'reaction_added', {
         photo_id: photoId,
         emoji: type,
         count: newCount,
-        event_id: photo.event_id,
+        event_id: photo.eventId,
       });
 
       return NextResponse.json({

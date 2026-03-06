@@ -5,7 +5,7 @@
 // Used to enforce limits on events, photos, and features.
 
 import { getTenantDb } from '@/lib/db';
-import { getTierConfig, isLimitReached, isFeatureEnabled } from '@/lib/tenant';
+import { getEffectiveTenantEntitlements, isFeatureEnabled } from '@/lib/tenant';
 import type { SubscriptionTier, ITenantFeatures } from '@/lib/types';
 
 // ============================================
@@ -39,8 +39,8 @@ export async function checkEventLimit(
     tenantId: string,
     subscriptionTier: SubscriptionTier
 ): Promise<ILimitCheckResult> {
-    const tierConfig = getTierConfig(subscriptionTier);
-    const limit = tierConfig.limits.max_events_per_month;
+    const entitlements = await getEffectiveTenantEntitlements(tenantId, subscriptionTier);
+    const limit = entitlements.limits.max_events_per_month;
 
     // Unlimited (-1)
     if (limit === -1) {
@@ -94,8 +94,8 @@ export async function checkPhotoLimit(
     tenantId: string,
     subscriptionTier: SubscriptionTier
 ): Promise<ILimitCheckResult> {
-    const tierConfig = getTierConfig(subscriptionTier);
-    const limit = tierConfig.limits.max_photos_per_event;
+    const entitlements = await getEffectiveTenantEntitlements(tenantId, subscriptionTier);
+    const limit = entitlements.limits.max_photos_per_event;
 
     // Unlimited (-1)
     if (limit === -1) {
@@ -180,12 +180,12 @@ export async function getTenantLimitStatus(
     tier: SubscriptionTier;
     tierDisplayName: string;
 }> {
-    const tierConfig = getTierConfig(subscriptionTier);
+    const entitlements = await getEffectiveTenantEntitlements(tenantId, subscriptionTier);
     const eventLimit = await checkEventLimit(tenantId, subscriptionTier);
 
     return {
         events: eventLimit,
-        tier: subscriptionTier,
-        tierDisplayName: tierConfig.displayName,
+        tier: entitlements.tier,
+        tierDisplayName: entitlements.displayName,
     };
 }

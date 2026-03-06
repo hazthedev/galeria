@@ -14,6 +14,7 @@ import type {
   DrawStatus,
   PrizeTier
 } from '@/lib/types';
+import { getEffectiveTenantEntitlements } from '@/lib/domain/tenant/entitlements';
 
 import crypto from 'crypto';
 
@@ -74,6 +75,37 @@ function generateUUID(): string {
   return crypto.randomUUID();
 }
 
+async function getLuckyDrawEntitlementsOrThrow(tenantId: string) {
+  const entitlements = await getEffectiveTenantEntitlements(tenantId);
+  if (!entitlements.features.lucky_draw) {
+    throw new Error('Lucky Draw is not available on your current plan');
+  }
+
+  return entitlements;
+}
+
+async function assertTotalEntryCapacity(
+  db: ReturnType<typeof getTenantDb>,
+  configId: string,
+  maxEntriesPerEvent: number,
+  requestedEntries: number
+): Promise<void> {
+  if (maxEntriesPerEvent === -1) {
+    return;
+  }
+
+  const entryCountResult = await db.query<{ count: bigint }>(`
+    SELECT COUNT(*) as count
+    FROM lucky_draw_entries
+    WHERE config_id = $1
+  `, [configId]);
+  const entryCount = Number(entryCountResult.rows[0]?.count || 0);
+
+  if (entryCount + requestedEntries > maxEntriesPerEvent) {
+    throw new Error(`Draw entry limit reached (${maxEntriesPerEvent})`);
+  }
+}
+
 // ============================================
 // FISHER-YATES SHUFFLE ALGORITHM
 // ============================================
@@ -117,6 +149,7 @@ export async function createLuckyDrawConfig(
   eventId: string,
   config: NewLuckyDrawConfig
 ): Promise<LuckyDrawConfig> {
+  await getLuckyDrawEntitlementsOrThrow(tenantId);
   const db = getTenantDb(tenantId);
 
   const now = new Date();
@@ -241,6 +274,7 @@ export async function createEntryFromPhoto(
   participantName?: string
 ): Promise<LuckyDrawEntry> {
   const db = getTenantDb(tenantId);
+  const entitlements = await getLuckyDrawEntitlementsOrThrow(tenantId);
 
   // Get active config for event
   const config = await getActiveConfig(tenantId, eventId);
@@ -259,6 +293,13 @@ export async function createEntryFromPhoto(
   if (userEntryCount >= (config.maxEntriesPerUser || 1)) {
     throw new Error('Maximum entries per user reached');
   }
+
+  await assertTotalEntryCapacity(
+    db,
+    config.id,
+    entitlements.limits.max_draw_entries_per_event,
+    1
+  );
 
   // Create entry
   const entryResult = await db.query<LuckyDrawEntry>(`
@@ -310,6 +351,7 @@ export async function createManualEntries(
   }
 ): Promise<{ entries: LuckyDrawEntry[]; userFingerprint: string }> {
   const db = getTenantDb(tenantId);
+  const entitlements = await getLuckyDrawEntitlementsOrThrow(tenantId);
 
   const config = await getActiveConfig(tenantId, eventId);
   if (!config) {
@@ -330,6 +372,13 @@ export async function createManualEntries(
   if (existingCount + requestedCount > maxAllowed) {
     throw new Error('Maximum entries per user reached');
   }
+
+  await assertTotalEntryCapacity(
+    db,
+    config.id,
+    entitlements.limits.max_draw_entries_per_event,
+    requestedCount
+  );
 
   const entries: LuckyDrawEntry[] = [];
   for (let i = 0; i < requestedCount; i += 1) {
@@ -448,6 +497,7 @@ export async function executeDraw(
     winnersSelected: number;
   };
 }> {
+  await getLuckyDrawEntitlementsOrThrow(tenantId);
   const db = getTenantDb(tenantId);
 
   // 1. Get configuration
@@ -720,6 +770,7 @@ export async function redrawPrizeTier(
   newWinner: Winner;
   previousWinner: Winner | null;
 }> {
+  await getLuckyDrawEntitlementsOrThrow(tenantId);
   const db = getTenantDb(tenantId);
   const { eventId, configId, prizeTier, previousWinnerId, reason } = params;
 

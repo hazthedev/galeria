@@ -9,8 +9,19 @@ import { verifyAccessToken } from '@/lib/domain/auth/auth';
 import { createManualEntries, getActiveConfig, getEventEntries } from '@/lib/lucky-draw';
 import { extractSessionId, validateSession } from '@/lib/domain/auth/session';
 import { resolveOptionalAuth, resolveRequiredTenantId, resolveTenantId } from '@/lib/api-request-context';
+import { isTenantFeatureEnabled } from '@/lib/tenant';
 
 export const runtime = 'nodejs';
+
+function createLuckyDrawFeatureUnavailableResponse() {
+  return NextResponse.json(
+    {
+      error: 'Lucky Draw is not available on your current plan',
+      code: 'FEATURE_NOT_AVAILABLE',
+    },
+    { status: 403 }
+  );
+}
 
 const isRecoverableReadError = (error: unknown) =>
   typeof error === 'object' &&
@@ -49,6 +60,10 @@ export async function GET(
     const { eventId } = await params;
     const auth = await resolveOptionalAuth(request.headers);
     const tenantId = resolveTenantId(request.headers, auth);
+
+    if (!(await isTenantFeatureEnabled(tenantId, 'lucky_draw'))) {
+      return createLuckyDrawFeatureUnavailableResponse();
+    }
 
     const db = getTenantDb(tenantId);
 
@@ -140,6 +155,10 @@ export async function POST(
     const headers = request.headers;
     const auth = await resolveOptionalAuth(headers);
     const tenantId = resolveRequiredTenantId(headers, auth);
+
+    if (!(await isTenantFeatureEnabled(tenantId, 'lucky_draw'))) {
+      return createLuckyDrawFeatureUnavailableResponse();
+    }
 
     const db = getTenantDb(tenantId);
 
@@ -287,9 +306,26 @@ export async function POST(
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to create manual entries';
-    const status = message.includes('Maximum entries per user') || message.includes('No active draw configuration')
-      ? 400
-      : 500;
+    if (message.includes('Lucky Draw is not available on your current plan')) {
+      return createLuckyDrawFeatureUnavailableResponse();
+    }
+
+    if (message.includes('Draw entry limit reached')) {
+      return NextResponse.json(
+        {
+          error: message,
+          code: 'TIER_LIMIT_REACHED',
+          upgradeRequired: true,
+        },
+        { status: 403 }
+      );
+    }
+
+    const status =
+      message.includes('Maximum entries per user') ||
+      message.includes('No active draw configuration')
+        ? 400
+        : 500;
     return NextResponse.json(
       { error: message, code: 'CREATE_ERROR' },
       { status }

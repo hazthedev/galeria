@@ -27,8 +27,10 @@ import { LuckyDrawAdminTab } from '@/components/lucky-draw/admin/LuckyDrawAdminT
 import { AttendanceAdminTab } from '@/components/attendance/AttendanceAdminTab';
 import { PhotoChallengeAdminTab } from '@/components/photo-challenge/admin-tab';
 import { SettingsAdminTab } from '@/components/settings/SettingsAdminTab';
+import { UpgradePrompt } from '@/components/upgrade-prompt';
 import { toast } from 'sonner';
 import type { IEvent } from '@/lib/types';
+import { useOrganizerEntitlements } from '@/lib/use-organizer-entitlements';
 
 export default function EventAdminPage() {
   const params = useParams();
@@ -50,6 +52,11 @@ export default function EventAdminPage() {
     photoStatus: string | null;
     imageUrl: string | null;
   }>>([]);
+  const {
+    tier: organizerTier,
+    features: organizerFeatures,
+    isLoading: entitlementsLoading,
+  } = useOrganizerEntitlements();
 
   useEffect(() => {
     const fetchEvent = async () => {
@@ -138,6 +145,9 @@ export default function EventAdminPage() {
     ? `${window.location.origin}/e/${event.short_code || event.id}`
     : '';
   const luckyDrawEnabled = event.settings?.features?.lucky_draw_enabled !== false;
+  const luckyDrawPlanLocked = !entitlementsLoading && organizerFeatures?.lucky_draw === false;
+  const reactionsEnabled = event.settings?.features?.reactions_enabled !== false;
+  const advancedAnalyticsLocked = !entitlementsLoading && organizerFeatures?.advanced_analytics === false;
   const attendanceEnabled = event.settings?.features?.attendance_enabled !== false;
   const photoChallengeEnabled = event.settings?.features?.photo_challenge_enabled === true;
   const moderationEnabled = event.settings?.features?.moderation_required === true;
@@ -180,6 +190,11 @@ export default function EventAdminPage() {
                 >
                   <Icon className="h-4 w-4" />
                   {tab.label}
+                  {tab.id === 'lucky_draw' && luckyDrawPlanLocked && (
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:bg-amber-900/40 dark:text-amber-200">
+                      Pro+
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -196,7 +211,16 @@ export default function EventAdminPage() {
               <p className="mb-6 text-sm text-gray-600 dark:text-gray-400">
                 Configure prize tiers, view entries, execute draws, and announce winners
               </p>
-              {luckyDrawEnabled ? (
+              {luckyDrawPlanLocked ? (
+                <UpgradePrompt
+                  variant="inline"
+                  title="Upgrade to unlock Lucky Draw"
+                  message="Your current plan does not include Lucky Draw. Upgrade to configure entries, create prize tiers, and run draws for this event."
+                  currentTier={organizerTier || 'free'}
+                  recommendedTier="pro"
+                  featureBlocked="Lucky Draw"
+                />
+              ) : luckyDrawEnabled ? (
                 <LuckyDrawAdminTab eventId={eventId} />
               ) : (
                 <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-5 py-6 text-amber-900 dark:text-amber-100">
@@ -251,7 +275,13 @@ export default function EventAdminPage() {
               <h2 className="mb-6 text-xl font-semibold text-gray-900 dark:text-gray-100">
                 Event Overview
               </h2>
-              <EventStats eventId={eventId} refreshInterval={30000} />
+              <EventStats
+                eventId={eventId}
+                refreshInterval={30000}
+                allowAdvancedAnalytics={!advancedAnalyticsLocked}
+                allowReactions={reactionsEnabled}
+                currentTier={organizerTier}
+              />
             </div>
           )}
 
@@ -307,6 +337,9 @@ export default function EventAdminPage() {
               <SettingsAdminTab
                 event={event}
                 onUpdate={(updatedEvent) => setEvent(updatedEvent)}
+                tenantFeatures={organizerFeatures}
+                currentTier={organizerTier}
+                entitlementsLoading={entitlementsLoading}
               />
             </div>
           )}

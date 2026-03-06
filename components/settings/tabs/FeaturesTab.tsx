@@ -1,6 +1,8 @@
 import type { ComponentType, Dispatch, SetStateAction } from 'react';
 import clsx from 'clsx';
-import { Check, Download, Eye, Hash, Loader2, Sparkles, Target, Users } from 'lucide-react';
+import { Check, Download, Eye, Hash, Heart, Loader2, Sparkles, Target, Users } from 'lucide-react';
+import { UpgradePrompt } from '@/components/upgrade-prompt';
+import type { SubscriptionTier } from '@/lib/types';
 
 interface FeaturesTabProps {
   guestDownloadEnabled: boolean;
@@ -11,10 +13,17 @@ interface FeaturesTabProps {
   setAnonymousAllowed: Dispatch<SetStateAction<boolean>>;
   luckyDrawEnabled: boolean;
   setLuckyDrawEnabled: Dispatch<SetStateAction<boolean>>;
+  reactionsEnabled: boolean;
+  setReactionsEnabled: Dispatch<SetStateAction<boolean>>;
   attendanceEnabled: boolean;
   setAttendanceEnabled: Dispatch<SetStateAction<boolean>>;
   photoChallengeEnabled: boolean;
   setPhotoChallengeEnabled: Dispatch<SetStateAction<boolean>>;
+  luckyDrawAvailable: boolean;
+  luckyDrawToggleDisabled: boolean;
+  reactionsAvailable: boolean;
+  reactionsToggleDisabled: boolean;
+  currentTier?: SubscriptionTier | null;
   isLoading: boolean;
   hasChanges: boolean;
   onSave: () => void;
@@ -27,6 +36,8 @@ interface FeatureToggleCardProps {
   enabled: boolean;
   onToggle: (nextValue: boolean) => void;
   icon: ComponentType<{ className?: string }>;
+  disabled?: boolean;
+  badge?: string;
 }
 
 function FeatureToggleCard({
@@ -35,16 +46,24 @@ function FeatureToggleCard({
   enabled,
   onToggle,
   icon: Icon,
+  disabled = false,
+  badge,
 }: FeatureToggleCardProps) {
   return (
     <button
       type="button"
       role="switch"
       aria-checked={enabled}
-      onClick={() => onToggle(!enabled)}
+      aria-disabled={disabled}
+      onClick={() => {
+        if (!disabled) {
+          onToggle(!enabled);
+        }
+      }}
       className={clsx(
         'w-full rounded-lg border bg-white p-4 text-left transition-colors',
         'dark:bg-gray-800',
+        disabled && 'cursor-not-allowed opacity-70',
         enabled
           ? 'border-violet-400 dark:border-violet-500'
           : 'border-gray-200 hover:border-violet-300 dark:border-gray-600 dark:hover:border-violet-500'
@@ -58,20 +77,27 @@ function FeatureToggleCard({
             <p className="text-xs text-gray-500 dark:text-gray-400">{description}</p>
           </div>
         </div>
-        <span
-          className={clsx(
-            'relative h-6 w-11 rounded-full transition-colors',
-            enabled ? 'bg-violet-600' : 'bg-gray-300 dark:bg-gray-600'
+        <div className="flex items-center gap-2">
+          {badge && (
+            <span className="rounded-full bg-amber-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:bg-amber-900/40 dark:text-amber-200">
+              {badge}
+            </span>
           )}
-          aria-hidden="true"
-        >
           <span
             className={clsx(
-              'absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-all',
-              enabled ? 'left-[22px]' : 'left-0.5'
+              'relative h-6 w-11 rounded-full transition-colors',
+              enabled ? 'bg-violet-600' : 'bg-gray-300 dark:bg-gray-600'
             )}
-          />
-        </span>
+            aria-hidden="true"
+          >
+            <span
+              className={clsx(
+                'absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-all',
+                enabled ? 'left-[22px]' : 'left-0.5'
+              )}
+            />
+          </span>
+        </div>
       </div>
     </button>
   );
@@ -86,10 +112,17 @@ export function FeaturesTab({
   setAnonymousAllowed,
   luckyDrawEnabled,
   setLuckyDrawEnabled,
+  reactionsEnabled,
+  setReactionsEnabled,
   attendanceEnabled,
   setAttendanceEnabled,
   photoChallengeEnabled,
   setPhotoChallengeEnabled,
+  luckyDrawAvailable,
+  luckyDrawToggleDisabled,
+  reactionsAvailable,
+  reactionsToggleDisabled,
+  currentTier,
   isLoading,
   hasChanges,
   onSave,
@@ -116,13 +149,35 @@ export function FeaturesTab({
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <FeatureToggleCard
           title="Lucky Draw"
-          description="Allow guests to enter photos into draws"
+          description={
+            luckyDrawAvailable
+              ? 'Allow guests to enter photos into draws'
+              : 'Upgrade your plan to enable lucky draw entries, prizes, and winner selection'
+          }
           enabled={luckyDrawEnabled}
           onToggle={(nextValue) => {
             setLuckyDrawEnabled(nextValue);
             onDirty();
           }}
           icon={Sparkles}
+          disabled={luckyDrawToggleDisabled}
+          badge={!luckyDrawAvailable ? 'Pro+' : undefined}
+        />
+        <FeatureToggleCard
+          title="Photo Reactions"
+          description={
+            reactionsAvailable
+              ? 'Let guests send heart reactions on photos'
+              : 'Your current plan does not include guest photo reactions'
+          }
+          enabled={reactionsEnabled}
+          onToggle={(nextValue) => {
+            setReactionsEnabled(nextValue);
+            onDirty();
+          }}
+          icon={Heart}
+          disabled={reactionsToggleDisabled}
+          badge={!reactionsAvailable ? 'Plan' : undefined}
         />
         <FeatureToggleCard
           title="Attendance Check-in"
@@ -175,6 +230,17 @@ export function FeaturesTab({
           icon={Hash}
         />
       </div>
+
+      {!luckyDrawAvailable && (
+        <UpgradePrompt
+          variant="inline"
+          title="Upgrade to unlock Lucky Draw"
+          message="Your current plan does not include Lucky Draw. Upgrade to create entries, configure prizes, and run event draws."
+          currentTier={currentTier || 'free'}
+          recommendedTier="pro"
+          featureBlocked="Lucky Draw"
+        />
+      )}
 
       <div className="flex justify-end">
         <button

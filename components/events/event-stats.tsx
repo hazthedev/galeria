@@ -7,6 +7,7 @@
 import { useEffect, useState } from 'react';
 import { Image as ImageIcon, Users, Heart, AlertCircle, TrendingUp, Loader2, Sparkles, Trophy } from 'lucide-react';
 import clsx from 'clsx';
+import { UpgradePrompt } from '@/components/upgrade-prompt';
 
 interface EventStatsData {
   totalPhotos: number;
@@ -37,6 +38,9 @@ interface EventStatsProps {
   eventId: string;
   refreshInterval?: number;
   className?: string;
+  allowAdvancedAnalytics?: boolean;
+  allowReactions?: boolean;
+  currentTier?: string | null;
 }
 
 const statCards = [
@@ -74,7 +78,14 @@ const statCards = [
   },
 ];
 
-export function EventStats({ eventId, refreshInterval = 30000, className }: EventStatsProps) {
+export function EventStats({
+  eventId,
+  refreshInterval = 30000,
+  className,
+  allowAdvancedAnalytics = true,
+  allowReactions = true,
+  currentTier,
+}: EventStatsProps) {
   const [stats, setStats] = useState<EventStatsData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -176,6 +187,9 @@ export function EventStats({ eventId, refreshInterval = 30000, className }: Even
     stats.remainingPhotosInEvent < 0
       ? 'Unlimited'
       : stats.remainingPhotosInEvent.toLocaleString();
+  const visibleStatCards = statCards.filter(
+    (card) => allowReactions || card.key !== 'totalReactions'
+  );
 
   return (
     <div className={clsx('space-y-6', className)}>
@@ -186,8 +200,8 @@ export function EventStats({ eventId, refreshInterval = 30000, className }: Even
       )}
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        {statCards.map(card => {
+      <div className={clsx('grid grid-cols-2 gap-4', visibleStatCards.length > 3 ? 'sm:grid-cols-4' : 'sm:grid-cols-3')}>
+        {visibleStatCards.map(card => {
           const Icon = card.icon;
           const value = stats[card.key as keyof EventStatsData] as number;
           const subValue = card.key === 'totalPhotos' ? stats.photosToday : undefined;
@@ -222,19 +236,20 @@ export function EventStats({ eventId, refreshInterval = 30000, className }: Even
       </div>
 
       {/* Additional Stats Row */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {/* Avg Photos Per User */}
-        <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-          <div className="flex items-center gap-3">
-            <TrendingUp className="h-8 w-8 text-violet-600" />
-            <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Avg Photos Per User</p>
-              <p className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
-                {stats.avgPhotosPerUser.toFixed(1)}
-              </p>
+      <div className={clsx('grid grid-cols-1 gap-4', allowAdvancedAnalytics ? 'sm:grid-cols-2' : 'sm:grid-cols-1')}>
+        {allowAdvancedAnalytics && (
+          <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+            <div className="flex items-center gap-3">
+              <TrendingUp className="h-8 w-8 text-violet-600" />
+              <div>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Avg Photos Per User</p>
+                <p className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+                  {stats.avgPhotosPerUser.toFixed(1)}
+                </p>
+              </div>
             </div>
           </div>
-        </div>
+        )}
         <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
           <div className="flex items-center gap-3">
             <ImageIcon className="h-8 w-8 text-blue-600" />
@@ -255,6 +270,17 @@ export function EventStats({ eventId, refreshInterval = 30000, className }: Even
           </div>
         </div>
       </div>
+
+      {!allowAdvancedAnalytics && (
+        <UpgradePrompt
+          variant="inline"
+          title="Upgrade to unlock advanced analytics"
+          message="Your current plan includes the live overview, but contributor rankings, engagement insights, and deeper analytics require an upgraded plan."
+          currentTier={currentTier || 'free'}
+          recommendedTier="pro"
+          featureBlocked="Advanced Analytics"
+        />
+      )}
 
       {/* Lucky Draw Status */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -294,7 +320,7 @@ export function EventStats({ eventId, refreshInterval = 30000, className }: Even
       </div>
 
       {/* Top Contributors */}
-      {stats.topContributors.length > 0 && (
+      {allowAdvancedAnalytics && stats.topContributors.length > 0 && (
         <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
           <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">
             Top Contributors
@@ -337,7 +363,7 @@ export function EventStats({ eventId, refreshInterval = 30000, className }: Even
       )}
 
       {/* Top Liked Photos */}
-      {stats.topLikedPhotos.length > 0 && (
+      {allowAdvancedAnalytics && allowReactions && stats.topLikedPhotos.length > 0 && (
         <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
           <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">
             Top Liked Photos

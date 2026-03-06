@@ -14,6 +14,8 @@ export function PoweredByGaleria({
     variant = 'footer',
     showUpgradeLink = true,
 }: PoweredByGaleriaProps) {
+    const upgradeHref = '/organizer/billing';
+
     if (variant === 'corner') {
         return (
             <div className={`fixed bottom-4 right-4 z-40 ${className}`}>
@@ -31,7 +33,7 @@ export function PoweredByGaleria({
                     </div>
                     {showUpgradeLink && (
                         <a
-                            href="/upgrade"
+                            href={upgradeHref}
                             className="text-[10px] text-violet-600 dark:text-violet-400 hover:underline block mt-1"
                         >
                             Upgrade to remove
@@ -74,7 +76,7 @@ export function PoweredByGaleria({
             </div>
             {showUpgradeLink && (
                 <a
-                    href="/upgrade"
+                    href={upgradeHref}
                     className="text-xs text-gray-400 hover:text-violet-600 dark:hover:text-violet-400 transition-colors mt-1 inline-block"
                 >
                     Upgrade to remove branding

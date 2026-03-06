@@ -24,6 +24,7 @@ interface PhotoGalleryProps {
   photos?: IPhoto[];
   onReaction?: (photoId: string, emoji: string) => void;
   onPhotoUpdate?: (photoId: string, status: 'approved' | 'rejected') => void;
+  allowReactions?: boolean;
   allowDownload?: boolean;
   onPhotoDelete?: (photoId: string) => void;
   selectable?: boolean;
@@ -41,6 +42,7 @@ export function PhotoGallery({
   photos: initialPhotos = [],
   onReaction,
   onPhotoUpdate,
+  allowReactions = true,
   allowDownload = false,
   onPhotoDelete,
   selectable = false,
@@ -95,6 +97,10 @@ export function PhotoGallery({
 
   const handleReaction = useCallback(
     async (photoId: string) => {
+      if (!allowReactions) {
+        return;
+      }
+
       try {
         const response = await fetch(`/api/photos/${photoId}/reactions`, {
           method: 'POST',
@@ -126,7 +132,7 @@ export function PhotoGallery({
         console.error('[Gallery] Error adding reaction:', error);
       }
     },
-    [onReaction]
+    [allowReactions, onReaction]
   );
 
   // ============================================
@@ -349,7 +355,7 @@ export function PhotoGallery({
           }
         >
           <div className="p-4 text-white">
-            {!isModerator && (
+            {!isModerator && allowReactions && (
               <button
                 onClick={(e) => {
                   e.stopPropagation();

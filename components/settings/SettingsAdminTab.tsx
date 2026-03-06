@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import clsx from 'clsx';
 import { toast } from 'sonner';
-import type { EventType, IEvent } from '@/lib/types';
+import type { EventType, IEvent, ITenantFeatures, SubscriptionTier } from '@/lib/types';
 import { DEFAULT_UPLOAD_RATE_LIMITS, THEME_PRESETS } from './constants';
 import { useThemePresetSync } from './hooks/useThemePresetSync';
 import { findMatchingPresetId } from './utils';
@@ -29,9 +29,18 @@ import type { SettingsSubTab } from './types';
 interface SettingsAdminTabProps {
   event: IEvent;
   onUpdate?: (event: IEvent) => void;
+  tenantFeatures?: ITenantFeatures | null;
+  currentTier?: SubscriptionTier | null;
+  entitlementsLoading?: boolean;
 }
 
-export function SettingsAdminTab({ event, onUpdate }: SettingsAdminTabProps) {
+export function SettingsAdminTab({
+  event,
+  onUpdate,
+  tenantFeatures,
+  currentTier,
+  entitlementsLoading = false,
+}: SettingsAdminTabProps) {
   const [activeSubTab, setActiveSubTab] = useState<SettingsSubTab>('basic');
   const [isLoading, setIsLoading] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
@@ -90,12 +99,17 @@ export function SettingsAdminTab({ event, onUpdate }: SettingsAdminTabProps) {
   const [luckyDrawEnabled, setLuckyDrawEnabled] = useState(
     event.settings?.features?.lucky_draw_enabled !== false
   );
+  const [reactionsEnabled, setReactionsEnabled] = useState(
+    event.settings?.features?.reactions_enabled !== false
+  );
   const [attendanceEnabled, setAttendanceEnabled] = useState(
     event.settings?.features?.attendance_enabled !== false
   );
   const [photoChallengeEnabled, setPhotoChallengeEnabled] = useState(
     event.settings?.features?.photo_challenge_enabled || false
   );
+  const luckyDrawPlanLocked = !entitlementsLoading && tenantFeatures?.lucky_draw === false;
+  const reactionsPlanLocked = !entitlementsLoading && tenantFeatures?.photo_reactions === false;
 
   // Security state
   const [uploadRateLimits, setUploadRateLimits] = useState({
@@ -151,7 +165,8 @@ export function SettingsAdminTab({ event, onUpdate }: SettingsAdminTabProps) {
               guest_download_enabled: guestDownloadEnabled,
               moderation_required: moderationRequired,
               anonymous_allowed: anonymousAllowed,
-              lucky_draw_enabled: luckyDrawEnabled,
+              lucky_draw_enabled: luckyDrawPlanLocked ? false : luckyDrawEnabled,
+              reactions_enabled: reactionsPlanLocked ? false : reactionsEnabled,
               attendance_enabled: attendanceEnabled,
               photo_challenge_enabled: photoChallengeEnabled,
             },
@@ -261,12 +276,19 @@ export function SettingsAdminTab({ event, onUpdate }: SettingsAdminTabProps) {
           setModerationRequired={setModerationRequired}
           anonymousAllowed={anonymousAllowed}
           setAnonymousAllowed={setAnonymousAllowed}
-          luckyDrawEnabled={luckyDrawEnabled}
+          luckyDrawEnabled={luckyDrawPlanLocked ? false : luckyDrawEnabled}
           setLuckyDrawEnabled={setLuckyDrawEnabled}
+          reactionsEnabled={reactionsPlanLocked ? false : reactionsEnabled}
+          setReactionsEnabled={setReactionsEnabled}
           attendanceEnabled={attendanceEnabled}
           setAttendanceEnabled={setAttendanceEnabled}
           photoChallengeEnabled={photoChallengeEnabled}
           setPhotoChallengeEnabled={setPhotoChallengeEnabled}
+          luckyDrawAvailable={!luckyDrawPlanLocked}
+          luckyDrawToggleDisabled={entitlementsLoading || luckyDrawPlanLocked}
+          reactionsAvailable={!reactionsPlanLocked}
+          reactionsToggleDisabled={entitlementsLoading || reactionsPlanLocked}
+          currentTier={currentTier}
           isLoading={isLoading}
           hasChanges={hasChanges}
           onSave={() => handleSave('features')}

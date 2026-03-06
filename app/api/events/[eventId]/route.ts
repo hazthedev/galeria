@@ -9,6 +9,7 @@ import { extractSessionId, validateSession } from '@/lib/domain/auth/session';
 import { generateSlug, generateEventUrl } from '@/lib/utils';
 import type { IEvent, IEventUpdate } from '@/lib/types';
 import { resolveOptionalAuth, resolveRequiredTenantId, resolveTenantId } from '@/lib/api-request-context';
+import { getEffectiveTenantEntitlements } from '@/lib/tenant';
 
 // ============================================
 // GET /api/events/:eventId - Get single event
@@ -96,6 +97,30 @@ export async function PATCH(
 
     const updates: IEventUpdate = await request.json();
     const db = getTenantDb(tenantId);
+    const requestedFeatures = updates.settings?.features;
+    if (requestedFeatures) {
+      const entitlements = await getEffectiveTenantEntitlements(tenantId);
+
+      if (requestedFeatures.lucky_draw_enabled === true && !entitlements.features.lucky_draw) {
+        return NextResponse.json(
+          {
+            error: 'Lucky Draw is not available on your current plan',
+            code: 'FEATURE_NOT_AVAILABLE',
+          },
+          { status: 403 }
+        );
+      }
+
+      if (requestedFeatures.reactions_enabled === true && !entitlements.features.photo_reactions) {
+        return NextResponse.json(
+          {
+            error: 'Photo reactions are not available on your current plan',
+            code: 'FEATURE_NOT_AVAILABLE',
+          },
+          { status: 403 }
+        );
+      }
+    }
 
     const existingEvent = await db.findOne<IEvent>('events', { id });
     if (!existingEvent) {

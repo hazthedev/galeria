@@ -409,6 +409,7 @@ export default function EventPhotosPage() {
               photos={photos}
               onReaction={handleReaction}
               onPhotoUpdate={handlePhotoUpdate}
+              allowReactions={event?.settings?.features?.reactions_enabled !== false}
               allowDownload
               onPhotoDelete={handlePhotoDelete}
               selectable

@@ -92,6 +92,7 @@ export function useGuestEventPageController(eventId: string) {
   const allowAnonymous = event?.settings?.features?.anonymous_allowed !== false;
   const moderationRequired = event?.settings?.features?.moderation_required || false;
   const luckyDrawEnabled = event?.settings?.features?.lucky_draw_enabled !== false;
+  const reactionsEnabled = event?.settings?.features?.reactions_enabled !== false;
   const attendanceEnabled = event?.settings?.features?.attendance_enabled !== false;
   const {
     photoCardStyle,
@@ -530,6 +531,10 @@ export function useGuestEventPageController(eventId: string) {
 
   // Handle love reaction on double-click with heart burst animation
   const handleLoveReaction = async (photoId: string) => {
+    if (!reactionsEnabled) {
+      return;
+    }
+
     const currentLoves = userLoves[photoId] || 0;
     const maxLovesPerUser = 10;
 
@@ -1180,6 +1185,7 @@ export function useGuestEventPageController(eventId: string) {
     allowAnonymous,
     moderationRequired,
     luckyDrawEnabled,
+    reactionsEnabled,
     attendanceEnabled,
     photoCardStyle,
     themePrimary,

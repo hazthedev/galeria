@@ -5,11 +5,13 @@
 
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { Loader2, Download, Eye, Sparkles, Palette, Users, Target } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Loader2, Download, Eye, Heart, Sparkles, Palette, Users, Target } from 'lucide-react';
 import { toast } from 'sonner';
 import clsx from 'clsx';
 import type { IEvent, IEventTheme, IEventFeatures } from '@/lib/types';
+import { UpgradePrompt } from '@/components/upgrade-prompt';
+import { useOrganizerEntitlements } from '@/lib/use-organizer-entitlements';
 
 const PHOTO_CARD_STYLES = [
     { id: 'vacation', label: 'Vacation', description: 'Bright, airy, postcard vibe' },
@@ -91,6 +93,11 @@ export function EventSettingsForm({
     onSuccess,
     className,
 }: EventSettingsFormProps) {
+    const {
+        tier: organizerTier,
+        features: organizerFeatures,
+        isLoading: entitlementsLoading,
+    } = useOrganizerEntitlements();
     const [photoCardStyle, setPhotoCardStyle] = useState(
         event.settings?.theme?.photo_card_style || 'vacation'
     );
@@ -118,6 +125,9 @@ export function EventSettingsForm({
     const [luckyDrawEnabled, setLuckyDrawEnabled] = useState(
         event.settings?.features?.lucky_draw_enabled !== false
     );
+    const [reactionsEnabled, setReactionsEnabled] = useState(
+        event.settings?.features?.reactions_enabled !== false
+    );
     const [attendanceEnabled, setAttendanceEnabled] = useState(
         event.settings?.features?.attendance_enabled !== false
     );
@@ -131,18 +141,29 @@ export function EventSettingsForm({
 
     const [isLoading, setIsLoading] = useState(false);
     const [hasChanges, setHasChanges] = useState(false);
+    const luckyDrawPlanLocked = !entitlementsLoading && organizerFeatures?.lucky_draw === false;
+    const reactionsPlanLocked = !entitlementsLoading && organizerFeatures?.photo_reactions === false;
+    const effectiveLuckyDrawEnabled = luckyDrawPlanLocked ? false : luckyDrawEnabled;
+    const effectiveReactionsEnabled = reactionsPlanLocked ? false : reactionsEnabled;
 
     // Track changes
     useEffect(() => {
         const originalFeatures = event.settings?.features || {};
         const originalTheme = event.settings?.theme || {};
         const originalSecurity = event.settings?.security?.upload_rate_limits || DEFAULT_UPLOAD_RATE_LIMITS;
+        const originalLuckyDrawEnabled = luckyDrawPlanLocked
+            ? false
+            : (originalFeatures.lucky_draw_enabled !== false);
+        const originalReactionsEnabled = reactionsPlanLocked
+            ? false
+            : (originalFeatures.reactions_enabled !== false);
 
         const featuresChanged =
             guestDownloadEnabled !== (originalFeatures.guest_download_enabled !== false) ||
             moderationRequired !== (originalFeatures.moderation_required || false) ||
             anonymousAllowed !== (originalFeatures.anonymous_allowed !== false) ||
-            luckyDrawEnabled !== (originalFeatures.lucky_draw_enabled !== false) ||
+            effectiveLuckyDrawEnabled !== originalLuckyDrawEnabled ||
+            effectiveReactionsEnabled !== originalReactionsEnabled ||
             attendanceEnabled !== (originalFeatures.attendance_enabled !== false) ||
             photoChallengeEnabled !== (originalFeatures.photo_challenge_enabled || false);
 
@@ -164,6 +185,11 @@ export function EventSettingsForm({
         moderationRequired,
         anonymousAllowed,
         luckyDrawEnabled,
+        luckyDrawPlanLocked,
+        effectiveLuckyDrawEnabled,
+        reactionsEnabled,
+        reactionsPlanLocked,
+        effectiveReactionsEnabled,
         attendanceEnabled,
         photoChallengeEnabled,
         photoCardStyle,
@@ -201,7 +227,8 @@ export function EventSettingsForm({
                             guest_download_enabled: guestDownloadEnabled,
                             moderation_required: moderationRequired,
                             anonymous_allowed: anonymousAllowed,
-                            lucky_draw_enabled: luckyDrawEnabled,
+                            lucky_draw_enabled: effectiveLuckyDrawEnabled,
+                            reactions_enabled: effectiveReactionsEnabled,
                             attendance_enabled: attendanceEnabled,
                             photo_challenge_enabled: photoChallengeEnabled,
                         },
@@ -410,7 +437,12 @@ export function EventSettingsForm({
 
                 <div className="space-y-4">
                     {/* Lucky Draw Toggle */}
-                    <label className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-4 cursor-pointer hover:border-violet-300 dark:border-gray-600 dark:bg-gray-800 dark:hover:border-violet-500 transition-colors">
+                    <label className={clsx(
+                        'flex items-center justify-between rounded-lg border border-gray-200 bg-white p-4 transition-colors dark:border-gray-600 dark:bg-gray-800',
+                        luckyDrawPlanLocked || entitlementsLoading
+                            ? 'cursor-not-allowed opacity-80'
+                            : 'cursor-pointer hover:border-violet-300 dark:hover:border-violet-500'
+                    )}>
                         <div className="flex items-center gap-3">
                             <Sparkles className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                             <div>
@@ -418,21 +450,78 @@ export function EventSettingsForm({
                                     Enable Lucky Draw
                                 </p>
                                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                                    Allow guests to enter photos into the lucky draw
+                                    {luckyDrawPlanLocked
+                                        ? 'Upgrade to Pro to enable lucky draw entries and prize management'
+                                        : 'Allow guests to enter photos into the lucky draw'}
                                 </p>
                             </div>
                         </div>
                         <div
-                            onClick={() => setLuckyDrawEnabled(!luckyDrawEnabled)}
+                            onClick={() => {
+                                if (!luckyDrawPlanLocked && !entitlementsLoading) {
+                                    setLuckyDrawEnabled(!luckyDrawEnabled);
+                                }
+                            }}
                             className={clsx(
-                                'relative h-6 w-11 rounded-full transition-colors cursor-pointer',
-                                luckyDrawEnabled ? 'bg-violet-600' : 'bg-gray-300 dark:bg-gray-600'
+                                'relative h-6 w-11 rounded-full transition-colors',
+                                effectiveLuckyDrawEnabled ? 'bg-violet-600' : 'bg-gray-300 dark:bg-gray-600'
                             )}
                         >
                             <div
                                 className={clsx(
                                     'absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-md transition-transform',
-                                    luckyDrawEnabled ? 'left-[22px]' : 'left-0.5'
+                                    effectiveLuckyDrawEnabled ? 'left-[22px]' : 'left-0.5'
+                                )}
+                            />
+                        </div>
+                    </label>
+
+                    {luckyDrawPlanLocked && (
+                        <UpgradePrompt
+                            variant="inline"
+                            title="Upgrade to unlock Lucky Draw"
+                            message="Your current plan does not include Lucky Draw. Upgrade to configure entries, prize tiers, and winner selection for this event."
+                            currentTier={organizerTier || 'free'}
+                            recommendedTier="pro"
+                            featureBlocked="Lucky Draw"
+                        />
+                    )}
+
+                    {/* Reactions Toggle */}
+                    <label className={clsx(
+                        'flex items-center justify-between rounded-lg border border-gray-200 bg-white p-4 transition-colors dark:border-gray-600 dark:bg-gray-800',
+                        reactionsPlanLocked || entitlementsLoading
+                            ? 'cursor-not-allowed opacity-80'
+                            : 'cursor-pointer hover:border-violet-300 dark:hover:border-violet-500'
+                    )}>
+                        <div className="flex items-center gap-3">
+                            <Heart className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                            <div>
+                                <p className="font-medium text-gray-900 dark:text-gray-100">
+                                    Enable Photo Reactions
+                                </p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                    {reactionsPlanLocked
+                                        ? 'Your current plan does not include guest photo reactions'
+                                        : 'Let guests react to photos with hearts'}
+                                </p>
+                            </div>
+                        </div>
+                        <div
+                            onClick={() => {
+                                if (!reactionsPlanLocked && !entitlementsLoading) {
+                                    setReactionsEnabled(!reactionsEnabled);
+                                }
+                            }}
+                            className={clsx(
+                                'relative h-6 w-11 rounded-full transition-colors',
+                                effectiveReactionsEnabled ? 'bg-violet-600' : 'bg-gray-300 dark:bg-gray-600'
+                            )}
+                        >
+                            <div
+                                className={clsx(
+                                    'absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-md transition-transform',
+                                    effectiveReactionsEnabled ? 'left-[22px]' : 'left-0.5'
                                 )}
                             />
                         </div>

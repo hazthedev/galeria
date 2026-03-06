@@ -9,6 +9,10 @@ import crypto from 'crypto';
 import { getTenantDb } from '@/lib/db';
 import type { ITenant, ITenantContext, TenantType, SubscriptionTier } from '@/lib/types';
 import { DEFAULT_TENANT_ID, SYSTEM_TENANT_ID } from '@/lib/constants/tenants';
+import {
+  getEffectiveEntitlementsForTier,
+  normalizeSubscriptionTier,
+} from './entitlements';
 
 // ============================================
 // CONFIGURATION
@@ -584,110 +588,18 @@ function generateSubdomain(brandName: string): string {
  * Get default features for subscription tier
  */
 function getDefaultFeatures(tier: string) {
-  const defaults = {
-    free: {
-      lucky_draw: false, // Upgrade required for lucky draw
-      photo_reactions: true,
-      video_uploads: false,
-      custom_templates: false,
-      api_access: false,
-      sso: false,
-      white_label: false, // Shows "Powered by Galeria"
-      advanced_analytics: false,
-    },
-    pro: {
-      lucky_draw: true,
-      photo_reactions: true,
-      video_uploads: false,
-      custom_templates: true,
-      api_access: false,
-      sso: false,
-      white_label: true, // No branding watermark
-      advanced_analytics: true,
-    },
-    premium: {
-      lucky_draw: true,
-      photo_reactions: true,
-      video_uploads: true,
-      custom_templates: true,
-      api_access: true,
-      sso: false,
-      white_label: true,
-      advanced_analytics: true,
-    },
-      enterprise: {
-        lucky_draw: true,
-        photo_reactions: true,
-        video_uploads: true,
-        custom_templates: true,
-        api_access: true,
-        sso: true,
-        white_label: true,
-        advanced_analytics: true,
-      },
-      tester: {
-        lucky_draw: true,
-        photo_reactions: true,
-        video_uploads: true,
-        custom_templates: true,
-        api_access: true,
-        sso: true,
-        white_label: true,
-        advanced_analytics: true,
-      },
+  return {
+    ...getEffectiveEntitlementsForTier(normalizeSubscriptionTier(tier)).features,
   };
-
-  return defaults[tier as keyof typeof defaults] || defaults.free;
 }
 
 /**
  * Get default limits for subscription tier
  */
 function getDefaultLimits(tier: string) {
-  const defaults = {
-    free: {
-      max_events_per_month: 1,
-      max_storage_gb: 1,
-      max_admins: 1,
-      max_photos_per_event: 20, // Updated to match tier-config
-      max_draw_entries_per_event: 0, // No lucky draw on free tier
-      custom_features: [],
-    },
-    pro: {
-      max_events_per_month: 10,
-      max_storage_gb: 50,
-      max_admins: 3,
-      max_photos_per_event: 500,
-      max_draw_entries_per_event: 200,
-      custom_features: [],
-    },
-    premium: {
-      max_events_per_month: 50,
-      max_storage_gb: 200,
-      max_admins: 10,
-      max_photos_per_event: 2000,
-      max_draw_entries_per_event: 1000,
-      custom_features: [],
-    },
-      enterprise: {
-        max_events_per_month: -1, // Unlimited
-        max_storage_gb: -1, // Unlimited
-        max_admins: -1, // Unlimited
-        max_photos_per_event: -1, // Unlimited
-        max_draw_entries_per_event: -1, // Unlimited
-        custom_features: [],
-      },
-      tester: {
-        max_events_per_month: -1,
-        max_storage_gb: -1,
-        max_admins: -1,
-        max_photos_per_event: -1,
-        max_draw_entries_per_event: -1,
-        custom_features: [],
-      },
+  return {
+    ...getEffectiveEntitlementsForTier(normalizeSubscriptionTier(tier)).limits,
   };
-
-  return defaults[tier as keyof typeof defaults] || defaults.free;
 }
 
 // ============================================

@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireSuperAdmin } from '@/middleware/auth';
 import { getTenantDb } from '@/lib/db';
 import type { SubscriptionTier } from '@/lib/types';
+import { getTierConfig } from '@/lib/tenant';
 
 type UserTenantLookup = {
     id: string;
@@ -85,11 +86,20 @@ export async function PATCH(
         );
 
         if (nextSubscriptionTier !== undefined && targetUser.role !== 'super_admin') {
+            const tierConfig = getTierConfig(nextSubscriptionTier);
             await db.query(
                 `UPDATE tenants
-                 SET subscription_tier = $1, updated_at = NOW()
-                 WHERE id = $2`,
-                [nextSubscriptionTier, targetUser.tenant_id]
+                 SET subscription_tier = $1,
+                     features_enabled = $2::jsonb,
+                     limits = $3::jsonb,
+                     updated_at = NOW()
+                 WHERE id = $4`,
+                [
+                    nextSubscriptionTier,
+                    JSON.stringify(tierConfig.features),
+                    JSON.stringify(tierConfig.limits),
+                    targetUser.tenant_id,
+                ]
             );
         }
 

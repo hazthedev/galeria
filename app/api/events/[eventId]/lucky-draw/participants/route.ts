@@ -6,8 +6,19 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getTenantDb } from '@/lib/db';
 import { getActiveConfig, getEventEntries } from '@/lib/lucky-draw';
 import { resolveOptionalAuth, resolveTenantId } from '@/lib/api-request-context';
+import { isTenantFeatureEnabled } from '@/lib/tenant';
 
 export const runtime = 'nodejs';
+
+function createLuckyDrawFeatureUnavailableResponse() {
+  return NextResponse.json(
+    {
+      error: 'Lucky Draw is not available on your current plan',
+      code: 'FEATURE_NOT_AVAILABLE',
+    },
+    { status: 403 }
+  );
+}
 
 const isRecoverableReadError = (error: unknown) =>
   typeof error === 'object' &&
@@ -27,6 +38,10 @@ export async function GET(
     const { eventId } = await params;
     const auth = await resolveOptionalAuth(request.headers);
     const tenantId = resolveTenantId(request.headers, auth);
+
+    if (!(await isTenantFeatureEnabled(tenantId, 'lucky_draw'))) {
+      return createLuckyDrawFeatureUnavailableResponse();
+    }
 
     const db = getTenantDb(tenantId);
 

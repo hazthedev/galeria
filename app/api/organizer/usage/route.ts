@@ -5,8 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantDb } from '@/lib/db';
 import { requireAuthForApi } from '@/lib/domain/auth/auth';
-import { getTierConfig } from '@/lib/tenant';
-import type { SubscriptionTier, IUser } from '@/lib/types';
+import { getEffectiveTenantEntitlements } from '@/lib/tenant';
 
 export async function GET(request: NextRequest) {
   try {
@@ -20,12 +19,7 @@ export async function GET(request: NextRequest) {
     }
 
     const db = getTenantDb(tenantId);
-    const [user, tenant] = await Promise.all([
-      db.findOne<IUser>('users', { id: userId }),
-      db.findOne<{ subscription_tier: SubscriptionTier }>('tenants', { id: tenantId }),
-    ]);
-    const tier = (tenant?.subscription_tier || user?.subscription_tier || 'free') as SubscriptionTier;
-    const tierConfig = getTierConfig(tier);
+    const entitlements = await getEffectiveTenantEntitlements(tenantId);
 
     const eventsThisMonthResult = await db.query<{ count: string }>(
       `SELECT COUNT(*) as count
@@ -52,14 +46,14 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       data: {
-        tier,
+        tier: entitlements.tier,
         usage: {
           eventsThisMonth: Number(eventsThisMonthResult.rows[0]?.count || 0),
           totalEvents: Number(totalEventsResult.rows[0]?.count || 0),
           totalPhotos: Number(totalPhotosResult.rows[0]?.count || 0),
         },
-        limits: tierConfig.limits,
-        features: tierConfig.features,
+        limits: entitlements.limits,
+        features: entitlements.features,
       },
     });
   } catch (error) {

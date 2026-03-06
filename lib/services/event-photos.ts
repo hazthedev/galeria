@@ -16,7 +16,7 @@ import { validateRecaptchaForUpload, isRecaptchaRequiredForUploads } from '@/lib
 import { isModerationEnabled } from '@/lib/moderation/auto-moderate';
 import { queuePhotoScan } from '@/jobs/scan-content';
 import type { DeviceType, IPhoto, SubscriptionTier } from '@/lib/types';
-import { getTierConfig, resolveUserTier } from '@/lib/tenant';
+import { getEffectiveTenantEntitlements, resolveUserTier } from '@/lib/tenant';
 import { applyCacheHeaders, CACHE_PROFILES } from '@/lib/cache/strategy';
 import { publishEventBroadcast } from '@/lib/realtime/server';
 import { resolveOptionalAuth, resolveRequiredTenantId, resolveTenantId } from '@/lib/api-request-context';
@@ -590,7 +590,11 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
       }
     }
 
-    const tierPhotoLimit = getTierConfig(effectiveSubscriptionTier).limits.max_photos_per_event;
+    const tenantEntitlements = await getEffectiveTenantEntitlements(
+      tenantId,
+      effectiveSubscriptionTier
+    );
+    const tierPhotoLimit = tenantEntitlements.limits.max_photos_per_event;
     const eventTotalPhotoLimit = normalizeEventTotalPhotoLimit(event.settings.limits.max_total_photos);
     const userPhotoLimit = normalizePerUserPhotoLimit(event.settings.limits.max_photos_per_user);
 

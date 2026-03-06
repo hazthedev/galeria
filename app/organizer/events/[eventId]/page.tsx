@@ -279,6 +279,7 @@ export default function EventDetailPage() {
     month: 'long',
     day: 'numeric',
   });
+  const reactionsEnabled = event.settings?.features?.reactions_enabled !== false;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -432,7 +433,9 @@ export default function EventDetailPage() {
             {!selectedPhoto.is_anonymous && selectedPhoto.contributor_name && (
               <p className="text-sm opacity-75">by {selectedPhoto.contributor_name}</p>
             )}
-            <ReactionButtons photo={selectedPhoto} onReaction={handleReaction} />
+            {reactionsEnabled && (
+              <ReactionButtons photo={selectedPhoto} onReaction={handleReaction} />
+            )}
           </div>
         </div>
       )}

@@ -7,6 +7,7 @@ import { getTenantDb } from '@/lib/db';
 import { deleteKeys, getRawKey, setRawKey } from '@/lib/redis';
 import { hasModeratorRole, requireAuthForApi } from '@/lib/domain/auth/auth';
 import { resolveOptionalAuth, resolveTenantId } from '@/lib/api-request-context';
+import { isTenantFeatureEnabled } from '@/lib/tenant';
 import {
   createLuckyDrawConfig,
   getActiveConfig,
@@ -20,6 +21,17 @@ const readCacheHeaders = {
   'Cache-Control': 'private, max-age=10, stale-while-revalidate=30',
   Vary: 'Cookie, Authorization',
 };
+
+function createLuckyDrawFeatureUnavailableResponse() {
+  return NextResponse.json(
+    {
+      error: 'Lucky Draw is not available on your current plan',
+      code: 'FEATURE_NOT_AVAILABLE',
+    },
+    { status: 403 }
+  );
+}
+
 const LUCKY_DRAW_CONFIG_CACHE_TTL_SECONDS = Math.max(
   5,
   parseInt(process.env.LUCKY_DRAW_CONFIG_CACHE_TTL_SECONDS || '30', 10)
@@ -108,6 +120,10 @@ async function requireConfigWriteAccess(
     throw new Error('Forbidden');
   }
 
+  if (!(await isTenantFeatureEnabled(tenantId, 'lucky_draw'))) {
+    throw new Error('Lucky Draw is not available on your current plan');
+  }
+
   const db = getTenantDb(tenantId);
   const event = await db.findOne<EventAccessRecord>('events', { id: eventId });
   if (!event) {
@@ -140,6 +156,10 @@ function getConfigMutationError(error: unknown) {
       );
     }
 
+    if (error.message.includes('Lucky Draw is not available on your current plan')) {
+      return createLuckyDrawFeatureUnavailableResponse();
+    }
+
     if (error.message.includes('Event not found')) {
       return NextResponse.json(
         { error: 'Event not found', code: 'EVENT_NOT_FOUND' },
@@ -166,6 +186,10 @@ export async function GET(
     const { eventId } = await params;
     const auth = await resolveOptionalAuth(request.headers);
     const tenantId = resolveTenantId(request.headers, auth);
+
+    if (!(await isTenantFeatureEnabled(tenantId, 'lucky_draw'))) {
+      return createLuckyDrawFeatureUnavailableResponse();
+    }
 
     const db = getTenantDb(tenantId);
 

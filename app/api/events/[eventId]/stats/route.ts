@@ -4,7 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantDb } from '@/lib/db';
-import { getTierConfig } from '@/lib/tenant';
+import { getEffectiveTenantEntitlements } from '@/lib/tenant';
 import type { SubscriptionTier } from '@/lib/types';
 import { resolveOptionalAuth, resolveTenantId } from '@/lib/api-request-context';
 
@@ -173,6 +173,15 @@ function normalizeConfiguredEventPhotoLimit(settings: unknown): number {
   return parsed;
 }
 
+function areReactionsEnabled(settings: unknown): boolean {
+  if (!settings || typeof settings !== 'object') {
+    return true;
+  }
+
+  const features = (settings as { features?: { reactions_enabled?: boolean } }).features;
+  return features?.reactions_enabled !== false;
+}
+
 function getEffectiveEventPhotoLimit(tierLimit: number, configuredLimit: number): number {
   if (tierLimit === -1) {
     return configuredLimit;
@@ -246,16 +255,18 @@ export async function GET(
       );
     }
 
-    const effectiveTier = (access.subscription_tier as SubscriptionTier) || 'free';
-    const tierConfig = getTierConfig(effectiveTier);
+    const entitlements = await getEffectiveTenantEntitlements(
+      tenantId,
+      ((access.subscription_tier as SubscriptionTier) || 'free')
+    );
     const configuredMaxPhotosPerEvent = normalizeConfiguredEventPhotoLimit(access.settings);
     const effectiveMaxPhotosPerEvent = getEffectiveEventPhotoLimit(
-      tierConfig.limits.max_photos_per_event,
+      entitlements.limits.max_photos_per_event,
       configuredMaxPhotosPerEvent
     );
     const stats = buildEmptyStats(
-      tierConfig.limits.max_photos_per_event,
-      tierConfig.displayName,
+      entitlements.limits.max_photos_per_event,
+      entitlements.displayName,
       configuredMaxPhotosPerEvent,
       effectiveMaxPhotosPerEvent
     );
@@ -370,6 +381,17 @@ export async function GET(
       stats.avgPhotosPerUser = Math.round((stats.totalPhotos / stats.totalParticipants) * 10) / 10;
     }
 
+    const reactionsEnabled = areReactionsEnabled(access.settings);
+    if (!reactionsEnabled) {
+      stats.totalReactions = 0;
+      stats.topLikedPhotos = [];
+    }
+
+    if (!entitlements.features.advanced_analytics) {
+      stats.topContributors = [];
+      stats.topLikedPhotos = [];
+    }
+
     try {
       const luckyDrawResult = await db.query<LuckyDrawRow>(
         `
@@ -389,6 +411,11 @@ export async function GET(
       }
     } catch {
       warnings.push('Lucky draw stats unavailable.');
+    }
+
+    if (!entitlements.features.lucky_draw) {
+      stats.luckyDrawStatus = 'not_set';
+      stats.luckyDrawEntryCount = 0;
     }
 
     return NextResponse.json({

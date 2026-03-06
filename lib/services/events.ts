@@ -14,6 +14,8 @@ import { resolveOrProvisionAppUser } from '@/lib/domain/auth/provision-app-user'
 import type { IEvent } from '@/lib/types';
 import { eventBulkUpdateSchema, eventCreateSchema } from '@/lib/validation/events';
 import { resolveOptionalAuth, resolveRequiredTenantId } from '@/lib/api-request-context';
+import { checkEventLimit } from '@/lib/limit-check';
+import { getEffectiveTenantEntitlements } from '@/lib/tenant';
 
 type IEventWithPhotoCount = IEvent & { photo_count?: number };
 
@@ -334,6 +336,23 @@ export async function handleEventCreate(request: NextRequest) {
 
     // Get database connection
     const db = getTenantDb(tenantId);
+    const [eventLimitResult, tenantEntitlements] = await Promise.all([
+      checkEventLimit(tenantId, 'free'),
+      getEffectiveTenantEntitlements(tenantId),
+    ]);
+
+    if (!eventLimitResult.allowed) {
+      return NextResponse.json(
+        {
+          error: eventLimitResult.message || 'Monthly event limit reached',
+          code: 'TIER_LIMIT_REACHED',
+          upgradeRequired: true,
+          currentCount: eventLimitResult.currentCount,
+          limit: eventLimitResult.limit,
+        },
+        { status: 403 }
+      );
+    }
 
     // Generate event ID (use UUID for database compatibility)
     const eventId = generateUUID();
@@ -353,8 +372,8 @@ export async function handleEventCreate(request: NextRequest) {
       },
       features: {
         photo_upload_enabled: true,
-        lucky_draw_enabled: true,
-        reactions_enabled: true,
+        lucky_draw_enabled: tenantEntitlements.features.lucky_draw,
+        reactions_enabled: tenantEntitlements.features.photo_reactions,
         moderation_required: false,
         anonymous_allowed: true,
         guest_download_enabled: true,

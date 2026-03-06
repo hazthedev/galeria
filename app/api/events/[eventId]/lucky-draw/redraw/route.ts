@@ -10,8 +10,19 @@ import { extractSessionId, validateSession } from '@/lib/domain/auth/session';
 import { verifyAccessToken } from '@/lib/domain/auth/auth';
 import { publishEventBroadcast } from '@/lib/realtime/server';
 import { resolveOptionalAuth, resolveRequiredTenantId } from '@/lib/api-request-context';
+import { isTenantFeatureEnabled } from '@/lib/tenant';
 
 export const runtime = 'nodejs';
+
+function createLuckyDrawFeatureUnavailableResponse() {
+    return NextResponse.json(
+        {
+            error: 'Lucky Draw is not available on your current plan',
+            code: 'FEATURE_NOT_AVAILABLE',
+        },
+        { status: 403 }
+    );
+}
 
 // ============================================
 // POST /api/events/:eventId/lucky-draw/redraw
@@ -26,6 +37,10 @@ export async function POST(
         const headers = request.headers;
         const authContext = await resolveOptionalAuth(headers);
         const tenantId = resolveRequiredTenantId(headers, authContext);
+
+        if (!(await isTenantFeatureEnabled(tenantId, 'lucky_draw'))) {
+            return createLuckyDrawFeatureUnavailableResponse();
+        }
 
         const db = getTenantDb(tenantId);
 
@@ -98,6 +113,9 @@ export async function POST(
     } catch (error) {
         console.error('[API] Redraw error:', error);
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        if (errorMessage.includes('Lucky Draw is not available on your current plan')) {
+            return createLuckyDrawFeatureUnavailableResponse();
+        }
         return NextResponse.json(
             { error: errorMessage || 'Failed to redraw', code: 'REDRAW_ERROR' },
             { status: 500 }

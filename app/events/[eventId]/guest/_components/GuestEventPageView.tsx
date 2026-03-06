@@ -58,7 +58,7 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
     moderationNotice, moderationNoticeType, joinLuckyDraw, hasJoinedDraw, luckyDrawNumbers, hasActiveLuckyDrawConfig,
     photoChallenge, challengeProgress, showPrizeModal, fingerprint, recaptchaToken, recaptchaError, winner,
     showDrawOverlay, showWinnerOverlay, mergedPhotos, guestName, isAnonymous, showGuestModal, allowAnonymous,
-    luckyDrawEnabled, attendanceEnabled, photoCardStyle, themePrimary, themeSecondary, themeBackground, themeSurface,
+    luckyDrawEnabled, reactionsEnabled, attendanceEnabled, photoCardStyle, themePrimary, themeSecondary, themeBackground, themeSurface,
     themeGradient, surfaceText, surfaceMuted, surfaceBorder, inputBackground, inputBorder, headerBackground,
     secondaryText, selectedFiles, caption, userLoves, animatingPhotos, selectedPhotoIds, canDownload, selectedCount,
     uploadUsageUser,
@@ -473,7 +473,7 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
                       whileHover="hover"
                       whileTap="tap"
                       onDoubleClick={() => {
-                        if (photo.status !== 'approved') return;
+                        if (photo.status !== 'approved' || !reactionsEnabled) return;
                         handleLoveReaction(photo.id);
                       }}
                       className={clsx(
@@ -533,7 +533,7 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
                       )}
 
                       {/* Love Icon at Top Right (when user has loved) */}
-                      {userLoveCount > 0 && (
+                      {reactionsEnabled && userLoveCount > 0 && (
                         <div className="absolute top-2 right-2 flex items-center gap-1 rounded-full bg-pink-500 px-2 py-1 shadow-lg">
                           <Heart className="h-4 w-4 fill-white text-white" />
                           <span className="text-xs font-bold text-white">{userLoveCount}</span>
@@ -541,7 +541,7 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
                       )}
 
                       {/* Total Heart Count Badge */}
-                      {totalHeartCount > 0 && (
+                      {reactionsEnabled && totalHeartCount > 0 && (
                         <div className="absolute bottom-2 right-2 flex items-center gap-1 rounded-full bg-black/50 px-2 py-1 backdrop-blur-sm">
                           <Heart className={clsx(
                             "h-3.5 w-3.5",
@@ -564,7 +564,7 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
                       </div>
 
                       {/* Heart Burst Animation (on double-click) */}
-                      {animatingPhotos.has(photo.id) && (
+                      {reactionsEnabled && animatingPhotos.has(photo.id) && (
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
                           {/* Central heart */}
                           <motion.div
@@ -590,7 +590,7 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
                       )}
 
                       {/* Double-click hint overlay (only on hover, hidden during animation) */}
-                      {!animatingPhotos.has(photo.id) && (
+                      {reactionsEnabled && !animatingPhotos.has(photo.id) && (
                         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/30">
                           <Heart className="h-12 w-12 text-white opacity-80" />
                           {userLoveCount >= 10 && (

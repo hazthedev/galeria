@@ -13,8 +13,19 @@ import { extractSessionId, validateSession } from '@/lib/domain/auth/session';
 import { verifyAccessToken } from '@/lib/domain/auth/auth';
 import { publishEventBroadcast } from '@/lib/realtime/server';
 import { resolveOptionalAuth, resolveRequiredTenantId } from '@/lib/api-request-context';
+import { isTenantFeatureEnabled } from '@/lib/tenant';
 
 export const runtime = 'nodejs';
+
+function createLuckyDrawFeatureUnavailableResponse() {
+  return NextResponse.json(
+    {
+      error: 'Lucky Draw is not available on your current plan',
+      code: 'FEATURE_NOT_AVAILABLE',
+    },
+    { status: 403 }
+  );
+}
 
 // ============================================
 // POST /api/events/:eventId/lucky-draw/draw - Execute draw
@@ -29,6 +40,10 @@ export async function POST(
     const headers = request.headers;
     const authContext = await resolveOptionalAuth(headers);
     const tenantId = resolveRequiredTenantId(headers, authContext);
+
+    if (!(await isTenantFeatureEnabled(tenantId, 'lucky_draw'))) {
+      return createLuckyDrawFeatureUnavailableResponse();
+    }
 
     const db = getTenantDb(tenantId);
 
@@ -192,6 +207,10 @@ export async function PUT(
     const headers = request.headers;
     const authContext = await resolveOptionalAuth(headers);
     const tenantId = resolveRequiredTenantId(headers, authContext);
+
+    if (!(await isTenantFeatureEnabled(tenantId, 'lucky_draw'))) {
+      return createLuckyDrawFeatureUnavailableResponse();
+    }
 
     const db = getTenantDb(tenantId);
 
