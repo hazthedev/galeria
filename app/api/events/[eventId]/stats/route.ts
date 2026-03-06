@@ -4,10 +4,12 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantDb } from '@/lib/db';
-import { getActiveConfig } from '@/lib/lucky-draw';
 import { getTierConfig } from '@/lib/tenant';
-import type { IPhoto, SubscriptionTier } from '@/lib/types';
+import type { SubscriptionTier } from '@/lib/types';
 import { resolveOptionalAuth, resolveTenantId } from '@/lib/api-request-context';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 interface EventStats {
   totalPhotos: number;
@@ -49,6 +51,90 @@ function buildEmptyStats(tierMaxPhotosPerEvent = 0, tierDisplayName = 'Free'): E
   };
 }
 
+interface CombinedStatsRow {
+  total_photos: string | number;
+  total_participants: string | number;
+  photos_today: string | number;
+  total_reactions: string | number;
+  pending_moderation: string | number;
+  top_contributors: unknown;
+  upload_timeline: unknown;
+  top_liked_photos: unknown;
+}
+
+interface EventAccessRow {
+  organizer_id: string;
+  subscription_tier: SubscriptionTier | null;
+}
+
+interface LuckyDrawRow {
+  total_entries: string | number | null;
+}
+
+function toNumber(value: unknown): number {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'bigint') {
+    return Number(value);
+  }
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  return 0;
+}
+
+function normalizeTopContributors(value: unknown): { name: string; count: number }[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.map((item) => {
+    const row = (item || {}) as Record<string, unknown>;
+    const name = typeof row.name === 'string' ? row.name : 'Guest';
+    return {
+      name,
+      count: toNumber(row.count),
+    };
+  });
+}
+
+function normalizeUploadTimeline(value: unknown): { date: string; count: number }[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.map((item) => {
+    const row = (item || {}) as Record<string, unknown>;
+    const dateRaw = row.date;
+    const date = typeof dateRaw === 'string' || dateRaw instanceof Date
+      ? getTimelineDate(dateRaw)
+      : new Date().toISOString().split('T')[0];
+    return {
+      date,
+      count: toNumber(row.count),
+    };
+  });
+}
+
+function normalizeTopLikedPhotos(value: unknown): EventStats['topLikedPhotos'] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.map((item) => {
+    const row = (item || {}) as Record<string, unknown>;
+    return {
+      id: typeof row.id === 'string' ? row.id : '',
+      imageUrl: typeof row.imageUrl === 'string' ? row.imageUrl : '',
+      heartCount: toNumber(row.heartCount),
+      contributorName: typeof row.contributorName === 'string' ? row.contributorName : 'Guest',
+      isAnonymous: row.isAnonymous === true,
+    };
+  });
+}
+
 function getTimelineDate(value: string | Date): string {
   return new Date(value).toISOString().split('T')[0];
 }
@@ -62,6 +148,10 @@ export async function GET(
   { params }: { params: Promise<{ eventId: string }> }
 ) {
   const { eventId: id } = await params;
+  const cacheHeaders = {
+    'Cache-Control': 'private, max-age=10, stale-while-revalidate=30',
+    Vary: 'Cookie',
+  };
 
   try {
     const headers = request.headers;
@@ -70,23 +160,32 @@ export async function GET(
 
     // Keep stats publicly safe by returning empty stats when unauthenticated.
     if (!auth?.userId) {
-      return NextResponse.json({ data: buildEmptyStats() });
+      return NextResponse.json({ data: buildEmptyStats() }, { headers: cacheHeaders });
     }
 
     const db = getTenantDb(tenantId);
-    const [event, tenant] = await Promise.all([
-      db.findOne<{ id: string; organizer_id: string }>('events', { id }),
-      db.findOne<{ subscription_tier: SubscriptionTier }>('tenants', { id: tenantId }),
-    ]);
+    const accessResult = await db.query<EventAccessRow>(
+      `
+        SELECT
+          e.organizer_id,
+          t.subscription_tier
+        FROM events e
+        LEFT JOIN tenants t ON t.id = $2
+        WHERE e.id = $1
+        LIMIT 1
+      `,
+      [id, tenantId]
+    );
+    const access = accessResult.rows[0];
 
-    if (!event) {
+    if (!access) {
       return NextResponse.json(
         { error: 'Event not found', code: 'EVENT_NOT_FOUND' },
         { status: 404 }
       );
     }
 
-    const isOwner = event.organizer_id === auth.userId;
+    const isOwner = access.organizer_id === auth.userId;
     const isSuperAdmin = auth.role === 'super_admin';
     if (!isOwner && !isSuperAdmin) {
       return NextResponse.json(
@@ -95,176 +194,134 @@ export async function GET(
       );
     }
 
-    const effectiveTier = (tenant?.subscription_tier as SubscriptionTier) || 'free';
+    const effectiveTier = (access.subscription_tier as SubscriptionTier) || 'free';
     const tierConfig = getTierConfig(effectiveTier);
     const stats = buildEmptyStats(tierConfig.limits.max_photos_per_event, tierConfig.displayName);
     const warnings: string[] = [];
 
-    const [
-      totalPhotosResult,
-      uniqueParticipantsResult,
-      photosTodayResult,
-      contributorStatsResult,
-      timelineResult,
-      reactionsResult,
-      topLikedResult,
-      pendingModerationResult,
-    ] = await Promise.allSettled([
-      db.query<{ count: bigint }>('SELECT COUNT(*) as count FROM photos WHERE event_id = $1', [id]),
-      db.query<{ count: bigint }>(
-        'SELECT COUNT(DISTINCT user_fingerprint) as count FROM photos WHERE event_id = $1',
-        [id]
-      ),
-      db.query<{ count: bigint }>(
-        'SELECT COUNT(*) as count FROM photos WHERE event_id = $1 AND created_at >= $2',
-        [id, new Date(new Date().setHours(0, 0, 0, 0))]
-      ),
-      db.query<{ contributor_name: string; is_anonymous: boolean; count: bigint }>(
-        `SELECT
-          COALESCE(contributor_name, 'Guest') as contributor_name,
-          is_anonymous,
-          COUNT(*) as count
-        FROM photos
-        WHERE event_id = $1
-        GROUP BY contributor_name, is_anonymous
-        ORDER BY count DESC
-        LIMIT 3`,
-        [id]
-      ),
-      db.query<{ date: string | Date; count: bigint }>(
-        `SELECT
-          DATE(created_at) as date,
-          COUNT(*) as count
-        FROM photos
-        WHERE event_id = $1
-          AND created_at >= NOW() - INTERVAL '7 days'
-        GROUP BY DATE(created_at)
-        ORDER BY date`,
-        [id]
-      ),
-      db.query<{ total_reactions: bigint }>(
-        `SELECT
-          SUM(
-            (COALESCE((reactions->>'heart')::int, 0)) +
-            (COALESCE((reactions->>'clap')::int, 0)) +
-            (COALESCE((reactions->>'laugh')::int, 0)) +
-            (COALESCE((reactions->>'wow')::int, 0))
-          ) as total_reactions
-        FROM photos
-        WHERE event_id = $1`,
-        [id]
-      ),
-      db.query<{
-        id: string;
-        images: IPhoto['images'];
-        reactions: IPhoto['reactions'];
-        contributor_name: string | null;
-        is_anonymous: boolean;
-      }>(
-        `SELECT id, images, reactions, contributor_name, is_anonymous
-        FROM photos
-        WHERE event_id = $1
-        ORDER BY (reactions->>'heart')::int DESC NULLS LAST
-        LIMIT 3`,
-        [id]
-      ),
-      db.query<{ count: bigint }>(
-        'SELECT COUNT(*) as count FROM photos WHERE event_id = $1 AND status = $2',
-        [id, 'pending']
-      ),
-    ]);
+    const combinedResult = await db.query<CombinedStatsRow>(
+      `
+        WITH base_photos AS (
+          SELECT
+            id,
+            created_at,
+            status,
+            contributor_name,
+            is_anonymous,
+            reactions,
+            images
+          FROM photos
+          WHERE event_id = $1
+        ),
+        photo_totals AS (
+          SELECT
+            COUNT(*) AS total_photos,
+            COUNT(DISTINCT user_fingerprint) AS total_participants,
+            COUNT(*) FILTER (WHERE created_at >= date_trunc('day', now())) AS photos_today,
+            COALESCE(
+              SUM(
+                COALESCE((reactions->>'heart')::int, 0) +
+                COALESCE((reactions->>'clap')::int, 0) +
+                COALESCE((reactions->>'laugh')::int, 0) +
+                COALESCE((reactions->>'wow')::int, 0)
+              ),
+              0
+            ) AS total_reactions,
+            COUNT(*) FILTER (WHERE status = 'pending') AS pending_moderation
+          FROM base_photos
+        ),
+        top_contributors AS (
+          SELECT
+            CASE
+              WHEN is_anonymous THEN 'Anonymous'
+              ELSE COALESCE(contributor_name, 'Guest')
+            END AS name,
+            COUNT(*) AS count
+          FROM base_photos
+          GROUP BY contributor_name, is_anonymous
+          ORDER BY COUNT(*) DESC
+          LIMIT 3
+        ),
+        upload_timeline AS (
+          SELECT
+            DATE(created_at) AS date,
+            COUNT(*) AS count
+          FROM base_photos
+          WHERE created_at >= now() - INTERVAL '7 days'
+          GROUP BY DATE(created_at)
+          ORDER BY date
+        ),
+        top_liked AS (
+          SELECT
+            id,
+            COALESCE(images->>'medium_url', images->>'full_url', images->>'original_url', images->>'thumbnail_url', '') AS "imageUrl",
+            COALESCE((reactions->>'heart')::int, 0) AS "heartCount",
+            CASE
+              WHEN is_anonymous THEN 'Anonymous'
+              ELSE COALESCE(contributor_name, 'Guest')
+            END AS "contributorName",
+            is_anonymous AS "isAnonymous"
+          FROM base_photos
+          ORDER BY COALESCE((reactions->>'heart')::int, 0) DESC, created_at DESC
+          LIMIT 3
+        )
+        SELECT
+          pt.total_photos,
+          pt.total_participants,
+          pt.photos_today,
+          pt.total_reactions,
+          pt.pending_moderation,
+          COALESCE((SELECT json_agg(tc ORDER BY tc.count DESC) FROM top_contributors tc), '[]'::json) AS top_contributors,
+          COALESCE((SELECT json_agg(ut ORDER BY ut.date) FROM upload_timeline ut), '[]'::json) AS upload_timeline,
+          COALESCE((SELECT json_agg(tl) FROM top_liked tl), '[]'::json) AS top_liked_photos
+        FROM photo_totals pt
+      `,
+      [id]
+    );
 
-    if (totalPhotosResult.status === 'fulfilled') {
-      stats.totalPhotos = Number(totalPhotosResult.value.rows[0]?.count || 0);
-    } else {
-      warnings.push('Total photos metric unavailable.');
-    }
+    const combined = combinedResult.rows[0];
 
-    if (uniqueParticipantsResult.status === 'fulfilled') {
-      stats.totalParticipants = Number(uniqueParticipantsResult.value.rows[0]?.count || 0);
-    } else {
-      warnings.push('Participants metric unavailable.');
-    }
+    stats.totalPhotos = toNumber(combined?.total_photos);
+    stats.totalParticipants = toNumber(combined?.total_participants);
+    stats.photosToday = toNumber(combined?.photos_today);
+    stats.totalReactions = toNumber(combined?.total_reactions);
+    stats.pendingModeration = toNumber(combined?.pending_moderation);
+    stats.topContributors = normalizeTopContributors(combined?.top_contributors);
+    stats.topLikedPhotos = normalizeTopLikedPhotos(combined?.top_liked_photos);
 
-    if (photosTodayResult.status === 'fulfilled') {
-      stats.photosToday = Number(photosTodayResult.value.rows[0]?.count || 0);
-    } else {
-      warnings.push('Photos today metric unavailable.');
+    const timelineMap = new Map(
+      normalizeUploadTimeline(combined?.upload_timeline).map((row) => [row.date, row.count])
+    );
+    const uploadTimeline: { date: string; count: number }[] = [];
+    for (let i = 6; i >= 0; i -= 1) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      date.setHours(0, 0, 0, 0);
+      const dateStr = date.toISOString().split('T')[0];
+      uploadTimeline.push({ date: dateStr, count: timelineMap.get(dateStr) || 0 });
     }
-
-    if (contributorStatsResult.status === 'fulfilled') {
-      stats.topContributors = contributorStatsResult.value.rows.map((row) => ({
-        name: row.is_anonymous ? 'Anonymous' : (row.contributor_name || 'Guest'),
-        count: Number(row.count),
-      }));
-    } else {
-      warnings.push('Top contributors unavailable.');
-    }
-
-    if (timelineResult.status === 'fulfilled') {
-      const timelineMap = new Map(
-        timelineResult.value.rows.map((row) => [getTimelineDate(row.date), Number(row.count)])
-      );
-      const uploadTimeline: { date: string; count: number }[] = [];
-      for (let i = 6; i >= 0; i -= 1) {
-        const date = new Date();
-        date.setDate(date.getDate() - i);
-        date.setHours(0, 0, 0, 0);
-        const dateStr = date.toISOString().split('T')[0];
-        uploadTimeline.push({ date: dateStr, count: timelineMap.get(dateStr) || 0 });
-      }
-      stats.uploadTimeline = uploadTimeline;
-    } else {
-      warnings.push('Upload timeline unavailable.');
-    }
-
-    if (reactionsResult.status === 'fulfilled') {
-      stats.totalReactions = Number(reactionsResult.value.rows[0]?.total_reactions || 0);
-    } else {
-      warnings.push('Reactions metric unavailable.');
-    }
-
-    if (topLikedResult.status === 'fulfilled') {
-      stats.topLikedPhotos = topLikedResult.value.rows.map((photo) => ({
-        id: photo.id,
-        imageUrl:
-          photo.images?.medium_url ||
-          photo.images?.full_url ||
-          photo.images?.original_url ||
-          photo.images?.thumbnail_url ||
-          '',
-        heartCount: photo.reactions?.heart || 0,
-        contributorName: photo.is_anonymous ? 'Anonymous' : (photo.contributor_name || 'Guest'),
-        isAnonymous: photo.is_anonymous,
-      }));
-    } else {
-      warnings.push('Top liked photos unavailable.');
-    }
-
-    if (pendingModerationResult.status === 'fulfilled') {
-      stats.pendingModeration = Number(pendingModerationResult.value.rows[0]?.count || 0);
-    } else {
-      warnings.push('Pending moderation metric unavailable.');
-    }
+    stats.uploadTimeline = uploadTimeline;
 
     if (stats.totalParticipants > 0) {
       stats.avgPhotosPerUser = Math.round((stats.totalPhotos / stats.totalParticipants) * 10) / 10;
     }
 
     try {
-      const activeConfig = await getActiveConfig(tenantId, id);
+      const luckyDrawResult = await db.query<LuckyDrawRow>(
+        `
+          SELECT total_entries
+          FROM lucky_draw_configs
+          WHERE event_id = $1
+            AND status = 'scheduled'
+          ORDER BY created_at DESC
+          LIMIT 1
+        `,
+        [id]
+      );
+      const activeConfig = luckyDrawResult.rows[0];
       if (activeConfig) {
         stats.luckyDrawStatus = 'active';
-        try {
-          const countResult = await db.query<{ count: bigint }>(
-            'SELECT COUNT(*) as count FROM lucky_draw_entries WHERE config_id = $1',
-            [activeConfig.id]
-          );
-          stats.luckyDrawEntryCount = Number(countResult.rows[0]?.count || 0);
-        } catch {
-          stats.luckyDrawEntryCount = Number(activeConfig.totalEntries || 0);
-          warnings.push('Lucky draw entry count unavailable; showing cached value.');
-        }
+        stats.luckyDrawEntryCount = toNumber(activeConfig.total_entries);
       }
     } catch {
       warnings.push('Lucky draw stats unavailable.');
@@ -273,7 +330,7 @@ export async function GET(
     return NextResponse.json({
       data: stats,
       warnings: warnings.length > 0 ? warnings : undefined,
-    });
+    }, { headers: cacheHeaders });
   } catch (error) {
     console.error('[API] Error fetching event stats:', error);
     return NextResponse.json(
