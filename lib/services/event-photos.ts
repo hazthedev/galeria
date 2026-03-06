@@ -2,7 +2,7 @@
 // Galeria - Event Photo Service
 // ============================================
 
-import { NextRequest, NextResponse } from 'next/server';
+import { after, NextRequest, NextResponse } from 'next/server';
 import { getTenantDb } from '@/lib/db';
 import { deleteKeys } from '@/lib/redis';
 import { deletePhotoAssets, uploadImageToStorage, validateUploadedImage, getTierValidationOptions } from '@/lib/images';
@@ -98,6 +98,126 @@ interface UploadUsageSnapshot {
     tier_limit: number;
     configured_limit: number;
   };
+}
+
+interface UploadCreatedPhoto {
+  id: string;
+  event_id: string;
+  images: IPhoto['images'];
+  caption: IPhoto['caption'];
+  contributor_name: IPhoto['contributor_name'];
+  is_anonymous: IPhoto['is_anonymous'];
+  status: IPhoto['status'];
+  created_at: IPhoto['created_at'];
+  lucky_draw_entry_id: string | null;
+}
+
+type UploadProfilerMetaValue = string | number | boolean | null | undefined;
+
+function createUploadProfiler(eventId: string) {
+  const startedAt = Date.now();
+  const stageDurations = new Map<string, number>();
+  const meta: Record<string, UploadProfilerMetaValue> = { eventId };
+
+  const addStageDuration = (stage: string, durationMs: number) => {
+    stageDurations.set(stage, (stageDurations.get(stage) || 0) + durationMs);
+  };
+
+  return {
+    async time<T>(stage: string, task: () => Promise<T> | T): Promise<T> {
+      const stageStart = Date.now();
+      try {
+        return await task();
+      } finally {
+        addStageDuration(stage, Date.now() - stageStart);
+      }
+    },
+    setMeta(updates: Record<string, UploadProfilerMetaValue>) {
+      Object.assign(meta, updates);
+    },
+    attach(response: NextResponse, outcome: string): NextResponse {
+      const totalMs = Date.now() - startedAt;
+      meta.outcome = outcome;
+
+      const serverTiming = Array.from(stageDurations.entries())
+        .filter(([, duration]) => duration > 0)
+        .map(([stage, duration]) => `${stage};dur=${duration}`);
+      serverTiming.push(`total;dur=${totalMs}`);
+      response.headers.set('Server-Timing', serverTiming.join(', '));
+
+      const uploadMode = meta.uploadMode;
+      if (typeof uploadMode === 'string' && uploadMode.length > 0) {
+        response.headers.set('X-Upload-Mode', uploadMode);
+      }
+
+      const fileCount = meta.fileCount;
+      if (typeof fileCount === 'number' && Number.isFinite(fileCount)) {
+        response.headers.set('X-Upload-Files', String(fileCount));
+      }
+
+      console.info('[PHOTO_UPLOAD_PERF]', {
+        ...meta,
+        responseStatus: response.status,
+        totalMs,
+        stageMs: Object.fromEntries(stageDurations),
+      });
+
+      return response;
+    },
+  };
+}
+
+function buildCreatedPhotoPayload(photo: IPhoto, luckyDrawEntryId: string | null): UploadCreatedPhoto {
+  return {
+    id: photo.id,
+    event_id: photo.event_id,
+    images: photo.images,
+    caption: photo.caption,
+    contributor_name: photo.contributor_name,
+    is_anonymous: photo.is_anonymous,
+    status: photo.status,
+    created_at: photo.created_at,
+    lucky_draw_entry_id: luckyDrawEntryId,
+  };
+}
+
+function scheduleDeferredPhotoBroadcasts(
+  eventId: string,
+  photos: UploadCreatedPhoto[],
+  meta: {
+    tenantId: string;
+    uploadMode: string;
+  }
+): void {
+  if (photos.length === 0) {
+    return;
+  }
+
+  after(async () => {
+    const startedAt = Date.now();
+
+    try {
+      for (const photo of photos) {
+        await publishEventBroadcast(eventId, 'new_photo', photo);
+      }
+
+      console.info('[PHOTO_UPLOAD_ASYNC_BROADCAST]', {
+        eventId,
+        tenantId: meta.tenantId,
+        uploadMode: meta.uploadMode,
+        photoCount: photos.length,
+        totalMs: Date.now() - startedAt,
+      });
+    } catch (error) {
+      console.warn('[PHOTO_UPLOAD_ASYNC_BROADCAST] Deferred broadcast failed:', {
+        eventId,
+        tenantId: meta.tenantId,
+        uploadMode: meta.uploadMode,
+        photoCount: photos.length,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  });
 }
 
 function normalizePerUserPhotoLimit(limit: unknown): number {
@@ -325,13 +445,29 @@ async function insertPhotoWithAtomicLimits(
 // ============================================
 
 export async function handleEventPhotoUpload(request: NextRequest, eventId: string) {
+  const profiler = createUploadProfiler(eventId);
+  const finalizeUploadResponse = (response: NextResponse, outcome: string) =>
+    profiler.attach(response, outcome);
+
   try {
     const headers = request.headers;
-    const auth = await resolveOptionalAuth(headers);
+    const contentType = headers.get('content-type') || '';
+    const uploadMode = contentType.includes('application/json') ? 'direct-finalize' : 'multipart';
+    profiler.setMeta({
+      uploadMode,
+      requestContentType: contentType || 'unknown',
+    });
+
+    const auth = await profiler.time('auth', () => resolveOptionalAuth(headers));
     const tenantId = resolveRequiredTenantId(headers, auth);
+    profiler.setMeta({
+      tenantId,
+      authenticated: Boolean(auth?.userId),
+      requesterRole: auth?.role || 'guest',
+    });
 
     const db = getTenantDb(tenantId);
-    const subscriptionTier = await resolveUserTier(headers, tenantId, 'free');
+    const subscriptionTier = await profiler.time('tier', () => resolveUserTier(headers, tenantId, 'free'));
     const tenantTierHeader = headers.get('x-tenant-tier');
     const allowedTiers = new Set(['free', 'pro', 'premium', 'enterprise', 'tester']);
     const effectiveTenantTier = tenantTierHeader && allowedTiers.has(tenantTierHeader)
@@ -339,12 +475,15 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
       : null;
     let effectiveTenantTierFallback: SubscriptionTier | null = null;
     if (!effectiveTenantTier) {
-      const tenant = await db.findOne<{ subscription_tier: SubscriptionTier }>('tenants', { id: tenantId });
+      const tenant = await profiler.time(
+        'tenant-lookup',
+        () => db.findOne<{ subscription_tier: SubscriptionTier }>('tenants', { id: tenantId })
+      );
       effectiveTenantTierFallback = tenant?.subscription_tier || null;
     }
 
     // Verify event exists and is active
-    const event = await db.findOne<{
+    const event = await profiler.time('event-lookup', () => db.findOne<{
       id: string;
       status: string;
       settings: {
@@ -371,13 +510,13 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
           };
         };
       };
-    }>('events', { id: eventId });
+    }>('events', { id: eventId }));
 
     if (!event) {
-      return NextResponse.json(
+      return finalizeUploadResponse(NextResponse.json(
         { error: 'Event not found', code: 'EVENT_NOT_FOUND' },
         { status: 404 }
-      );
+      ), 'event-not-found');
     }
 
     // Ensure settings exists (for backwards compatibility with old events)
@@ -426,18 +565,18 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
 
     // Check if photo uploads are enabled
     if (!event.settings.features.photo_upload_enabled) {
-      return NextResponse.json(
+      return finalizeUploadResponse(NextResponse.json(
         { error: 'Photo uploads are disabled for this event', code: 'UPLOADS_DISABLED' },
         { status: 400 }
-      );
+      ), 'uploads-disabled');
     }
 
     // Check if event is active
     if (event.status !== 'active') {
-      return NextResponse.json(
+      return finalizeUploadResponse(NextResponse.json(
         { error: 'Event is not active', code: 'EVENT_NOT_ACTIVE' },
         { status: 400 }
-      );
+      ), 'event-not-active');
     }
 
     // ============================================
@@ -454,25 +593,32 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
     const isAdminUploadHeader = headers.get('x-admin-upload') === 'true';
     let tenantTierFromDb: SubscriptionTier | null = null;
     if (!uploadUserId) {
-      const tenant = await db.findOne<{ subscription_tier: SubscriptionTier }>('tenants', { id: tenantId });
+      const tenant = await profiler.time(
+        'tenant-lookup',
+        () => db.findOne<{ subscription_tier: SubscriptionTier }>('tenants', { id: tenantId })
+      );
       tenantTierFromDb = tenant?.subscription_tier || null;
     }
 
     const effectiveSubscriptionTier: SubscriptionTier = uploadUserId
       ? subscriptionTier
       : (tenantTierFromDb || effectiveTenantTier || effectiveTenantTierFallback || subscriptionTier);
+    profiler.setMeta({ effectiveTier: effectiveSubscriptionTier });
     if (isAdminUploadHeader) {
       console.log('[RATE_LIMIT] Skipping for admin upload');
     } else {
 
     // Check rate limits (IP, fingerprint, event, burst protection)
     const uploadRateLimitOverrides = event.settings?.security?.upload_rate_limits;
-    const rateLimitResult = await checkUploadRateLimit(
-      uploadIpAddress,
-      uploadFingerprint || null,
-      eventId,
-      uploadUserId,
-      uploadRateLimitOverrides
+    const rateLimitResult = await profiler.time(
+      'rate-limit',
+      () => checkUploadRateLimit(
+        uploadIpAddress,
+        uploadFingerprint || null,
+        eventId,
+        uploadUserId,
+        uploadRateLimitOverrides
+      )
     );
 
     if (!rateLimitResult.allowed) {
@@ -492,7 +638,7 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
         response.headers.set('X-RateLimit-Reset', Math.floor(rateLimitResult.resetAt.getTime() / 1000).toString());
       }
 
-      return response;
+      return finalizeUploadResponse(response, 'rate-limited');
     }
     }
 
@@ -502,23 +648,26 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
     // Check if user is authenticated
     const isAuthenticated = !!uploadUserId;
     const requiresRecaptcha = isRecaptchaRequiredForUploads(undefined, isAuthenticated);
-    const contentType = headers.get('content-type') || '';
 
     let jsonBody: Record<string, unknown> | null = null;
     let formData: FormData | null = null;
 
     // Parse body once (request body can only be consumed once)
     if (contentType.includes('application/json')) {
-      jsonBody = (await request.json()) as Record<string, unknown>;
+      jsonBody = await profiler.time(
+        'body-parse',
+        async () => (await request.json()) as Record<string, unknown>
+      );
+      profiler.setMeta({ fileCount: 1 });
     } else {
       try {
-        formData = await request.formData();
+        formData = await profiler.time('body-parse', () => request.formData());
       } catch (parseError) {
         console.error('[PHOTO_UPLOAD] Failed to parse FormData:', parseError);
-        return NextResponse.json(
+        return finalizeUploadResponse(NextResponse.json(
           { error: 'Failed to parse form data', code: 'PARSE_ERROR', details: parseError instanceof Error ? parseError.message : 'Unknown' },
           { status: 400 }
-        );
+        ), 'parse-error');
       }
     }
 
@@ -556,28 +705,31 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
       }
 
       if (!recaptchaToken) {
-        return NextResponse.json(
+        return finalizeUploadResponse(NextResponse.json(
           {
             error: 'CAPTCHA token is required for anonymous uploads',
             code: 'MISSING_CAPTCHA',
             requiresCaptcha: true,
           },
           { status: 400 }
-        );
+        ), 'missing-captcha');
       }
 
       // Verify the token
-      const recaptchaResult = await validateRecaptchaForUpload(recaptchaToken);
+      const recaptchaResult = await profiler.time(
+        'recaptcha',
+        () => validateRecaptchaForUpload(recaptchaToken)
+      );
 
       if (!recaptchaResult.valid) {
-        return NextResponse.json(
+        return finalizeUploadResponse(NextResponse.json(
           {
             error: recaptchaResult.error || 'CAPTCHA verification failed',
             code: recaptchaResult.code || 'CAPTCHA_FAILED',
             score: recaptchaResult.score,
           },
           { status: 400 }
-        );
+        ), 'captcha-failed');
       }
 
       // Log the score for monitoring
@@ -590,9 +742,12 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
       }
     }
 
-    const tenantEntitlements = await getEffectiveTenantEntitlements(
-      tenantId,
-      effectiveSubscriptionTier
+    const tenantEntitlements = await profiler.time(
+      'entitlements',
+      () => getEffectiveTenantEntitlements(
+        tenantId,
+        effectiveSubscriptionTier
+      )
     );
     const tierPhotoLimit = tenantEntitlements.limits.max_photos_per_event;
     const eventTotalPhotoLimit = normalizeEventTotalPhotoLimit(event.settings.limits.max_total_photos);
@@ -622,18 +777,18 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
         false;
 
       if (!photoId || !key || width === undefined || height === undefined || fileSize === undefined) {
-        return NextResponse.json(
+        return finalizeUploadResponse(NextResponse.json(
           { error: 'Missing required fields', code: 'VALIDATION_ERROR' },
           { status: 400 }
-        );
+        ), 'validation-error');
       }
 
       const expectedPrefix = `${eventId}/${photoId}/`;
       if (typeof key !== 'string' || !key.startsWith(expectedPrefix)) {
-        return NextResponse.json(
+        return finalizeUploadResponse(NextResponse.json(
           { error: 'Invalid storage key', code: 'INVALID_KEY' },
           { status: 400 }
-        );
+        ), 'invalid-key');
       }
 
       // Get user info (authenticated or guest)
@@ -644,10 +799,10 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
 
       // Check if anonymous uploads are allowed
       if (isAnonymous && !event.settings.features.anonymous_allowed) {
-        return NextResponse.json(
+        return finalizeUploadResponse(NextResponse.json(
           { error: 'Anonymous uploads are not allowed for this event', code: 'ANONYMOUS_NOT_ALLOWED' },
           { status: 400 }
-        );
+        ), 'anonymous-not-allowed');
       }
 
       const publicBase = process.env.R2_PUBLIC_URL || 'https://pub-xxxxxxxxx.r2.dev';
@@ -662,250 +817,24 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
         deviceType = 'tablet';
       }
 
-      const insertResult = await insertPhotoWithAtomicLimits(
-        db,
-        {
-          id: photoId,
-          eventId,
-          userId,
-          images: {
-            original_url: publicUrl,
-            thumbnail_url: publicUrl,
-            medium_url: publicUrl,
-            full_url: publicUrl,
-            width,
-            height,
-            file_size: fileSize,
-            format: ext,
-          },
-          caption: caption || undefined,
-          contributorName: contributorName || undefined,
-          isAnonymous: isAnonymous || false,
-          moderationRequired: event.settings.features.moderation_required,
-          metadata: {
-            ip_address: headers.get('x-forwarded-for') || headers.get('x-real-ip') || 'unknown',
-            user_agent: userAgent,
-            upload_timestamp: new Date(),
-            device_type: deviceType,
-          },
-        },
-        {
-          tenantId,
-          eventId,
-          userId,
-          enforceLimits,
-          tierPhotoLimit,
-          eventTotalPhotoLimit,
-          userPhotoLimit,
-        }
-      );
-
-      if (!insertResult.allowed) {
-        try {
-          await deletePhotoAssets(eventId, photoId);
-        } catch (cleanupError) {
-          console.warn('[API] Failed to cleanup direct upload assets after limit check:', cleanupError);
-        }
-        const usage = await getUploadUsageSnapshot(
-          db,
-          eventId,
-          userId,
-          tierPhotoLimit,
-          eventTotalPhotoLimit,
-          userPhotoLimit
-        );
-        return buildPhotoLimitResponse(insertResult, usage);
-      }
-
-      const photo = insertResult.photo;
-      let luckyDrawEntryId: string | null = null;
-      if (event.settings.features.lucky_draw_enabled && joinLuckyDraw) {
-        try {
-          const entryName = isAnonymous ? undefined : contributorName || undefined;
-          const entry = await createEntryFromPhoto(tenantId, eventId, photo.id, userId, entryName);
-          luckyDrawEntryId = entry?.id || null;
-          if (luckyDrawEntryId) {
-            await clearLuckyDrawConfigCache(tenantId, eventId);
-          }
-        } catch (entryError) {
-          console.warn('[API] Lucky draw entry skipped:', entryError);
-        }
-      }
-
-      // ============================================
-      // PHOTO CHALLENGE PROGRESS TRACKING
-      // ============================================
-      if (event.settings.features.photo_challenge_enabled && !isAnonymous && userId) {
-        try {
-          const { goalJustReached } = await updateGuestProgress(
-            db,
-            eventId,
-            userId,
-            !event.settings.features.moderation_required // Photo is approved if moderation is not required
-          );
-          console.log('[PHOTO_CHALLENGE] Progress updated:', userId, goalJustReached ? 'Goal reached!' : '');
-        } catch (challengeError) {
-          console.warn('[API] Photo challenge progress update skipped:', challengeError);
-        }
-      }
-
-      // ============================================
-      // AI CONTENT MODERATION
-      // ============================================
-      // Queue photo for AI scanning if moderation is enabled
-      if (event.settings.features.moderation_required && await isModerationEnabled()) {
-        try {
-          await queuePhotoScan({
-            photoId: photo.id,
-            eventId: eventId,
-            tenantId,
-            imageUrl: photo.images.full_url,
-            userId: userRole === 'guest' ? undefined : userId,
-            priority: 'normal',
-          });
-          console.log('[MODERATION] Photo queued for AI scanning:', photo.id);
-        } catch (scanError) {
-          console.error('[MODERATION] Failed to queue photo for scanning:', scanError);
-          // Don't fail the upload if scanning fails
-        }
-      }
-
-      const createdPhoto = {
-        id: photo.id,
-        event_id: photo.event_id,
-        images: photo.images,
-        caption: photo.caption,
-        contributor_name: photo.contributor_name,
-        is_anonymous: photo.is_anonymous,
-        status: photo.status,
-        created_at: photo.created_at,
-        lucky_draw_entry_id: luckyDrawEntryId,
-      };
-
-      await publishEventBroadcast(eventId, 'new_photo', createdPhoto);
-
-      const usage = await getUploadUsageSnapshot(
-        db,
-        eventId,
-        userId,
-        tierPhotoLimit,
-        eventTotalPhotoLimit,
-        userPhotoLimit
-      );
-
-      return NextResponse.json({
-        data: [createdPhoto],
-        message: 'Photo uploaded successfully',
-        usage,
-      }, { status: 201 });
-    }
-
-    // Parse multipart form data (already parsed above)
-    if (!formData) {
-      return NextResponse.json(
-        { error: 'Failed to parse form data', code: 'PARSE_ERROR' },
-        { status: 400 }
-      );
-    }
-    const files = formData.getAll('files');
-    const singleFile = formData.get('file');
-    const caption = formData.get('caption') as string | null;
-    const contributorName = formData.get('contributor_name') as string | null;
-    const isAnonymous = formData.get('is_anonymous') === 'true';
-    const joinLuckyDraw = formData.get('join_lucky_draw') === 'true';
-
-    const uploadFiles: File[] = [];
-    for (const file of files) {
-      if (file instanceof File) {
-        uploadFiles.push(file);
-      }
-    }
-    if (uploadFiles.length === 0 && singleFile instanceof File) {
-      uploadFiles.push(singleFile);
-    }
-
-    // Validate files
-    if (uploadFiles.length === 0) {
-      return NextResponse.json(
-        { error: 'No file provided', code: 'NO_FILE' },
-        { status: 400 }
-      );
-    }
-
-    for (const file of uploadFiles) {
-      // Get tier-based validation options
-      const validationOptions = {
-        ...getTierValidationOptions(effectiveSubscriptionTier),
-        allowOversize: !uploadUserId,
-      };
-
-      // Use comprehensive validation with magic byte check
-      const validation = await validateUploadedImage(file, validationOptions);
-      if (!validation.valid) {
-        return NextResponse.json(
-          {
-            error: validation.error,
-            code: validation.code || 'INVALID_FILE',
-            details: validation.metadata ? {
-              allowedTypes: validationOptions.allowedMimeTypes,
-              maxSizeMB: Math.round((validationOptions.maxSizeBytes || 0) / (1024 * 1024)),
-              maxDimensions: `${validationOptions.maxWidth}x${validationOptions.maxHeight}`,
-            } : undefined,
-          },
-          { status: 400 }
-        );
-      }
-    }
-
-    // Check if anonymous uploads are allowed
-    if (isAnonymous && !event.settings.features.anonymous_allowed) {
-      return NextResponse.json(
-        { error: 'Anonymous uploads are not allowed for this event', code: 'ANONYMOUS_NOT_ALLOWED' },
-        { status: 400 }
-      );
-    }
-
-    // Get user info (authenticated or guest)
-    const fingerprint = headers.get('x-fingerprint');
-    const userId = uploadUserId || `guest_${fingerprint || 'anonymous'}`;
-    const userRole = uploadUserRole;
-    const enforceLimits = userRole !== 'super_admin' && !isAdminUploadHeader;
-
-    const userAgent = headers.get('user-agent') || '';
-    let deviceType: DeviceType = 'desktop';
-    if (/Mobile|Android|iPhone/i.test(userAgent)) {
-      deviceType = 'mobile';
-    } else if (/Tablet|iPad/i.test(userAgent)) {
-      deviceType = 'tablet';
-    }
-
-    const createdPhotos = [];
-    let limitReached: BlockedPhotoInsert | null = null;
-
-    for (const file of uploadFiles) {
-      const arrayBuffer = await file.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-
-      const photoId = generatePhotoId();
-
-      // Get tier for processing options
-      const images = await uploadImageToStorage(
-        eventId,
-        photoId,
-        buffer,
-        file.name,
-        effectiveSubscriptionTier
-      );
-
-      let insertResult: PhotoInsertResult;
-      try {
-        insertResult = await insertPhotoWithAtomicLimits(
+      const insertResult = await profiler.time(
+        'db',
+        () => insertPhotoWithAtomicLimits(
           db,
           {
             id: photoId,
             eventId,
             userId,
-            images,
+            images: {
+              original_url: publicUrl,
+              thumbnail_url: publicUrl,
+              medium_url: publicUrl,
+              full_url: publicUrl,
+              width,
+              height,
+              file_size: fileSize,
+              format: ext,
+            },
             caption: caption || undefined,
             contributorName: contributorName || undefined,
             isAnonymous: isAnonymous || false,
@@ -926,6 +855,253 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
             eventTotalPhotoLimit,
             userPhotoLimit,
           }
+        )
+      );
+
+      if (!insertResult.allowed) {
+        try {
+          await deletePhotoAssets(eventId, photoId);
+        } catch (cleanupError) {
+          console.warn('[API] Failed to cleanup direct upload assets after limit check:', cleanupError);
+        }
+        const usage = await profiler.time(
+          'usage',
+          () => getUploadUsageSnapshot(
+            db,
+            eventId,
+            userId,
+            tierPhotoLimit,
+            eventTotalPhotoLimit,
+            userPhotoLimit
+          )
+        );
+        return finalizeUploadResponse(buildPhotoLimitResponse(insertResult, usage), 'limit-reached');
+      }
+
+      const photo = insertResult.photo;
+      let luckyDrawEntryId: string | null = null;
+      await profiler.time('lucky-draw', async () => {
+        if (event.settings.features.lucky_draw_enabled && joinLuckyDraw) {
+          try {
+            const entryName = isAnonymous ? undefined : contributorName || undefined;
+            const entry = await createEntryFromPhoto(tenantId, eventId, photo.id, userId, entryName);
+            luckyDrawEntryId = entry?.id || null;
+            if (luckyDrawEntryId) {
+              await clearLuckyDrawConfigCache(tenantId, eventId);
+            }
+          } catch (entryError) {
+            console.warn('[API] Lucky draw entry skipped:', entryError);
+          }
+        }
+      });
+
+      // ============================================
+      // PHOTO CHALLENGE PROGRESS TRACKING
+      // ============================================
+      await profiler.time('challenge', async () => {
+        if (event.settings.features.photo_challenge_enabled && !isAnonymous && userId) {
+          try {
+            const { goalJustReached } = await updateGuestProgress(
+              db,
+              eventId,
+              userId,
+              !event.settings.features.moderation_required // Photo is approved if moderation is not required
+            );
+            console.log('[PHOTO_CHALLENGE] Progress updated:', userId, goalJustReached ? 'Goal reached!' : '');
+          } catch (challengeError) {
+            console.warn('[API] Photo challenge progress update skipped:', challengeError);
+          }
+        }
+      });
+
+      // ============================================
+      // AI CONTENT MODERATION
+      // ============================================
+      // Queue photo for AI scanning if moderation is enabled
+      const moderationEnabled = event.settings.features.moderation_required
+        ? await profiler.time('moderation-check', () => isModerationEnabled())
+        : false;
+      await profiler.time('moderation', async () => {
+        if (moderationEnabled) {
+          try {
+            await queuePhotoScan({
+              photoId: photo.id,
+              eventId: eventId,
+              tenantId,
+              imageUrl: photo.images.full_url,
+              userId: userRole === 'guest' ? undefined : userId,
+              priority: 'normal',
+            });
+            console.log('[MODERATION] Photo queued for AI scanning:', photo.id);
+          } catch (scanError) {
+            console.error('[MODERATION] Failed to queue photo for scanning:', scanError);
+            // Don't fail the upload if scanning fails
+          }
+        }
+      });
+
+      const createdPhoto = buildCreatedPhotoPayload(photo, luckyDrawEntryId);
+      const usage = await profiler.time(
+        'usage',
+        () => getUploadUsageSnapshot(
+          db,
+          eventId,
+          userId,
+          tierPhotoLimit,
+          eventTotalPhotoLimit,
+          userPhotoLimit
+        )
+      );
+
+      profiler.setMeta({ deferredBroadcastCount: 1 });
+      scheduleDeferredPhotoBroadcasts(eventId, [createdPhoto], { tenantId, uploadMode });
+
+      return finalizeUploadResponse(NextResponse.json({
+        data: [createdPhoto],
+        message: 'Photo uploaded successfully',
+        usage,
+      }, { status: 201 }), 'success');
+    }
+
+    // Parse multipart form data (already parsed above)
+    if (!formData) {
+      return finalizeUploadResponse(NextResponse.json(
+        { error: 'Failed to parse form data', code: 'PARSE_ERROR' },
+        { status: 400 }
+      ), 'parse-error');
+    }
+    const files = formData.getAll('files');
+    const singleFile = formData.get('file');
+    const caption = formData.get('caption') as string | null;
+    const contributorName = formData.get('contributor_name') as string | null;
+    const isAnonymous = formData.get('is_anonymous') === 'true';
+    const joinLuckyDraw = formData.get('join_lucky_draw') === 'true';
+
+    const uploadFiles: File[] = [];
+    for (const file of files) {
+      if (file instanceof File) {
+        uploadFiles.push(file);
+      }
+    }
+    if (uploadFiles.length === 0 && singleFile instanceof File) {
+      uploadFiles.push(singleFile);
+    }
+    profiler.setMeta({ fileCount: uploadFiles.length });
+
+    // Validate files
+    if (uploadFiles.length === 0) {
+      return finalizeUploadResponse(NextResponse.json(
+        { error: 'No file provided', code: 'NO_FILE' },
+        { status: 400 }
+      ), 'no-file');
+    }
+
+    for (const file of uploadFiles) {
+      // Get tier-based validation options
+      const validationOptions = {
+        ...getTierValidationOptions(effectiveSubscriptionTier),
+        allowOversize: !uploadUserId,
+      };
+
+      // Use comprehensive validation with magic byte check
+      const validation = await profiler.time(
+        'validate',
+        () => validateUploadedImage(file, validationOptions)
+      );
+      if (!validation.valid) {
+        return finalizeUploadResponse(NextResponse.json(
+          {
+            error: validation.error,
+            code: validation.code || 'INVALID_FILE',
+            details: validation.metadata ? {
+              allowedTypes: validationOptions.allowedMimeTypes,
+              maxSizeMB: Math.round((validationOptions.maxSizeBytes || 0) / (1024 * 1024)),
+              maxDimensions: `${validationOptions.maxWidth}x${validationOptions.maxHeight}`,
+            } : undefined,
+          },
+          { status: 400 }
+        ), 'validation-error');
+      }
+    }
+
+    // Check if anonymous uploads are allowed
+    if (isAnonymous && !event.settings.features.anonymous_allowed) {
+      return finalizeUploadResponse(NextResponse.json(
+        { error: 'Anonymous uploads are not allowed for this event', code: 'ANONYMOUS_NOT_ALLOWED' },
+        { status: 400 }
+      ), 'anonymous-not-allowed');
+    }
+
+    // Get user info (authenticated or guest)
+    const fingerprint = headers.get('x-fingerprint');
+    const userId = uploadUserId || `guest_${fingerprint || 'anonymous'}`;
+    const userRole = uploadUserRole;
+    const enforceLimits = userRole !== 'super_admin' && !isAdminUploadHeader;
+    const moderationEnabled = event.settings.features.moderation_required
+      ? await profiler.time('moderation-check', () => isModerationEnabled())
+      : false;
+
+    const userAgent = headers.get('user-agent') || '';
+    let deviceType: DeviceType = 'desktop';
+    if (/Mobile|Android|iPhone/i.test(userAgent)) {
+      deviceType = 'mobile';
+    } else if (/Tablet|iPad/i.test(userAgent)) {
+      deviceType = 'tablet';
+    }
+
+    const createdPhotos: UploadCreatedPhoto[] = [];
+    let limitReached: BlockedPhotoInsert | null = null;
+
+    for (const file of uploadFiles) {
+      const arrayBuffer = await profiler.time('file-read', () => file.arrayBuffer());
+      const buffer = Buffer.from(arrayBuffer);
+
+      const photoId = generatePhotoId();
+
+      // Get tier for processing options
+      const images = await profiler.time(
+        'image-store',
+        () => uploadImageToStorage(
+          eventId,
+          photoId,
+          buffer,
+          file.name,
+          effectiveSubscriptionTier
+        )
+      );
+
+      let insertResult: PhotoInsertResult;
+      try {
+        insertResult = await profiler.time(
+          'db',
+          () => insertPhotoWithAtomicLimits(
+            db,
+            {
+              id: photoId,
+              eventId,
+              userId,
+              images,
+              caption: caption || undefined,
+              contributorName: contributorName || undefined,
+              isAnonymous: isAnonymous || false,
+              moderationRequired: event.settings.features.moderation_required,
+              metadata: {
+                ip_address: headers.get('x-forwarded-for') || headers.get('x-real-ip') || 'unknown',
+                user_agent: userAgent,
+                upload_timestamp: new Date(),
+                device_type: deviceType,
+              },
+            },
+            {
+              tenantId,
+              eventId,
+              userId,
+              enforceLimits,
+              tierPhotoLimit,
+              eventTotalPhotoLimit,
+              userPhotoLimit,
+            }
+          )
         );
       } catch (insertError) {
         try {
@@ -950,79 +1126,79 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
 
       // Create lucky draw entry only if user opted in
       let luckyDrawEntryId: string | null = null;
-      if (event.settings.features.lucky_draw_enabled && joinLuckyDraw) {
-        try {
-          const entryName = isAnonymous ? undefined : contributorName || undefined;
-          const entry = await createEntryFromPhoto(tenantId, eventId, photo.id, userId, entryName);
-          luckyDrawEntryId = entry?.id || null;
-          if (luckyDrawEntryId) {
-            await clearLuckyDrawConfigCache(tenantId, eventId);
+      await profiler.time('lucky-draw', async () => {
+        if (event.settings.features.lucky_draw_enabled && joinLuckyDraw) {
+          try {
+            const entryName = isAnonymous ? undefined : contributorName || undefined;
+            const entry = await createEntryFromPhoto(tenantId, eventId, photo.id, userId, entryName);
+            luckyDrawEntryId = entry?.id || null;
+            if (luckyDrawEntryId) {
+              await clearLuckyDrawConfigCache(tenantId, eventId);
+            }
+          } catch (entryError) {
+            console.warn('[API] Lucky draw entry skipped:', entryError);
           }
-        } catch (entryError) {
-          console.warn('[API] Lucky draw entry skipped:', entryError);
         }
-      }
+      });
 
       // ============================================
       // AI CONTENT MODERATION
       // ============================================
       // Queue photo for AI scanning if moderation is enabled
-      if (event.settings.features.moderation_required && await isModerationEnabled()) {
-        try {
-          await queuePhotoScan({
-            photoId: photo.id,
-            eventId: eventId,
-            tenantId,
-            imageUrl: photo.images.full_url,
-            userId: userRole === 'guest' ? undefined : userId,
-            priority: 'normal',
-          });
-          console.log('[MODERATION] Photo queued for AI scanning:', photo.id);
-        } catch (scanError) {
-          console.error('[MODERATION] Failed to queue photo for scanning:', scanError);
-          // Don't fail the upload if scanning fails
+      await profiler.time('moderation', async () => {
+        if (moderationEnabled) {
+          try {
+            await queuePhotoScan({
+              photoId: photo.id,
+              eventId: eventId,
+              tenantId,
+              imageUrl: photo.images.full_url,
+              userId: userRole === 'guest' ? undefined : userId,
+              priority: 'normal',
+            });
+            console.log('[MODERATION] Photo queued for AI scanning:', photo.id);
+          } catch (scanError) {
+            console.error('[MODERATION] Failed to queue photo for scanning:', scanError);
+            // Don't fail the upload if scanning fails
+          }
         }
-      }
+      });
 
-      const createdPhoto = {
-        id: photo.id,
-        event_id: photo.event_id,
-        images: photo.images,
-        caption: photo.caption,
-        contributor_name: photo.contributor_name,
-        is_anonymous: photo.is_anonymous,
-        status: photo.status,
-        created_at: photo.created_at,
-        lucky_draw_entry_id: luckyDrawEntryId,
-      };
-
-      createdPhotos.push(createdPhoto);
-      await publishEventBroadcast(eventId, 'new_photo', createdPhoto);
+      createdPhotos.push(buildCreatedPhotoPayload(photo, luckyDrawEntryId));
     }
 
     if (limitReached && createdPhotos.length === 0) {
-      const usage = await getUploadUsageSnapshot(
-        db,
-        eventId,
-        userId,
-        tierPhotoLimit,
-        eventTotalPhotoLimit,
-        userPhotoLimit
+      const usage = await profiler.time(
+        'usage',
+        () => getUploadUsageSnapshot(
+          db,
+          eventId,
+          userId,
+          tierPhotoLimit,
+          eventTotalPhotoLimit,
+          userPhotoLimit
+        )
       );
-      return buildPhotoLimitResponse(limitReached, usage);
+      return finalizeUploadResponse(buildPhotoLimitResponse(limitReached, usage), 'limit-reached');
     }
 
     if (limitReached && createdPhotos.length > 0) {
-      const usage = await getUploadUsageSnapshot(
-        db,
-        eventId,
-        userId,
-        tierPhotoLimit,
-        eventTotalPhotoLimit,
-        userPhotoLimit
+      const usage = await profiler.time(
+        'usage',
+        () => getUploadUsageSnapshot(
+          db,
+          eventId,
+          userId,
+          tierPhotoLimit,
+          eventTotalPhotoLimit,
+          userPhotoLimit
+        )
       );
 
-      return NextResponse.json({
+      profiler.setMeta({ deferredBroadcastCount: createdPhotos.length });
+      scheduleDeferredPhotoBroadcasts(eventId, createdPhotos, { tenantId, uploadMode });
+
+      return finalizeUploadResponse(NextResponse.json({
         data: createdPhotos,
         message: `Uploaded ${createdPhotos.length} photo${createdPhotos.length === 1 ? '' : 's'} before reaching upload limit`,
         limitReached: {
@@ -1032,29 +1208,35 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
           upgradeRequired: limitReached.upgradeRequired,
         },
         usage,
-      }, { status: 201 });
+      }, { status: 201 }), 'partial-success');
     }
 
-    const usage = await getUploadUsageSnapshot(
-      db,
-      eventId,
-      userId,
-      tierPhotoLimit,
-      eventTotalPhotoLimit,
-      userPhotoLimit
+    const usage = await profiler.time(
+      'usage',
+      () => getUploadUsageSnapshot(
+        db,
+        eventId,
+        userId,
+        tierPhotoLimit,
+        eventTotalPhotoLimit,
+        userPhotoLimit
+      )
     );
 
-    return NextResponse.json({
+    profiler.setMeta({ deferredBroadcastCount: createdPhotos.length });
+    scheduleDeferredPhotoBroadcasts(eventId, createdPhotos, { tenantId, uploadMode });
+
+    return finalizeUploadResponse(NextResponse.json({
       data: createdPhotos,
       message: createdPhotos.length === 1 ? 'Photo uploaded successfully' : 'Photos uploaded successfully',
       usage,
-    }, { status: 201 });
+    }, { status: 201 }), 'success');
   } catch (error) {
     console.error('[API] Photo upload error:', error);
-    return NextResponse.json(
+    return finalizeUploadResponse(NextResponse.json(
       { error: 'Failed to upload photo', code: 'UPLOAD_ERROR' },
       { status: 500 }
-    );
+    ), 'upload-error');
   }
 }
 
