@@ -10,10 +10,14 @@ import {
   createLuckyDrawConfig,
   getActiveConfig,
   getLatestConfig,
-  getEventEntries,
 } from '@/lib/lucky-draw';
 
 export const runtime = 'nodejs';
+
+const readCacheHeaders = {
+  'Cache-Control': 'private, max-age=10, stale-while-revalidate=30',
+  Vary: 'Cookie, Authorization',
+};
 
 const isRecoverableReadError = (error: unknown) =>
   typeof error === 'object' &&
@@ -100,15 +104,6 @@ export async function GET(
 
     const db = getTenantDb(tenantId);
 
-    // Verify event exists
-    const event = await db.findOne('events', { id: eventId });
-    if (!event) {
-      return NextResponse.json(
-        { error: 'Event not found', code: 'EVENT_NOT_FOUND' },
-        { status: 404 }
-      );
-    }
-
     const { searchParams } = new URL(request.url);
     const activeOnly = searchParams.get('active') === 'true';
 
@@ -118,36 +113,57 @@ export async function GET(
       : await getLatestConfig(tenantId, eventId);
 
     if (!config) {
-      return NextResponse.json({
-        data: null,
-        message: 'No draw configuration found',
-      });
+      // Preserve existing 404 behavior while avoiding an extra query for hot-path reads.
+      const event = await db.findOne('events', { id: eventId });
+      if (!event) {
+        return NextResponse.json(
+          { error: 'Event not found', code: 'EVENT_NOT_FOUND' },
+          { status: 404 }
+        );
+      }
+
+      return NextResponse.json(
+        {
+          data: null,
+          message: 'No draw configuration found',
+        },
+        { headers: readCacheHeaders }
+      );
     }
 
     // Get entries count
     let entryCount = 0;
     const warnings: string[] = [];
     try {
-      const entries = await getEventEntries(tenantId, config.id);
-      entryCount = entries.length;
+      const countResult = await db.query<{ count: bigint }>(
+        'SELECT COUNT(*) as count FROM lucky_draw_entries WHERE config_id = $1',
+        [config.id]
+      );
+      entryCount = Number(countResult.rows[0]?.count || 0);
     } catch {
       entryCount = Number(config.totalEntries || 0);
       warnings.push('Entry count unavailable; showing cached value.');
     }
 
-    return NextResponse.json({
-      data: {
-        ...config,
-        entryCount,
+    return NextResponse.json(
+      {
+        data: {
+          ...config,
+          entryCount,
+        },
+        warnings: warnings.length > 0 ? warnings : undefined,
       },
-      warnings: warnings.length > 0 ? warnings : undefined,
-    });
+      { headers: readCacheHeaders }
+    );
   } catch (error) {
     if (isRecoverableReadError(error)) {
-      return NextResponse.json({
-        data: null,
-        message: 'Lucky draw configuration unavailable right now.',
-      });
+      return NextResponse.json(
+        {
+          data: null,
+          message: 'Lucky draw configuration unavailable right now.',
+        },
+        { headers: readCacheHeaders }
+      );
     }
     console.error('[API] Config fetch error:', error);
     return NextResponse.json(
