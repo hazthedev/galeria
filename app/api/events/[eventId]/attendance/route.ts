@@ -4,8 +4,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantDb } from '@/lib/db';
-import { verifyAccessToken } from '@/lib/domain/auth/auth';
-import { extractSessionId, validateSession } from '@/lib/domain/auth/session';
 import type { IAttendance, IAttendanceCreate, CheckInMethod } from '@/lib/types';
 import { resolveOptionalAuth, resolveRequiredTenantId, resolveTenantId } from '@/lib/api-request-context';
 
@@ -26,6 +24,15 @@ interface EventWithAttendance {
 const isMissingTableError = (error: unknown) =>
   typeof error === 'object' && error !== null &&
   'code' in error && (error as { code?: string }).code === '42P01';
+
+const ALLOWED_ATTENDANCE_SORT_COLUMNS = new Set([
+  'check_in_time',
+  'guest_name',
+  'guest_email',
+  'guest_phone',
+  'companions_count',
+  'check_in_method',
+]);
 
 // ============================================
 // GET /api/events/:eventId/attendance - List attendance records
@@ -61,30 +68,7 @@ export async function GET(
       );
     }
 
-    // Verify authorization (organizer only)
-    const authHeader = headers.get('authorization');
-    const cookieHeader = headers.get('cookie');
-    let userRole: string | null = null;
-
-    const sessionResult = extractSessionId(cookieHeader, authHeader);
-    if (sessionResult.sessionId) {
-      const session = await validateSession(sessionResult.sessionId, false);
-      if (session.valid && session.user) {
-        userRole = session.user.role;
-      }
-    }
-
-    if (!userRole && authHeader) {
-      try {
-        const token = authHeader.replace('Bearer ', '');
-        const payload = verifyAccessToken(token);
-        userRole = payload.role;
-      } catch {
-        // Token invalid
-      }
-    }
-
-    if (userRole !== 'super_admin' && userRole !== 'organizer') {
+    if (!auth || (auth.role !== 'super_admin' && auth.role !== 'organizer')) {
       return NextResponse.json(
         { error: 'Forbidden', code: 'FORBIDDEN' },
         { status: 403 }
@@ -94,8 +78,12 @@ export async function GET(
     const { searchParams } = new URL(request.url);
     const limit = Math.min(Number(searchParams.get('limit')) || 50, 500);
     const offset = Number(searchParams.get('offset')) || 0;
-    const sortBy = searchParams.get('sortBy') || 'check_in_time';
-    const sortOrder = (searchParams.get('sortOrder') || 'DESC') as 'ASC' | 'DESC';
+    const sortByParam = searchParams.get('sortBy') || 'check_in_time';
+    const sortBy = ALLOWED_ATTENDANCE_SORT_COLUMNS.has(sortByParam)
+      ? sortByParam
+      : 'check_in_time';
+    const sortOrderParam = (searchParams.get('sortOrder') || 'DESC').toUpperCase();
+    const sortOrder: 'ASC' | 'DESC' = sortOrderParam === 'ASC' ? 'ASC' : 'DESC';
 
     const attendances = await db.query<IAttendance>(
       `SELECT * FROM attendances

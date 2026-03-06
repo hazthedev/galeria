@@ -96,18 +96,41 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
   const { user } = useAuth();
   const userRole = user?.role || null;
 
-  // Fetch all data on mount
+  // Fetch only config on initial load
   useEffect(() => {
-    fetchAllData();
+    let isMounted = true;
+
+    const fetchInitialData = async () => {
+      setIsLoading(true);
+      setError(null);
+      await fetchConfig();
+      if (isMounted) {
+        setIsLoading(false);
+      }
+    };
+
+    void fetchInitialData();
+
+    return () => {
+      isMounted = false;
+    };
   }, [eventId]);
 
   useEffect(() => {
-    fetchEntries();
-  }, [eventId, entriesPage]);
+    if (activeSubTab === 'entries' || activeSubTab === 'draw') {
+      void fetchEntries();
+    }
+  }, [activeSubTab, eventId, entriesPage]);
+
+  useEffect(() => {
+    if (activeSubTab === 'history' || activeSubTab === 'draw') {
+      void fetchDraws();
+    }
+  }, [activeSubTab, eventId]);
 
   useEffect(() => {
     if (activeSubTab === 'participants') {
-      fetchParticipants();
+      void fetchParticipants();
     }
   }, [activeSubTab, eventId]);
 
@@ -123,15 +146,21 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
       if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
         return;
       }
-      if (activeSubTab === 'config') {
+      if (activeSubTab === 'entries') {
+        void fetchEntries();
         return;
       }
-
-      fetchEntries();
-      fetchDraws();
-
+      if (activeSubTab === 'history') {
+        void fetchDraws();
+        return;
+      }
       if (activeSubTab === 'participants') {
-        fetchParticipants();
+        void fetchParticipants();
+        return;
+      }
+      if (activeSubTab === 'draw') {
+        void fetchEntries();
+        void fetchDraws();
       }
     };
 
@@ -289,21 +318,24 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
     }
   };
 
-  const fetchAllData = async () => {
-    setIsLoading(true);
-    setError(null);
-    await Promise.all([
-      fetchConfig(),
-      fetchEntries(),
-      fetchDraws(),
-    ]);
-    setIsLoading(false);
-  };
-
   const refreshData = async () => {
     setIsRefreshing(true);
     setError(null);
-    await Promise.all([fetchConfig(), fetchEntries(), fetchDraws()]);
+    const refreshTasks: Promise<unknown>[] = [fetchConfig()];
+
+    if (activeSubTab === 'entries' || activeSubTab === 'draw') {
+      refreshTasks.push(fetchEntries());
+    }
+
+    if (activeSubTab === 'history' || activeSubTab === 'draw') {
+      refreshTasks.push(fetchDraws());
+    }
+
+    if (activeSubTab === 'participants') {
+      refreshTasks.push(fetchParticipants());
+    }
+
+    await Promise.all(refreshTasks);
     setIsRefreshing(false);
   };
 
@@ -478,8 +510,8 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
           await fetchDrawEntries();
           setShowWinnerModal(true);
 
-        // Refresh data to update status
-        await fetchAllData();
+        // Refresh key datasets to reflect updated draw status/results
+        await Promise.all([fetchConfig(), fetchEntries(), fetchDraws()]);
 
         setSuccessMessage(`Successfully selected ${data.data.winners.length} winner(s)!`);
       } else {
@@ -548,7 +580,11 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
       setManualEntryPhotoId('');
       setManualEntryCount(1);
 
-      await Promise.all([fetchEntries(), fetchParticipants()]);
+      const refreshTasks: Promise<unknown>[] = [fetchEntries()];
+      if (activeSubTab === 'participants') {
+        refreshTasks.push(fetchParticipants());
+      }
+      await Promise.all(refreshTasks);
     } catch (err) {
       console.error('[LUCKY_DRAW_ADMIN] Failed to add manual entry:', err);
       setManualEntryError('Failed to add manual entry.');

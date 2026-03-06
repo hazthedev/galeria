@@ -4,8 +4,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantDb } from '@/lib/db';
-import { verifyAccessToken } from '@/lib/domain/auth/auth';
-import { extractSessionId, validateSession } from '@/lib/domain/auth/session';
 import type { IAttendance } from '@/lib/types';
 import { resolveOptionalAuth, resolveRequiredTenantId } from '@/lib/api-request-context';
 
@@ -25,30 +23,7 @@ export async function GET(
 
     const db = getTenantDb(tenantId);
 
-    // Verify authorization (organizer only)
-    const authHeader = headers.get('authorization');
-    const cookieHeader = headers.get('cookie');
-    let userRole: string | null = null;
-
-    const sessionResult = extractSessionId(cookieHeader, authHeader);
-    if (sessionResult.sessionId) {
-      const session = await validateSession(sessionResult.sessionId, false);
-      if (session.valid && session.user) {
-        userRole = session.user.role;
-      }
-    }
-
-    if (!userRole && authHeader) {
-      try {
-        const token = authHeader.replace('Bearer ', '');
-        const payload = verifyAccessToken(token);
-        userRole = payload.role;
-      } catch {
-        // Token invalid
-      }
-    }
-
-    if (userRole !== 'super_admin' && userRole !== 'organizer') {
+    if (!auth || (auth.role !== 'super_admin' && auth.role !== 'organizer')) {
       return NextResponse.json(
         { error: 'Forbidden', code: 'FORBIDDEN' },
         { status: 403 }

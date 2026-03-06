@@ -42,7 +42,8 @@ export function AttendanceAdminTab({ eventId, initialTab, attendanceEnabled = tr
   const [activeSubTab, setActiveSubTab] = useState<AdminSubTab>(initialTab || 'overview');
   const [attendances, setAttendances] = useState<AttendanceRecord[]>([]);
   const [stats, setStats] = useState<AttendanceStats | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isStatsLoading, setIsStatsLoading] = useState(true);
+  const [isGuestsLoading, setIsGuestsLoading] = useState(false);
   const [featureDisabled, setFeatureDisabled] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -60,43 +61,64 @@ export function AttendanceAdminTab({ eventId, initialTab, attendanceEnabled = tr
   const [manualCompanions, setManualCompanions] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (!attendanceEnabled) {
-      setFeatureDisabled(true);
-      setIsLoading(false);
-      setAttendances([]);
-      setStats(null);
-      setTotalPages(1);
+  const fetchAttendanceStats = async (showLoading = true) => {
+    if (!attendanceEnabled || featureDisabled) {
       return;
     }
 
-    fetchData();
-  }, [eventId, currentPage, activeSubTab, attendanceEnabled]);
-
-  const fetchData = async () => {
-    if (!attendanceEnabled) {
-      return;
+    if (showLoading) {
+      setIsStatsLoading(true);
     }
 
-    setIsLoading(true);
     try {
-      const [attendanceRes, statsRes] = await Promise.all([
-        fetch(`/api/events/${eventId}/attendance?limit=50&offset=${(currentPage - 1) * 50}`, {
-          credentials: 'include',
-        }),
-        fetch(`/api/events/${eventId}/attendance/stats`, {
-          credentials: 'include',
-        }),
-      ]);
+      const response = await fetch(`/api/events/${eventId}/attendance/stats`, {
+        credentials: 'include',
+      });
 
-      if (attendanceRes.ok) {
+      if (response.ok) {
+        const data = await response.json();
+        setStats(data.data);
         setFeatureDisabled(false);
-        const data = await attendanceRes.json();
+      } else {
+        const errorData = await response.json().catch(() => null) as { code?: string; error?: string } | null;
+        if (response.status === 400 && errorData?.code === 'FEATURE_DISABLED') {
+          setFeatureDisabled(true);
+          setStats(null);
+          return;
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching attendance stats:', error);
+    } finally {
+      if (showLoading) {
+        setIsStatsLoading(false);
+      }
+    }
+  };
+
+  const fetchAttendanceList = async (showLoading = true) => {
+    if (!attendanceEnabled || featureDisabled) {
+      return;
+    }
+
+    if (showLoading) {
+      setIsGuestsLoading(true);
+    }
+
+    try {
+      const response = await fetch(
+        `/api/events/${eventId}/attendance?limit=50&offset=${(currentPage - 1) * 50}`,
+        { credentials: 'include' }
+      );
+
+      if (response.ok) {
+        setFeatureDisabled(false);
+        const data = await response.json();
         setAttendances(data.data || []);
         setTotalPages(Math.ceil((data.pagination?.total || 0) / 50));
       } else {
-        const errorData = await attendanceRes.json().catch(() => null) as { code?: string; error?: string } | null;
-        if (attendanceRes.status === 400 && errorData?.code === 'FEATURE_DISABLED') {
+        const errorData = await response.json().catch(() => null) as { code?: string; error?: string } | null;
+        if (response.status === 400 && errorData?.code === 'FEATURE_DISABLED') {
           setFeatureDisabled(true);
           setAttendances([]);
           setStats(null);
@@ -104,18 +126,49 @@ export function AttendanceAdminTab({ eventId, initialTab, attendanceEnabled = tr
           return;
         }
       }
-
-      if (statsRes.ok) {
-        const data = await statsRes.json();
-        setStats(data.data);
-      }
     } catch (error) {
-      console.error('Error fetching attendance:', error);
+      console.error('Error fetching attendance list:', error);
       toast.error('Failed to load attendance data');
     } finally {
-      setIsLoading(false);
+      if (showLoading) {
+        setIsGuestsLoading(false);
+      }
     }
   };
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [eventId]);
+
+  useEffect(() => {
+    if (!attendanceEnabled) {
+      setFeatureDisabled(true);
+      setIsStatsLoading(false);
+      setIsGuestsLoading(false);
+      setAttendances([]);
+      setStats(null);
+      setTotalPages(1);
+      return;
+    }
+
+    setFeatureDisabled(false);
+  }, [attendanceEnabled, eventId]);
+
+  useEffect(() => {
+    if (!attendanceEnabled || featureDisabled || activeSubTab !== 'overview') {
+      return;
+    }
+
+    void fetchAttendanceStats();
+  }, [eventId, activeSubTab, attendanceEnabled, featureDisabled]);
+
+  useEffect(() => {
+    if (!attendanceEnabled || featureDisabled || activeSubTab !== 'guests') {
+      return;
+    }
+
+    void fetchAttendanceList();
+  }, [eventId, currentPage, activeSubTab, attendanceEnabled, featureDisabled]);
 
   const handleManualCheckIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -154,7 +207,7 @@ export function AttendanceAdminTab({ eventId, initialTab, attendanceEnabled = tr
       setManualGuestEmail('');
       setManualGuestPhone('');
       setManualCompanions(0);
-      fetchData();
+      await Promise.all([fetchAttendanceStats(false), fetchAttendanceList(false)]);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Check-in failed');
     } finally {
@@ -256,7 +309,11 @@ export function AttendanceAdminTab({ eventId, initialTab, attendanceEnabled = tr
       {/* Overview Tab */}
       {activeSubTab === 'overview' && (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {stats ? (
+          {isStatsLoading ? (
+            <div className="col-span-full flex h-48 items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
+            </div>
+          ) : stats ? (
             <>
               <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
                 <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Check-ins</p>
@@ -287,8 +344,8 @@ export function AttendanceAdminTab({ eventId, initialTab, attendanceEnabled = tr
               </div>
             </>
           ) : (
-            <div className="col-span-full flex h-48 items-center justify-center">
-              <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
+            <div className="col-span-full flex h-48 items-center justify-center text-sm text-gray-500">
+              No attendance stats yet
             </div>
           )}
         </div>
@@ -310,7 +367,7 @@ export function AttendanceAdminTab({ eventId, initialTab, attendanceEnabled = tr
             </div>
           </div>
 
-          {isLoading ? (
+          {isGuestsLoading ? (
             <div className="flex h-64 items-center justify-center">
               <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
             </div>

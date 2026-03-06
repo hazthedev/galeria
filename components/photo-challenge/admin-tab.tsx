@@ -4,7 +4,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Target, Gift, Users, Check, X, Loader2, Plus, Edit, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { PhotoChallengeSettingsForm } from '@/components/photo-challenge/settings-form';
@@ -21,23 +21,44 @@ export function PhotoChallengeAdminTab({ eventId }: PhotoChallengeAdminTabProps)
   const [showForm, setShowForm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  const fetchProgress = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/events/${eventId}/photo-challenge/progress/all`, {
+        credentials: 'include',
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setProgress(data.data || []);
+        return;
+      }
+    } catch (err) {
+      console.error('[PHOTO_CHALLENGE_ADMIN] Failed to fetch progress:', err);
+    }
+
+    setProgress([]);
+  }, [eventId]);
+
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const [configRes, progressRes] = await Promise.all([
-          fetch(`/api/events/${eventId}/photo-challenge`, { credentials: 'include' }),
-          fetch(`/api/events/${eventId}/photo-challenge/progress/all`, { credentials: 'include' }),
-        ]);
+        const configRes = await fetch(`/api/events/${eventId}/photo-challenge`, {
+          credentials: 'include',
+        });
 
         if (configRes.ok) {
           const configData = await configRes.json();
-          setChallenge(configData.data);
-        }
+          const challengeData = configData.data || null;
+          setChallenge(challengeData);
 
-        if (progressRes.ok) {
-          const progressData = await progressRes.json();
-          setProgress(progressData.data || []);
+          if (challengeData) {
+            await fetchProgress();
+          } else {
+            setProgress([]);
+          }
+        } else {
+          setChallenge(null);
+          setProgress([]);
         }
       } catch (err) {
         console.error('[PHOTO_CHALLENGE_ADMIN] Failed to fetch data:', err);
@@ -47,7 +68,7 @@ export function PhotoChallengeAdminTab({ eventId }: PhotoChallengeAdminTabProps)
     };
 
     fetchData();
-  }, [eventId]);
+  }, [eventId, fetchProgress]);
 
   const handleDelete = async () => {
     if (!challenge) return;
@@ -90,6 +111,7 @@ export function PhotoChallengeAdminTab({ eventId }: PhotoChallengeAdminTabProps)
           existingChallenge={challenge}
           onSave={(saved) => {
             setChallenge(saved);
+            void fetchProgress();
             setShowForm(false);
           }}
           onCancel={() => setShowForm(false)}

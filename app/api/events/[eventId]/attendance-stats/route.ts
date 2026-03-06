@@ -4,14 +4,57 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantDb } from '@/lib/db';
-import { verifyAccessToken } from '@/lib/domain/auth/auth';
-import { extractSessionId, validateSession } from '@/lib/domain/auth/session';
 import type { IAttendanceStats, CheckInMethod } from '@/lib/types';
 import { resolveOptionalAuth, resolveRequiredTenantId } from '@/lib/api-request-context';
 
 // ============================================
 // GET /api/events/:eventId/attendance/stats
 // ============================================
+
+interface EventWithAttendance {
+  id: string;
+  settings: {
+    features?: {
+      attendance_enabled?: boolean;
+    };
+  };
+}
+
+interface AttendanceStatsRow {
+  total_check_ins: string | number;
+  total_guests: string | number;
+  check_ins_today: string | number;
+  unique_guests: string | number;
+  average_companions: string | number | null;
+  guest_self: string | number;
+  guest_qr: string | number;
+  organizer_manual: string | number;
+  organizer_qr: string | number;
+}
+
+const cacheHeaders = {
+  'Cache-Control': 'private, max-age=10, stale-while-revalidate=30',
+  Vary: 'Cookie, Authorization',
+};
+
+const isMissingTableError = (error: unknown) =>
+  typeof error === 'object' &&
+  error !== null &&
+  'code' in error &&
+  (error as { code?: string }).code === '42P01';
+
+function toNumber(value: unknown): number {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  return 0;
+}
 
 export async function GET(
   request: NextRequest,
@@ -25,92 +68,84 @@ export async function GET(
 
     const db = getTenantDb(tenantId);
 
-    // Verify authorization (organizer only)
-    const authHeader = headers.get('authorization');
-    const cookieHeader = headers.get('cookie');
-    let userRole: string | null = null;
-
-    const sessionResult = extractSessionId(cookieHeader, authHeader);
-    if (sessionResult.sessionId) {
-      const session = await validateSession(sessionResult.sessionId, false);
-      if (session.valid && session.user) {
-        userRole = session.user.role;
-      }
-    }
-
-    if (!userRole && authHeader) {
-      try {
-        const token = authHeader.replace('Bearer ', '');
-        const payload = verifyAccessToken(token);
-        userRole = payload.role;
-      } catch {
-        // Token invalid
-      }
-    }
-
-    if (userRole !== 'super_admin' && userRole !== 'organizer') {
+    if (!auth || (auth.role !== 'super_admin' && auth.role !== 'organizer')) {
       return NextResponse.json(
         { error: 'Forbidden', code: 'FORBIDDEN' },
         { status: 403 }
       );
     }
 
-    // Fetch all attendance records for this event
-    const result = await db.query<{
-      companions_count: number;
-      check_in_time: Date;
-      check_in_method: CheckInMethod;
-      guest_email: string | null;
-    }>(
-      `SELECT companions_count, check_in_time, check_in_method, guest_email
+    const event = await db.findOne<EventWithAttendance>('events', { id: eventId });
+    if (!event) {
+      return NextResponse.json(
+        { error: 'Event not found', code: 'EVENT_NOT_FOUND' },
+        { status: 404 }
+      );
+    }
+
+    if (event.settings?.features?.attendance_enabled === false) {
+      return NextResponse.json(
+        { error: 'Attendance feature is disabled', code: 'FEATURE_DISABLED' },
+        { status: 400 }
+      );
+    }
+
+    const statsResult = await db.query<AttendanceStatsRow>(
+      `SELECT
+         COUNT(*) AS total_check_ins,
+         COALESCE(SUM(companions_count + 1), 0) AS total_guests,
+         COUNT(*) FILTER (WHERE check_in_time >= date_trunc('day', now())) AS check_ins_today,
+         COUNT(DISTINCT guest_email) FILTER (WHERE guest_email IS NOT NULL AND guest_email <> '') AS unique_guests,
+         COALESCE(AVG(companions_count::numeric), 0) AS average_companions,
+         COUNT(*) FILTER (WHERE check_in_method = 'guest_self') AS guest_self,
+         COUNT(*) FILTER (WHERE check_in_method = 'guest_qr') AS guest_qr,
+         COUNT(*) FILTER (WHERE check_in_method = 'organizer_manual') AS organizer_manual,
+         COUNT(*) FILTER (WHERE check_in_method = 'organizer_qr') AS organizer_qr
        FROM attendances
        WHERE event_id = $1`,
       [eventId]
     );
-
-    const attendances = result.rows;
-
-    // Calculate statistics
-    const totalCheckIns = attendances.length;
-    const totalGuests = attendances.reduce((sum, a) => sum + a.companions_count + 1, 0);
-
-    // Check-ins today
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const checkInsToday = attendances.filter(a => new Date(a.check_in_time) >= today).length;
-
-    // Unique guests (with email)
-    const uniqueEmails = new Set(attendances.map(a => a.guest_email).filter(Boolean));
-    const uniqueGuests = uniqueEmails.size;
-
-    // Average companions
-    const avgCompanions = totalCheckIns > 0
-      ? attendances.reduce((sum, a) => sum + a.companions_count, 0) / totalCheckIns
-      : 0;
-
-    // Method breakdown
+    const row = statsResult.rows[0];
     const methodBreakdown: Record<CheckInMethod, number> = {
-      guest_self: 0,
-      guest_qr: 0,
-      organizer_manual: 0,
-      organizer_qr: 0,
+      guest_self: toNumber(row?.guest_self),
+      guest_qr: toNumber(row?.guest_qr),
+      organizer_manual: toNumber(row?.organizer_manual),
+      organizer_qr: toNumber(row?.organizer_qr),
     };
-
-    attendances.forEach(a => {
-      methodBreakdown[a.check_in_method] = (methodBreakdown[a.check_in_method] || 0) + 1;
-    });
+    const averageCompanions = toNumber(row?.average_companions);
 
     const stats: IAttendanceStats = {
-      total_check_ins: totalCheckIns,
-      total_guests: totalGuests,
-      check_ins_today: checkInsToday,
-      unique_guests: uniqueGuests,
-      average_companions: Math.round(avgCompanions * 10) / 10,
+      total_check_ins: toNumber(row?.total_check_ins),
+      total_guests: toNumber(row?.total_guests),
+      check_ins_today: toNumber(row?.check_ins_today),
+      unique_guests: toNumber(row?.unique_guests),
+      average_companions: Math.round(averageCompanions * 10) / 10,
       check_in_method_breakdown: methodBreakdown,
     };
 
-    return NextResponse.json({ data: stats });
+    return NextResponse.json({ data: stats }, { headers: cacheHeaders });
   } catch (error) {
+    if (isMissingTableError(error)) {
+      return NextResponse.json(
+        {
+          data: {
+            total_check_ins: 0,
+            total_guests: 0,
+            check_ins_today: 0,
+            unique_guests: 0,
+            average_companions: 0,
+            check_in_method_breakdown: {
+              guest_self: 0,
+              guest_qr: 0,
+              organizer_manual: 0,
+              organizer_qr: 0,
+            },
+          },
+        },
+        { headers: cacheHeaders }
+      );
+    }
+
     if (error instanceof Error && error.message.includes('Tenant context missing')) {
       return NextResponse.json(
         { error: 'Tenant not found', code: 'TENANT_NOT_FOUND' },
