@@ -18,7 +18,7 @@ import clsx from 'clsx';
 import { toast } from 'sonner';
 
 interface EventsResponse {
-    data: IEvent[];
+    data: Array<IEvent & { photo_count?: number }>;
     pagination: {
         page: number;
         limit: number;
@@ -39,14 +39,13 @@ const statusOptions: { value: EventStatus | 'all'; label: string }[] = [
 
 export default function DashboardPage() {
     const { user, isLoading: isAuthLoading } = useAuth();
-    const [events, setEvents] = useState<IEvent[]>([]);
+    const [events, setEvents] = useState<Array<IEvent & { photo_count?: number }>>([]);
     const [stats, setStats] = useState({
         totalEvents: 0,
         totalPhotos: 0,
         activeEvents: 0
     });
     const [isLoading, setIsLoading] = useState(true);
-    const [photoCounts, setPhotoCounts] = useState<Record<string, number>>({});
 
     // Search and filter state
     const [searchQuery, setSearchQuery] = useState('');
@@ -90,39 +89,17 @@ export default function DashboardPage() {
                 setEvents(filteredEvents);
                 setPagination(data.pagination);
 
+                const totalPhotosCount = (data.data || []).reduce(
+                    (sum: number, event: IEvent & { photo_count?: number }) => sum + (event.photo_count || 0),
+                    0
+                );
+
                 // Calculate stats from full dataset
                 setStats({
                     totalEvents: data.pagination?.total || 0,
-                    totalPhotos: 0,
+                    totalPhotos: totalPhotosCount,
                     activeEvents: (data.data || []).filter((e: IEvent) => e.status === 'active').length
                 });
-
-                // Fetch photo counts for these events IN PARALLEL (not sequential!)
-                const eventIds = (data.data || []).map((e: IEvent) => e.id);
-                const photoCountPromises = eventIds.map(async (eventId: string) => {
-                    try {
-                        const photosRes = await fetch(`/api/events/${eventId}/photos?limit=1`);
-                        if (photosRes.ok) {
-                            const photosData = await photosRes.json();
-                            return { eventId, count: photosData.pagination?.total || 0 };
-                        }
-                    } catch (e) {
-                        console.error(`Failed to fetch photos for event ${eventId}`, e);
-                    }
-                    return { eventId, count: 0 };
-                });
-
-                const photoResults = await Promise.all(photoCountPromises);
-                const counts: Record<string, number> = {};
-                let totalPhotosCount = 0;
-
-                for (const { eventId, count } of photoResults) {
-                    counts[eventId] = count;
-                    totalPhotosCount += count;
-                }
-
-                setPhotoCounts(counts);
-                setStats(prev => ({ ...prev, totalPhotos: totalPhotosCount }));
             }
         } catch (error) {
             console.error('Failed to fetch dashboard data:', error);
@@ -342,7 +319,7 @@ export default function DashboardPage() {
                                 <EventCard
                                     key={event.id}
                                     event={event}
-                                    photoCount={photoCounts[event.id] || 0}
+                                    photoCount={event.photo_count || 0}
                                     onDelete={handleDeleteEvent}
                                 />
                             ))}

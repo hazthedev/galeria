@@ -21,6 +21,13 @@ import { applyCacheHeaders, CACHE_PROFILES } from '@/lib/cache/strategy';
 import { publishEventBroadcast } from '@/lib/realtime/server';
 import { resolveOptionalAuth, resolveRequiredTenantId, resolveTenantId } from '@/lib/api-request-context';
 
+function isDbSessionPoolExhausted(error: unknown): boolean {
+  const code = typeof error === 'object' && error && 'code' in error ? String(error.code || '') : '';
+  const message = error instanceof Error ? error.message : String(error || '');
+
+  return code === 'XX000' && message.includes('MaxClientsInSessionMode');
+}
+
 // ============================================
 // POST /api/events/:eventId/photos - Upload photo (service)
 // ============================================
@@ -779,15 +786,39 @@ export async function handleEventPhotoList(request: NextRequest, eventId: string
 
     console.log('[PHOTOS_API] Query filter:', filter);
 
-    const total = await db.count('photos', filter);
+    const filterEntries = Object.entries(filter);
+    const whereClause = filterEntries
+      .map(([column], index) => `${column} = $${index + 1}`)
+      .join(' AND ');
+    const filterValues = filterEntries.map(([, value]) => value);
+    const limitParam = filterValues.length + 1;
+    const offsetParam = filterValues.length + 2;
 
-    // Get photos
-    const photos = await db.findMany<IPhoto>('photos', filter, {
-      limit,
-      offset,
-      orderBy: 'created_at',
-      orderDirection: 'DESC',
+    const listResult = await db.query<IPhoto & { total_count: string | number }>(
+      `
+        SELECT p.*, COUNT(*) OVER() AS total_count
+        FROM photos p
+        WHERE ${whereClause}
+        ORDER BY p.created_at DESC
+        LIMIT $${limitParam}
+        OFFSET $${offsetParam}
+      `,
+      [...filterValues, limit, offset]
+    );
+
+    const photos = listResult.rows.map((row) => {
+      const { total_count, ...photo } = row as unknown as IPhoto & { total_count: string | number };
+      return photo;
     });
+    let total = listResult.rows.length > 0 ? Number(listResult.rows[0].total_count || 0) : 0;
+
+    if (total === 0 && offset > 0) {
+      const countResult = await db.query<{ count: bigint }>(
+        `SELECT COUNT(*) AS count FROM photos p WHERE ${whereClause}`,
+        filterValues
+      );
+      total = Number(countResult.rows[0]?.count || 0);
+    }
 
     console.log('[PHOTOS_API] Query result:', {
       photoCount: photos.length,
@@ -812,6 +843,15 @@ export async function handleEventPhotoList(request: NextRequest, eventId: string
     return response;
   } catch (error) {
     console.error('[API] Photo list error:', error);
+    if (isDbSessionPoolExhausted(error)) {
+      return NextResponse.json(
+        {
+          error: 'Database is temporarily busy. Please retry in a moment.',
+          code: 'DB_POOL_EXHAUSTED',
+        },
+        { status: 503 }
+      );
+    }
     return NextResponse.json(
       { error: 'Failed to fetch photos', code: 'FETCH_ERROR' },
       { status: 500 }

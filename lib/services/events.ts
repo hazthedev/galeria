@@ -15,6 +15,8 @@ import type { IEvent } from '@/lib/types';
 import { eventBulkUpdateSchema, eventCreateSchema } from '@/lib/validation/events';
 import { resolveOptionalAuth, resolveRequiredTenantId } from '@/lib/api-request-context';
 
+type IEventWithPhotoCount = IEvent & { photo_count?: number };
+
 function isDbSessionPoolExhausted(error: unknown): boolean {
   const code = typeof error === 'object' && error && 'code' in error ? String(error.code || '') : '';
   const message = error instanceof Error ? error.message : String(error || '');
@@ -63,6 +65,44 @@ async function ensureOrganizerUserProvisioned(userId: string): Promise<void> {
   }
 
   await resolveOrProvisionAppUser(data.user);
+}
+
+async function listEventsViaSupabaseFallback(
+  status: string | null,
+  userRole: string,
+  userId: string,
+  limit: number,
+  offset: number
+): Promise<{ events: IEventWithPhotoCount[]; total: number }> {
+  const supabase = getSupabaseAdminClient();
+  let query = supabase
+    .from('events')
+    .select('*', { count: 'exact' })
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (status) {
+    query = query.eq('status', status);
+  }
+
+  if (userRole === 'organizer') {
+    query = query.eq('organizer_id', userId);
+  }
+
+  const { data, error, count } = await query;
+  if (error) {
+    throw error;
+  }
+
+  const events: IEventWithPhotoCount[] = (data || []).map((row) => ({
+    ...normalizeSupabaseEventRow(row as Record<string, unknown>),
+    photo_count: 0,
+  }));
+
+  return {
+    events,
+    total: count || 0,
+  };
 }
 
 // ============================================
@@ -127,26 +167,87 @@ export async function handleEventsList(request: NextRequest) {
 
     // Get database connection
     const db = getTenantDb(tenantId);
+    let events: IEventWithPhotoCount[] = [];
+    let total = 0;
 
-    // Build query conditions
-    const conditions: Record<string, unknown> = {};
-    if (status) {
-      conditions.status = status;
+    try {
+      const whereClauses: string[] = [];
+      const values: unknown[] = [];
+
+      if (status) {
+        values.push(status);
+        whereClauses.push(`e.status = $${values.length}`);
+      }
+
+      if (userRole === 'organizer') {
+        values.push(userId);
+        whereClauses.push(`e.organizer_id = $${values.length}`);
+      }
+
+      const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+      const limitParam = values.length + 1;
+      const offsetParam = values.length + 2;
+
+      const result = await db.query<IEvent & { photo_count: string | number; total_count: string | number }>(
+        `
+          WITH paged_events AS (
+            SELECT e.*, COUNT(*) OVER() AS total_count
+            FROM events e
+            ${whereSql}
+            ORDER BY e.created_at DESC
+            LIMIT $${limitParam}
+            OFFSET $${offsetParam}
+          )
+          SELECT
+            pe.*,
+            COALESCE(pc.photo_count, 0) AS photo_count
+          FROM paged_events pe
+          LEFT JOIN (
+            SELECT p.event_id, COUNT(*) AS photo_count
+            FROM photos p
+            WHERE p.event_id IN (SELECT id FROM paged_events)
+            GROUP BY p.event_id
+          ) pc ON pc.event_id = pe.id
+          ORDER BY pe.created_at DESC
+        `,
+        [...values, limit, offset]
+      );
+
+      events = result.rows.map((row) => {
+        const { photo_count, total_count, ...event } = row as unknown as IEvent & {
+          photo_count: string | number;
+          total_count: string | number;
+        };
+
+        return {
+          ...event,
+          photo_count: Number(photo_count || 0),
+        };
+      });
+
+      if (result.rows.length > 0) {
+        total = Number(result.rows[0].total_count || 0);
+      } else if (offset > 0) {
+        // Preserve pagination accuracy when requesting beyond the available range.
+        const countResult = await db.query<{ count: bigint }>(
+          `
+            SELECT COUNT(*) AS count
+            FROM events e
+            ${whereSql}
+          `,
+          values
+        );
+        total = Number(countResult.rows[0]?.count || 0);
+      }
+    } catch (dbError) {
+      if (isDbSessionPoolExhausted(dbError) && isSupabaseAdminConfigured()) {
+        const fallback = await listEventsViaSupabaseFallback(status, userRole, userId, limit, offset);
+        events = fallback.events;
+        total = fallback.total;
+      } else {
+        throw dbError;
+      }
     }
-    if (userRole === 'organizer') {
-      conditions.organizer_id = userId;
-    }
-
-    // Fetch events
-    const events = await db.findMany<IEvent>('events', conditions, {
-      limit,
-      offset,
-      orderBy: 'created_at',
-      orderDirection: 'DESC',
-    });
-
-    // Get total count
-    const total = await db.count('events', conditions);
 
     return NextResponse.json({
       data: events,

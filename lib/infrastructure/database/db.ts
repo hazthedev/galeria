@@ -37,8 +37,21 @@ const RETRYABLE_DB_ERROR_MESSAGES = [
   'too many clients already',
 ];
 
-const DB_RETRY_MAX_ATTEMPTS = parseInt(process.env.DB_RETRY_MAX_ATTEMPTS || '3', 10);
+const DB_RETRY_MAX_ATTEMPTS = parseInt(process.env.DB_RETRY_MAX_ATTEMPTS || '2', 10);
 const DB_RETRY_BASE_DELAY_MS = parseInt(process.env.DB_RETRY_BASE_DELAY_MS || '120', 10);
+const DB_RETRY_MAX_ATTEMPTS_SESSION_MODE = parseInt(
+  process.env.DB_RETRY_MAX_ATTEMPTS_SESSION_MODE || '1',
+  10
+);
+
+function isSessionModeClientLimitError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+
+  const maybeMessage = 'message' in error ? String(error.message || '') : '';
+  return maybeMessage.includes('MaxClientsInSessionMode');
+}
 
 function isRetryableDbConnectionError(error: unknown): boolean {
   if (!error || typeof error !== 'object') {
@@ -164,11 +177,15 @@ export class TenantDatabase {
         return result;
       } catch (error) {
         const retryable = isRetryableDbConnectionError(error);
-        const isFinalAttempt = attempt >= DB_RETRY_MAX_ATTEMPTS;
+        const maxAttemptsForError = isSessionModeClientLimitError(error)
+          ? Math.max(1, Math.min(DB_RETRY_MAX_ATTEMPTS, DB_RETRY_MAX_ATTEMPTS_SESSION_MODE))
+          : DB_RETRY_MAX_ATTEMPTS;
+        const isFinalAttempt = attempt >= maxAttemptsForError;
 
         console.error('[DB] Query error:', {
           attempt,
           retryable,
+          maxAttemptsForError,
           code: typeof error === 'object' && error && 'code' in error ? error.code : undefined,
           message: error instanceof Error ? error.message : String(error),
         });
