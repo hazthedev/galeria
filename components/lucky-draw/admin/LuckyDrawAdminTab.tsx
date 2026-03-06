@@ -170,7 +170,12 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
       const response = await fetch(`/api/events/${eventId}/lucky-draw/config`, {
         credentials: 'include',
       });
-      const data = await response.json();
+      const contentType = response.headers.get('content-type') || '';
+      const data = contentType.includes('application/json')
+        ? await response.json()
+        : {
+            error: `Unexpected response type (${contentType || 'unknown'})`,
+          };
 
       if (response.ok) {
         setConfig(data.data || null);
