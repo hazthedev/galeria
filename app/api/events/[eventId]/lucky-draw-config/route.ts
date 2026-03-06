@@ -11,6 +11,7 @@ import {
   getActiveConfig,
   getLatestConfig,
 } from '@/lib/lucky-draw';
+import type { LuckyDrawConfig } from '@/lib/types';
 
 export const runtime = 'nodejs';
 
@@ -24,6 +25,43 @@ const isRecoverableReadError = (error: unknown) =>
   error !== null &&
   'code' in error &&
   ['42P01', '42703'].includes((error as { code?: string }).code || '');
+
+const luckyDrawConfigSelectColumns = `
+  id,
+  event_id AS "eventId",
+  prize_tiers AS "prizeTiers",
+  max_entries_per_user AS "maxEntriesPerUser",
+  require_photo_upload AS "requirePhotoUpload",
+  prevent_duplicate_winners AS "preventDuplicateWinners",
+  scheduled_at AS "scheduledAt",
+  status,
+  completed_at AS "completedAt",
+  animation_style AS "animationStyle",
+  animation_duration AS "animationDuration",
+  show_selfie AS "showSelfie",
+  show_full_name AS "showFullName",
+  play_sound AS "playSound",
+  confetti_animation AS "confettiAnimation",
+  total_entries AS "totalEntries",
+  created_by AS "createdBy",
+  created_at AS "createdAt",
+  updated_at AS "updatedAt"
+`;
+
+interface LuckyDrawConfigWithEntryCountRow extends LuckyDrawConfig {
+  entryCount: string | number;
+}
+
+function toNumber(value: unknown): number {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  return 0;
+}
 
 type EventAccessRecord = {
   id: string;
@@ -107,10 +145,30 @@ export async function GET(
     const { searchParams } = new URL(request.url);
     const activeOnly = searchParams.get('active') === 'true';
 
-    // Get latest config (most recent, regardless of status) or active scheduled config
-    const config = activeOnly
-      ? await getActiveConfig(tenantId, eventId)
-      : await getLatestConfig(tenantId, eventId);
+    const orderBy = activeOnly
+      ? 'created_at DESC'
+      : `CASE WHEN status = 'scheduled' THEN 0 ELSE 1 END, created_at DESC`;
+    const configQuery = `
+      WITH selected_config AS (
+        SELECT ${luckyDrawConfigSelectColumns}
+        FROM lucky_draw_configs
+        WHERE event_id = $1
+        ${activeOnly ? `AND status = 'scheduled'` : ''}
+        ORDER BY ${orderBy}
+        LIMIT 1
+      )
+      SELECT
+        sc.*,
+        COALESCE(ec.entry_count, 0) AS "entryCount"
+      FROM selected_config sc
+      LEFT JOIN LATERAL (
+        SELECT COUNT(*) AS entry_count
+        FROM lucky_draw_entries
+        WHERE config_id = sc.id
+      ) ec ON true
+    `;
+    const configResult = await db.query<LuckyDrawConfigWithEntryCountRow>(configQuery, [eventId]);
+    const config = configResult.rows[0];
 
     if (!config) {
       // Preserve existing 404 behavior while avoiding an extra query for hot-path reads.
@@ -131,27 +189,15 @@ export async function GET(
       );
     }
 
-    // Get entries count
-    let entryCount = 0;
-    const warnings: string[] = [];
-    try {
-      const countResult = await db.query<{ count: bigint }>(
-        'SELECT COUNT(*) as count FROM lucky_draw_entries WHERE config_id = $1',
-        [config.id]
-      );
-      entryCount = Number(countResult.rows[0]?.count || 0);
-    } catch {
-      entryCount = Number(config.totalEntries || 0);
-      warnings.push('Entry count unavailable; showing cached value.');
-    }
+    const { entryCount: entryCountRaw, ...configData } = config;
+    const entryCount = toNumber(entryCountRaw);
 
     return NextResponse.json(
       {
         data: {
-          ...config,
+          ...configData,
           entryCount,
         },
-        warnings: warnings.length > 0 ? warnings : undefined,
       },
       { headers: readCacheHeaders }
     );
