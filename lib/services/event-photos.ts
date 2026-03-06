@@ -5,7 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantDb } from '@/lib/db';
 import { deleteKeys } from '@/lib/redis';
-import { uploadImageToStorage, validateUploadedImage, getTierValidationOptions } from '@/lib/images';
+import { deletePhotoAssets, uploadImageToStorage, validateUploadedImage, getTierValidationOptions } from '@/lib/images';
 import { generatePhotoId } from '@/lib/utils';
 import { createEntryFromPhoto } from '@/lib/lucky-draw';
 import { updateGuestProgress } from '@/lib/lucky-draw';
@@ -594,6 +594,11 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
       );
 
       if (!insertResult.allowed) {
+        try {
+          await deletePhotoAssets(eventId, photoId);
+        } catch (cleanupError) {
+          console.warn('[API] Failed to cleanup direct upload assets after limit check:', cleanupError);
+        }
         return buildPhotoLimitResponse(insertResult);
       }
 
@@ -767,35 +772,50 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
         effectiveSubscriptionTier
       );
 
-      const insertResult = await insertPhotoWithAtomicLimits(
-        db,
-        {
-          id: photoId,
-          eventId,
-          userId,
-          images,
-          caption: caption || undefined,
-          contributorName: contributorName || undefined,
-          isAnonymous: isAnonymous || false,
-          moderationRequired: event.settings.features.moderation_required,
-          metadata: {
-            ip_address: headers.get('x-forwarded-for') || headers.get('x-real-ip') || 'unknown',
-            user_agent: userAgent,
-            upload_timestamp: new Date(),
-            device_type: deviceType,
+      let insertResult: PhotoInsertResult;
+      try {
+        insertResult = await insertPhotoWithAtomicLimits(
+          db,
+          {
+            id: photoId,
+            eventId,
+            userId,
+            images,
+            caption: caption || undefined,
+            contributorName: contributorName || undefined,
+            isAnonymous: isAnonymous || false,
+            moderationRequired: event.settings.features.moderation_required,
+            metadata: {
+              ip_address: headers.get('x-forwarded-for') || headers.get('x-real-ip') || 'unknown',
+              user_agent: userAgent,
+              upload_timestamp: new Date(),
+              device_type: deviceType,
+            },
           },
-        },
-        {
-          tenantId,
-          eventId,
-          userId,
-          enforceLimits,
-          tierPhotoLimit,
-          userPhotoLimit,
+          {
+            tenantId,
+            eventId,
+            userId,
+            enforceLimits,
+            tierPhotoLimit,
+            userPhotoLimit,
+          }
+        );
+      } catch (insertError) {
+        try {
+          await deletePhotoAssets(eventId, photoId);
+        } catch (cleanupError) {
+          console.warn('[API] Failed to cleanup uploaded assets after insert failure:', cleanupError);
         }
-      );
+        throw insertError;
+      }
 
       if (!insertResult.allowed) {
+        try {
+          await deletePhotoAssets(eventId, photoId);
+        } catch (cleanupError) {
+          console.warn('[API] Failed to cleanup uploaded assets after limit check:', cleanupError);
+        }
         limitReached = insertResult;
         break;
       }

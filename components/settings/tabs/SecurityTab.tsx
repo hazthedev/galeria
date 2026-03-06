@@ -6,6 +6,8 @@ import type { UploadRateLimits } from '../types';
 interface SecurityTabProps {
   uploadRateLimits: UploadRateLimits;
   setUploadRateLimits: Dispatch<SetStateAction<UploadRateLimits>>;
+  maxPhotosPerUser: number;
+  setMaxPhotosPerUser: Dispatch<SetStateAction<number>>;
   isLoading: boolean;
   hasChanges: boolean;
   onSave: () => void;
@@ -15,6 +17,8 @@ interface SecurityTabProps {
 export function SecurityTab({
   uploadRateLimits,
   setUploadRateLimits,
+  maxPhotosPerUser,
+  setMaxPhotosPerUser,
   isLoading,
   hasChanges,
   onSave,
@@ -39,6 +43,23 @@ export function SecurityTab({
       </div>
 
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div>
+          <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+            Photos Per Guest
+          </label>
+          <input
+            type="number"
+            min="1"
+            value={maxPhotosPerUser}
+            onChange={(event) => setMaxPhotosPerUser(Math.max(1, parseInt(event.target.value, 10) || 1))}
+            onBlur={onDirty}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900 dark:text-white"
+          />
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            Maximum photos each guest can upload
+          </p>
+        </div>
+
         <div>
           <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
             Per User

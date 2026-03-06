@@ -1000,6 +1000,9 @@ export function useGuestEventPageController(eventId: string) {
         if (code === 'TIER_LIMIT_REACHED' || code === 'EVENT_LIMIT_REACHED') {
           throw new Error('Photo uploads are full for this event.');
         }
+        if (code === 'USER_LIMIT_REACHED') {
+          throw new Error(data?.error || 'You have reached your upload limit for this event.');
+        }
         throw new Error(data.error || 'Failed to upload photo');
       }
 
@@ -1019,7 +1022,9 @@ export function useGuestEventPageController(eventId: string) {
         setRejectedPhotos((prev) => [...nextRejected, ...prev]);
       }
       const hasPending = uploadedPhotos.some((photo: IPhoto) => photo.status === 'pending');
-      if (hasPending) {
+      if (typeof data?.limitReached === 'object' && data?.limitReached) {
+        setUploadSuccessMessage(data?.message || 'Some photos were uploaded before reaching your upload limit.');
+      } else if (hasPending) {
         setUploadSuccessMessage('Photo uploaded and pending approval.');
       } else {
         setUploadSuccessMessage('Photo uploaded successfully!');
