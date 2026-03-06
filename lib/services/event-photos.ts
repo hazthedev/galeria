@@ -5,19 +5,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantDb } from '@/lib/db';
 import { deleteKeys } from '@/lib/redis';
-import { uploadImageToStorage, validateImageFile, validateUploadedImage, getTierValidationOptions } from '@/lib/images';
+import { uploadImageToStorage, validateUploadedImage, getTierValidationOptions } from '@/lib/images';
 import { generatePhotoId } from '@/lib/utils';
 import { createEntryFromPhoto } from '@/lib/lucky-draw';
 import { updateGuestProgress } from '@/lib/lucky-draw';
 import { verifyAccessToken } from '@/lib/domain/auth/auth';
 import { extractSessionId, validateSession } from '@/lib/domain/auth/session';
-import { checkPhotoLimit } from '@/lib/api/middleware/limit-check';
 import { checkUploadRateLimit } from '@/lib/api/middleware/rate-limit';
 import { validateRecaptchaForUpload, isRecaptchaRequiredForUploads } from '@/lib/api/middleware/recaptcha';
 import { isModerationEnabled } from '@/lib/moderation/auto-moderate';
 import { queuePhotoScan } from '@/jobs/scan-content';
 import type { DeviceType, IPhoto, SubscriptionTier } from '@/lib/types';
-import { resolveUserTier } from '@/lib/tenant';
+import { getTierConfig, resolveUserTier } from '@/lib/tenant';
 import { applyCacheHeaders, CACHE_PROFILES } from '@/lib/cache/strategy';
 import { publishEventBroadcast } from '@/lib/realtime/server';
 import { resolveOptionalAuth, resolveRequiredTenantId, resolveTenantId } from '@/lib/api-request-context';
@@ -46,6 +45,178 @@ async function clearLuckyDrawConfigCache(tenantId: string, eventId: string): Pro
   } catch (error) {
     console.warn('[API] Failed to clear lucky draw config cache after photo upload:', error);
   }
+}
+
+interface PhotoInsertPayload {
+  id: string;
+  eventId: string;
+  userId: string;
+  images: IPhoto['images'];
+  caption?: string;
+  contributorName?: string;
+  isAnonymous: boolean;
+  moderationRequired: boolean;
+  metadata: IPhoto['metadata'];
+}
+
+interface PhotoLimitContext {
+  tenantId: string;
+  eventId: string;
+  userId: string;
+  enforceLimits: boolean;
+  tierPhotoLimit: number;
+  userPhotoLimit: number;
+}
+
+interface BlockedPhotoInsert {
+  allowed: false;
+  code: 'TIER_LIMIT_REACHED' | 'USER_LIMIT_REACHED';
+  message: string;
+  currentCount: number;
+  limit: number;
+  upgradeRequired: boolean;
+}
+
+interface AllowedPhotoInsert {
+  allowed: true;
+  photo: IPhoto;
+}
+
+type PhotoInsertResult = AllowedPhotoInsert | BlockedPhotoInsert;
+
+function normalizePerUserPhotoLimit(limit: unknown): number {
+  const parsed = Number(limit);
+  if (!Number.isFinite(parsed)) {
+    return 100;
+  }
+  if (parsed === -1) {
+    return -1;
+  }
+  if (parsed <= 0) {
+    return 100;
+  }
+  return parsed;
+}
+
+function buildPhotoLimitResponse(result: BlockedPhotoInsert): NextResponse {
+  return NextResponse.json(
+    {
+      error: result.message,
+      code: result.code,
+      upgradeRequired: result.upgradeRequired,
+      currentCount: result.currentCount,
+      limit: result.limit,
+    },
+    { status: 403 }
+  );
+}
+
+async function insertPhotoWithAtomicLimits(
+  db: ReturnType<typeof getTenantDb>,
+  payload: PhotoInsertPayload,
+  limitContext: PhotoLimitContext
+): Promise<PhotoInsertResult> {
+  if (!limitContext.enforceLimits) {
+    const photo = await db.insert<IPhoto>('photos', {
+      id: payload.id,
+      event_id: payload.eventId,
+      user_fingerprint: payload.userId,
+      images: payload.images,
+      caption: payload.caption || undefined,
+      contributor_name: payload.contributorName || undefined,
+      is_anonymous: payload.isAnonymous,
+      status: payload.moderationRequired ? 'pending' : 'approved',
+      metadata: payload.metadata,
+      created_at: new Date(),
+      approved_at: payload.moderationRequired ? undefined : new Date(),
+    });
+
+    return { allowed: true, photo };
+  }
+
+  return db.transact<PhotoInsertResult>(async (client) => {
+    // Serialize limit checks per tenant+event to avoid race conditions across concurrent uploads.
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1), hashtext($2))', [
+      limitContext.tenantId,
+      limitContext.eventId,
+    ]);
+
+    if (limitContext.tierPhotoLimit !== -1) {
+      const tierCountResult = await client.query<{ count: string }>(
+        'SELECT COUNT(*)::text AS count FROM photos WHERE event_id = $1',
+        [limitContext.eventId]
+      );
+      const currentCount = Number(tierCountResult.rows[0]?.count || '0');
+      if (currentCount >= limitContext.tierPhotoLimit) {
+        return {
+          allowed: false,
+          code: 'TIER_LIMIT_REACHED',
+          message: `This event has reached its photo limit (${limitContext.tierPhotoLimit}). Upgrade to allow more photos.`,
+          currentCount,
+          limit: limitContext.tierPhotoLimit,
+          upgradeRequired: true,
+        };
+      }
+    }
+
+    if (limitContext.userPhotoLimit !== -1) {
+      const userCountResult = await client.query<{ count: string }>(
+        'SELECT COUNT(*)::text AS count FROM photos WHERE event_id = $1 AND user_fingerprint = $2',
+        [limitContext.eventId, limitContext.userId]
+      );
+      const currentUserCount = Number(userCountResult.rows[0]?.count || '0');
+      if (currentUserCount >= limitContext.userPhotoLimit) {
+        return {
+          allowed: false,
+          code: 'USER_LIMIT_REACHED',
+          message: `You have reached your photo upload limit (${limitContext.userPhotoLimit}) for this event.`,
+          currentCount: currentUserCount,
+          limit: limitContext.userPhotoLimit,
+          upgradeRequired: false,
+        };
+      }
+    }
+
+    const insertResult = await client.query<IPhoto>(
+      `
+        INSERT INTO photos (
+          id,
+          event_id,
+          user_fingerprint,
+          images,
+          caption,
+          contributor_name,
+          is_anonymous,
+          status,
+          metadata,
+          created_at,
+          approved_at
+        )
+        VALUES (
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+        )
+        RETURNING *
+      `,
+      [
+        payload.id,
+        payload.eventId,
+        payload.userId,
+        payload.images,
+        payload.caption || null,
+        payload.contributorName || null,
+        payload.isAnonymous,
+        payload.moderationRequired ? 'pending' : 'approved',
+        payload.metadata,
+        new Date(),
+        payload.moderationRequired ? null : new Date(),
+      ]
+    );
+
+    return {
+      allowed: true,
+      photo: insertResult.rows[0],
+    };
+  });
 }
 
 // ============================================
@@ -318,7 +489,8 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
       }
     }
 
-    // Per-user and per-event total limits removed; use tier + rate limits only.
+    const tierPhotoLimit = getTierConfig(effectiveSubscriptionTier).limits.max_photos_per_event;
+    const userPhotoLimit = normalizePerUserPhotoLimit(event.settings.limits.max_photos_per_user);
 
     // ============================================
     // DIRECT UPLOAD METADATA (JSON)
@@ -362,6 +534,7 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
       const fingerprint = headers.get('x-fingerprint');
       const userId = uploadUserId || `guest_${fingerprint || 'anonymous'}`;
       const userRole = uploadUserRole;
+      const enforceLimits = userRole !== 'super_admin' && !isAdminUploadHeader;
 
       // Check if anonymous uploads are allowed
       if (isAnonymous && !event.settings.features.anonymous_allowed) {
@@ -369,25 +542,6 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
           { error: 'Anonymous uploads are not allowed for this event', code: 'ANONYMOUS_NOT_ALLOWED' },
           { status: 400 }
         );
-      }
-
-      // Check photo limits (skip for admins or admin uploads)
-      if (userRole !== 'super_admin' && !isAdminUploadHeader) {
-        const tierLimitResult = await checkPhotoLimit(eventId, tenantId, effectiveSubscriptionTier);
-        if (!tierLimitResult.allowed) {
-          return NextResponse.json(
-            {
-              error: tierLimitResult.message || 'Photo limit reached',
-              code: 'TIER_LIMIT_REACHED',
-              upgradeRequired: true,
-              currentCount: tierLimitResult.currentCount,
-              limit: tierLimitResult.limit,
-            },
-            { status: 403 }
-          );
-        }
-
-        // Tier limit already enforced by checkPhotoLimit above.
       }
 
       const publicBase = process.env.R2_PUBLIC_URL || 'https://pub-xxxxxxxxx.r2.dev';
@@ -402,34 +556,48 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
         deviceType = 'tablet';
       }
 
-      const photo = await db.insert('photos', {
-        id: photoId,
-        event_id: eventId,
-        user_fingerprint: userId,
-        images: {
-          original_url: publicUrl,
-          thumbnail_url: publicUrl,
-          medium_url: publicUrl,
-          full_url: publicUrl,
-          width,
-          height,
-          file_size: fileSize,
-          format: ext,
+      const insertResult = await insertPhotoWithAtomicLimits(
+        db,
+        {
+          id: photoId,
+          eventId,
+          userId,
+          images: {
+            original_url: publicUrl,
+            thumbnail_url: publicUrl,
+            medium_url: publicUrl,
+            full_url: publicUrl,
+            width,
+            height,
+            file_size: fileSize,
+            format: ext,
+          },
+          caption: caption || undefined,
+          contributorName: contributorName || undefined,
+          isAnonymous: isAnonymous || false,
+          moderationRequired: event.settings.features.moderation_required,
+          metadata: {
+            ip_address: headers.get('x-forwarded-for') || headers.get('x-real-ip') || 'unknown',
+            user_agent: userAgent,
+            upload_timestamp: new Date(),
+            device_type: deviceType,
+          },
         },
-        caption: caption || undefined,
-        contributor_name: contributorName || undefined,
-        is_anonymous: isAnonymous || false,
-        status: event.settings.features.moderation_required ? 'pending' : 'approved',
-        metadata: {
-          ip_address: headers.get('x-forwarded-for') || headers.get('x-real-ip') || 'unknown',
-          user_agent: userAgent,
-          upload_timestamp: new Date(),
-          device_type: deviceType,
-        },
-        created_at: new Date(),
-        approved_at: event.settings.features.moderation_required ? undefined : new Date(),
-      });
+        {
+          tenantId,
+          eventId,
+          userId,
+          enforceLimits,
+          tierPhotoLimit,
+          userPhotoLimit,
+        }
+      );
 
+      if (!insertResult.allowed) {
+        return buildPhotoLimitResponse(insertResult);
+      }
+
+      const photo = insertResult.photo;
       let luckyDrawEntryId: string | null = null;
       if (event.settings.features.lucky_draw_enabled && joinLuckyDraw) {
         try {
@@ -447,7 +615,6 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
       // ============================================
       // PHOTO CHALLENGE PROGRESS TRACKING
       // ============================================
-      let challengeGoalReached = false;
       if (event.settings.features.photo_challenge_enabled && !isAnonymous && userId) {
         try {
           const { goalJustReached } = await updateGuestProgress(
@@ -456,7 +623,6 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
             userId,
             !event.settings.features.moderation_required // Photo is approved if moderation is not required
           );
-          challengeGoalReached = goalJustReached;
           console.log('[PHOTO_CHALLENGE] Progress updated:', userId, goalJustReached ? 'Goal reached!' : '');
         } catch (challengeError) {
           console.warn('[API] Photo challenge progress update skipped:', challengeError);
@@ -573,26 +739,7 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
     const fingerprint = headers.get('x-fingerprint');
     const userId = uploadUserId || `guest_${fingerprint || 'anonymous'}`;
     const userRole = uploadUserRole;
-
-    // Check photo limits (skip for admins or admin uploads)
-    if (userRole !== 'super_admin' && !isAdminUploadHeader) {
-      // First check tenant tier limit
-      const tierLimitResult = await checkPhotoLimit(eventId, tenantId, effectiveSubscriptionTier);
-      if (!tierLimitResult.allowed) {
-        return NextResponse.json(
-          {
-            error: tierLimitResult.message || 'Photo limit reached',
-            code: 'TIER_LIMIT_REACHED',
-            upgradeRequired: true,
-            currentCount: tierLimitResult.currentCount,
-            limit: tierLimitResult.limit,
-          },
-          { status: 403 }
-        );
-      }
-
-      // Tier limit already enforced by checkPhotoLimit above.
-    }
+    const enforceLimits = userRole !== 'super_admin' && !isAdminUploadHeader;
 
     const userAgent = headers.get('user-agent') || '';
     let deviceType: DeviceType = 'desktop';
@@ -603,6 +750,7 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
     }
 
     const createdPhotos = [];
+    let limitReached: BlockedPhotoInsert | null = null;
 
     for (const file of uploadFiles) {
       const arrayBuffer = await file.arrayBuffer();
@@ -619,24 +767,40 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
         effectiveSubscriptionTier
       );
 
-      const photo = await db.insert('photos', {
-        id: photoId,
-        event_id: eventId,
-        user_fingerprint: userId,
-        images,
-        caption: caption || undefined,
-        contributor_name: contributorName || undefined,
-        is_anonymous: isAnonymous || false,
-        status: event.settings.features.moderation_required ? 'pending' : 'approved',
-        metadata: {
-          ip_address: headers.get('x-forwarded-for') || headers.get('x-real-ip') || 'unknown',
-          user_agent: userAgent,
-          upload_timestamp: new Date(),
-          device_type: deviceType,
+      const insertResult = await insertPhotoWithAtomicLimits(
+        db,
+        {
+          id: photoId,
+          eventId,
+          userId,
+          images,
+          caption: caption || undefined,
+          contributorName: contributorName || undefined,
+          isAnonymous: isAnonymous || false,
+          moderationRequired: event.settings.features.moderation_required,
+          metadata: {
+            ip_address: headers.get('x-forwarded-for') || headers.get('x-real-ip') || 'unknown',
+            user_agent: userAgent,
+            upload_timestamp: new Date(),
+            device_type: deviceType,
+          },
         },
-        created_at: new Date(),
-        approved_at: event.settings.features.moderation_required ? undefined : new Date(),
-      });
+        {
+          tenantId,
+          eventId,
+          userId,
+          enforceLimits,
+          tierPhotoLimit,
+          userPhotoLimit,
+        }
+      );
+
+      if (!insertResult.allowed) {
+        limitReached = insertResult;
+        break;
+      }
+
+      const photo = insertResult.photo;
 
       // Create lucky draw entry only if user opted in
       let luckyDrawEntryId: string | null = null;
@@ -688,6 +852,23 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
 
       createdPhotos.push(createdPhoto);
       await publishEventBroadcast(eventId, 'new_photo', createdPhoto);
+    }
+
+    if (limitReached && createdPhotos.length === 0) {
+      return buildPhotoLimitResponse(limitReached);
+    }
+
+    if (limitReached && createdPhotos.length > 0) {
+      return NextResponse.json({
+        data: createdPhotos,
+        message: `Uploaded ${createdPhotos.length} photo${createdPhotos.length === 1 ? '' : 's'} before reaching upload limit`,
+        limitReached: {
+          code: limitReached.code,
+          currentCount: limitReached.currentCount,
+          limit: limitReached.limit,
+          upgradeRequired: limitReached.upgradeRequired,
+        },
+      }, { status: 201 });
     }
 
     return NextResponse.json({
