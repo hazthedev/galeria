@@ -33,10 +33,10 @@ export function SecurityTab({
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            Upload Security Limits
+            Upload Limits
           </h3>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Configure rate limits to prevent spam and abuse
+            Set simple upload caps, then fine-tune anti-spam limits only if needed
           </p>
         </div>
         {hasChanges && (
@@ -46,7 +46,7 @@ export function SecurityTab({
         )}
       </div>
 
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-6 sm:grid-cols-2">
         <div>
           <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
             Photos Per Guest
@@ -80,10 +80,20 @@ export function SecurityTab({
             Maximum total photos this event can accept
           </p>
         </div>
+      </div>
 
+      <details className="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/40">
+        <summary className="cursor-pointer list-none text-sm font-medium text-gray-700 dark:text-gray-300">
+          Advanced Anti-Spam Limits
+          <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">(optional)</span>
+        </summary>
+        <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+          These control upload speed over time, not total event/guest quotas.
+        </p>
+        <div className="mt-4 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         <div>
           <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Per User
+            Per User (Hourly)
           </label>
           <input
             type="number"
@@ -97,13 +107,13 @@ export function SecurityTab({
             className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900 dark:text-white"
           />
           <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            Max uploads per user
+            Max uploads each user can do per hour
           </p>
         </div>
 
         <div>
           <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Burst Protection
+            Burst Protection (Per Minute)
           </label>
           <input
             type="number"
@@ -117,13 +127,13 @@ export function SecurityTab({
             className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900 dark:text-white"
           />
           <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            Max rapid uploads per minute
+            Max rapid uploads allowed per minute
           </p>
         </div>
 
         <div>
           <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Per Event
+            Per Event (Daily)
           </label>
           <input
             type="number"
@@ -137,10 +147,11 @@ export function SecurityTab({
             className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900 dark:text-white"
           />
           <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            Max total uploads
+            Max uploads the event can receive per day
           </p>
         </div>
-      </div>
+        </div>
+      </details>
 
       <div className="flex justify-end">
         <button
