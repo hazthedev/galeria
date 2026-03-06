@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantDb } from '@/lib/db';
+import { deleteKeys } from '@/lib/redis';
 import { verifyAccessToken } from '@/lib/domain/auth/auth';
 import { createManualEntries, getActiveConfig, getEventEntries } from '@/lib/lucky-draw';
 import { extractSessionId, validateSession } from '@/lib/domain/auth/session';
@@ -16,6 +17,25 @@ const isRecoverableReadError = (error: unknown) =>
   error !== null &&
   'code' in error &&
   ['42P01', '42703'].includes((error as { code?: string }).code || '');
+
+function buildConfigCacheKey(
+  tenantId: string,
+  eventId: string,
+  activeOnly: boolean
+): string {
+  return `cache:lucky-draw:config:${tenantId}:${eventId}:${activeOnly ? 'active' : 'latest'}`;
+}
+
+async function clearConfigReadCache(tenantId: string, eventId: string): Promise<void> {
+  try {
+    await deleteKeys([
+      buildConfigCacheKey(tenantId, eventId, true),
+      buildConfigCacheKey(tenantId, eventId, false),
+    ]);
+  } catch (error) {
+    console.warn('[API] Failed to clear lucky draw config cache:', error);
+  }
+}
 
 // ============================================
 // GET /api/events/:eventId/lucky-draw/entries - List entries
@@ -255,6 +275,8 @@ export async function POST(
       photoId: finalPhotoId,
       entryCount,
     });
+
+    await clearConfigReadCache(tenantId, eventId);
 
     return NextResponse.json({
       data: {

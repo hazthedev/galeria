@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantDb } from '@/lib/db';
+import { deleteKeys, getRawKey, setRawKey } from '@/lib/redis';
 import { hasModeratorRole, requireAuthForApi } from '@/lib/domain/auth/auth';
 import { resolveOptionalAuth, resolveTenantId } from '@/lib/api-request-context';
 import {
@@ -19,6 +20,10 @@ const readCacheHeaders = {
   'Cache-Control': 'private, max-age=10, stale-while-revalidate=30',
   Vary: 'Cookie, Authorization',
 };
+const LUCKY_DRAW_CONFIG_CACHE_TTL_SECONDS = Math.max(
+  5,
+  parseInt(process.env.LUCKY_DRAW_CONFIG_CACHE_TTL_SECONDS || '30', 10)
+);
 
 const isRecoverableReadError = (error: unknown) =>
   typeof error === 'object' &&
@@ -61,6 +66,28 @@ function toNumber(value: unknown): number {
     return Number.isFinite(parsed) ? parsed : 0;
   }
   return 0;
+}
+
+function buildConfigCacheKey(
+  tenantId: string,
+  eventId: string,
+  activeOnly: boolean
+): string {
+  return `cache:lucky-draw:config:${tenantId}:${eventId}:${activeOnly ? 'active' : 'latest'}`;
+}
+
+async function clearConfigReadCache(
+  tenantId: string,
+  eventId: string
+): Promise<void> {
+  try {
+    await deleteKeys([
+      buildConfigCacheKey(tenantId, eventId, true),
+      buildConfigCacheKey(tenantId, eventId, false),
+    ]);
+  } catch (error) {
+    console.warn('[API] Failed to clear lucky draw config cache:', error);
+  }
 }
 
 type EventAccessRecord = {
@@ -144,6 +171,23 @@ export async function GET(
 
     const { searchParams } = new URL(request.url);
     const activeOnly = searchParams.get('active') === 'true';
+    const cacheKey = buildConfigCacheKey(tenantId, eventId, activeOnly);
+
+    try {
+      const cachedRaw = await getRawKey(cacheKey);
+      if (cachedRaw) {
+        const cachedPayload = JSON.parse(cachedRaw) as {
+          data: Record<string, unknown> | null;
+          message?: string;
+        };
+
+        return NextResponse.json(cachedPayload, {
+          headers: { ...readCacheHeaders, 'x-cache-status': 'HIT' },
+        });
+      }
+    } catch (error) {
+      console.warn('[API] Lucky draw config cache read failed:', error);
+    }
 
     const orderBy = activeOnly
       ? 'created_at DESC'
@@ -180,26 +224,48 @@ export async function GET(
         );
       }
 
+      const payload = {
+        data: null,
+        message: 'No draw configuration found',
+      };
+      try {
+        await setRawKey(
+          cacheKey,
+          JSON.stringify(payload),
+          LUCKY_DRAW_CONFIG_CACHE_TTL_SECONDS
+        );
+      } catch (error) {
+        console.warn('[API] Lucky draw config cache write failed:', error);
+      }
+
       return NextResponse.json(
-        {
-          data: null,
-          message: 'No draw configuration found',
-        },
-        { headers: readCacheHeaders }
+        payload,
+        { headers: { ...readCacheHeaders, 'x-cache-status': 'MISS' } }
       );
     }
 
     const { entryCount: entryCountRaw, ...configData } = config;
     const entryCount = toNumber(entryCountRaw);
+    const payload = {
+      data: {
+        ...configData,
+        entryCount,
+      },
+    };
+
+    try {
+      await setRawKey(
+        cacheKey,
+        JSON.stringify(payload),
+        LUCKY_DRAW_CONFIG_CACHE_TTL_SECONDS
+      );
+    } catch (error) {
+      console.warn('[API] Lucky draw config cache write failed:', error);
+    }
 
     return NextResponse.json(
-      {
-        data: {
-          ...configData,
-          entryCount,
-        },
-      },
-      { headers: readCacheHeaders }
+      payload,
+      { headers: { ...readCacheHeaders, 'x-cache-status': 'MISS' } }
     );
   } catch (error) {
     if (isRecoverableReadError(error)) {
@@ -287,6 +353,8 @@ async function upsertConfig(
         { id: existingConfig.id }
       );
 
+      await clearConfigReadCache(tenantId, eventId);
+
       const updatedConfig = await getLatestConfig(tenantId, eventId);
       return NextResponse.json({
         data: updatedConfig,
@@ -309,6 +377,8 @@ async function upsertConfig(
       confettiAnimation: settings.confettiAnimation !== false,
       createdBy: userId,
     });
+
+    await clearConfigReadCache(tenantId, eventId);
 
     return NextResponse.json({
       data: newConfig,

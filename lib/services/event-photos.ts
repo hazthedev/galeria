@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantDb } from '@/lib/db';
+import { deleteKeys } from '@/lib/redis';
 import { uploadImageToStorage, validateImageFile, validateUploadedImage, getTierValidationOptions } from '@/lib/images';
 import { generatePhotoId } from '@/lib/utils';
 import { createEntryFromPhoto } from '@/lib/lucky-draw';
@@ -26,6 +27,25 @@ function isDbSessionPoolExhausted(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error || '');
 
   return code === 'XX000' && message.includes('MaxClientsInSessionMode');
+}
+
+function buildLuckyDrawConfigCacheKey(
+  tenantId: string,
+  eventId: string,
+  activeOnly: boolean
+): string {
+  return `cache:lucky-draw:config:${tenantId}:${eventId}:${activeOnly ? 'active' : 'latest'}`;
+}
+
+async function clearLuckyDrawConfigCache(tenantId: string, eventId: string): Promise<void> {
+  try {
+    await deleteKeys([
+      buildLuckyDrawConfigCacheKey(tenantId, eventId, true),
+      buildLuckyDrawConfigCacheKey(tenantId, eventId, false),
+    ]);
+  } catch (error) {
+    console.warn('[API] Failed to clear lucky draw config cache after photo upload:', error);
+  }
 }
 
 // ============================================
@@ -416,6 +436,9 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
           const entryName = isAnonymous ? undefined : contributorName || undefined;
           const entry = await createEntryFromPhoto(tenantId, eventId, photo.id, userId, entryName);
           luckyDrawEntryId = entry?.id || null;
+          if (luckyDrawEntryId) {
+            await clearLuckyDrawConfigCache(tenantId, eventId);
+          }
         } catch (entryError) {
           console.warn('[API] Lucky draw entry skipped:', entryError);
         }
@@ -622,6 +645,9 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
           const entryName = isAnonymous ? undefined : contributorName || undefined;
           const entry = await createEntryFromPhoto(tenantId, eventId, photo.id, userId, entryName);
           luckyDrawEntryId = entry?.id || null;
+          if (luckyDrawEntryId) {
+            await clearLuckyDrawConfigCache(tenantId, eventId);
+          }
         } catch (entryError) {
           console.warn('[API] Lucky draw entry skipped:', entryError);
         }
