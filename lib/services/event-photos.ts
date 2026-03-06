@@ -65,12 +65,13 @@ interface PhotoLimitContext {
   userId: string;
   enforceLimits: boolean;
   tierPhotoLimit: number;
+  eventTotalPhotoLimit: number;
   userPhotoLimit: number;
 }
 
 interface BlockedPhotoInsert {
   allowed: false;
-  code: 'TIER_LIMIT_REACHED' | 'USER_LIMIT_REACHED';
+  code: 'TIER_LIMIT_REACHED' | 'EVENT_LIMIT_REACHED' | 'USER_LIMIT_REACHED';
   message: string;
   currentCount: number;
   limit: number;
@@ -94,6 +95,20 @@ function normalizePerUserPhotoLimit(limit: unknown): number {
   }
   if (parsed <= 0) {
     return 100;
+  }
+  return parsed;
+}
+
+function normalizeEventTotalPhotoLimit(limit: unknown): number {
+  const parsed = Number(limit);
+  if (!Number.isFinite(parsed)) {
+    return 50;
+  }
+  if (parsed === -1) {
+    return -1;
+  }
+  if (parsed <= 0) {
+    return 50;
   }
   return parsed;
 }
@@ -141,13 +156,13 @@ async function insertPhotoWithAtomicLimits(
       limitContext.eventId,
     ]);
 
-    if (limitContext.tierPhotoLimit !== -1) {
+    if (limitContext.tierPhotoLimit !== -1 || limitContext.eventTotalPhotoLimit !== -1) {
       const tierCountResult = await client.query<{ count: string }>(
         'SELECT COUNT(*)::text AS count FROM photos WHERE event_id = $1',
         [limitContext.eventId]
       );
       const currentCount = Number(tierCountResult.rows[0]?.count || '0');
-      if (currentCount >= limitContext.tierPhotoLimit) {
+      if (limitContext.tierPhotoLimit !== -1 && currentCount >= limitContext.tierPhotoLimit) {
         return {
           allowed: false,
           code: 'TIER_LIMIT_REACHED',
@@ -155,6 +170,17 @@ async function insertPhotoWithAtomicLimits(
           currentCount,
           limit: limitContext.tierPhotoLimit,
           upgradeRequired: true,
+        };
+      }
+
+      if (limitContext.eventTotalPhotoLimit !== -1 && currentCount >= limitContext.eventTotalPhotoLimit) {
+        return {
+          allowed: false,
+          code: 'EVENT_LIMIT_REACHED',
+          message: `This event has reached its configured photo limit (${limitContext.eventTotalPhotoLimit}).`,
+          currentCount,
+          limit: limitContext.eventTotalPhotoLimit,
+          upgradeRequired: false,
         };
       }
     }
@@ -490,6 +516,7 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
     }
 
     const tierPhotoLimit = getTierConfig(effectiveSubscriptionTier).limits.max_photos_per_event;
+    const eventTotalPhotoLimit = normalizeEventTotalPhotoLimit(event.settings.limits.max_total_photos);
     const userPhotoLimit = normalizePerUserPhotoLimit(event.settings.limits.max_photos_per_user);
 
     // ============================================
@@ -589,6 +616,7 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
           userId,
           enforceLimits,
           tierPhotoLimit,
+          eventTotalPhotoLimit,
           userPhotoLimit,
         }
       );
@@ -798,6 +826,7 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
             userId,
             enforceLimits,
             tierPhotoLimit,
+            eventTotalPhotoLimit,
             userPhotoLimit,
           }
         );

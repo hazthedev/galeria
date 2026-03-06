@@ -105,6 +105,9 @@ export function SettingsAdminTab({ event, onUpdate }: SettingsAdminTabProps) {
   const [maxPhotosPerUser, setMaxPhotosPerUser] = useState(
     Math.max(1, event.settings?.limits?.max_photos_per_user || 5)
   );
+  const [maxTotalPhotos, setMaxTotalPhotos] = useState(
+    Math.max(1, event.settings?.limits?.max_total_photos || 50)
+  );
 
   const subTabs: { id: SettingsSubTab; label: string; icon: LucideIcon }[] = [
     { id: 'basic', label: 'Basic Info', icon: Calendar },
@@ -161,7 +164,7 @@ export function SettingsAdminTab({ event, onUpdate }: SettingsAdminTabProps) {
             limits: {
               ...event.settings?.limits,
               max_photos_per_user: Math.max(1, maxPhotosPerUser),
-              max_total_photos: event.settings?.limits?.max_total_photos || 50,
+              max_total_photos: Math.max(1, maxTotalPhotos),
               max_draw_entries: event.settings?.limits?.max_draw_entries || 100,
             },
           },
@@ -276,6 +279,8 @@ export function SettingsAdminTab({ event, onUpdate }: SettingsAdminTabProps) {
           setUploadRateLimits={setUploadRateLimits}
           maxPhotosPerUser={maxPhotosPerUser}
           setMaxPhotosPerUser={setMaxPhotosPerUser}
+          maxTotalPhotos={maxTotalPhotos}
+          setMaxTotalPhotos={setMaxTotalPhotos}
           isLoading={isLoading}
           hasChanges={hasChanges}
           onSave={() => handleSave('security')}
