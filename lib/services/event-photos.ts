@@ -85,6 +85,21 @@ interface AllowedPhotoInsert {
 
 type PhotoInsertResult = AllowedPhotoInsert | BlockedPhotoInsert;
 
+interface UploadUsageSnapshot {
+  user: {
+    used: number;
+    limit: number;
+    remaining: number;
+  };
+  event: {
+    used: number;
+    limit: number;
+    remaining: number;
+    tier_limit: number;
+    configured_limit: number;
+  };
+}
+
 function normalizePerUserPhotoLimit(limit: unknown): number {
   const parsed = Number(limit);
   if (!Number.isFinite(parsed)) {
@@ -113,17 +128,77 @@ function normalizeEventTotalPhotoLimit(limit: unknown): number {
   return parsed;
 }
 
-function buildPhotoLimitResponse(result: BlockedPhotoInsert): NextResponse {
-  return NextResponse.json(
-    {
-      error: result.message,
-      code: result.code,
-      upgradeRequired: result.upgradeRequired,
-      currentCount: result.currentCount,
-      limit: result.limit,
-    },
-    { status: 403 }
+function calculateRemaining(limit: number, used: number): number {
+  if (limit === -1) {
+    return -1;
+  }
+  return Math.max(0, limit - used);
+}
+
+function getEffectiveEventLimit(tierLimit: number, configuredLimit: number): number {
+  if (tierLimit === -1) {
+    return configuredLimit;
+  }
+  if (configuredLimit === -1) {
+    return tierLimit;
+  }
+  return Math.min(tierLimit, configuredLimit);
+}
+
+async function getUploadUsageSnapshot(
+  db: ReturnType<typeof getTenantDb>,
+  eventId: string,
+  userId: string,
+  tierLimit: number,
+  configuredEventLimit: number,
+  userLimit: number
+): Promise<UploadUsageSnapshot> {
+  const countResult = await db.query<{
+    event_count: string;
+    user_count: string;
+  }>(
+    `
+      SELECT
+        COUNT(*)::text AS event_count,
+        COUNT(*) FILTER (WHERE user_fingerprint = $2)::text AS user_count
+      FROM photos
+      WHERE event_id = $1
+    `,
+    [eventId, userId]
   );
+
+  const eventUsed = Number(countResult.rows[0]?.event_count || '0');
+  const userUsed = Number(countResult.rows[0]?.user_count || '0');
+  const effectiveEventLimit = getEffectiveEventLimit(tierLimit, configuredEventLimit);
+
+  return {
+    user: {
+      used: userUsed,
+      limit: userLimit,
+      remaining: calculateRemaining(userLimit, userUsed),
+    },
+    event: {
+      used: eventUsed,
+      limit: effectiveEventLimit,
+      remaining: calculateRemaining(effectiveEventLimit, eventUsed),
+      tier_limit: tierLimit,
+      configured_limit: configuredEventLimit,
+    },
+  };
+}
+
+function buildPhotoLimitResponse(
+  result: BlockedPhotoInsert,
+  usage?: UploadUsageSnapshot
+): NextResponse {
+  return NextResponse.json({
+    error: result.message,
+    code: result.code,
+    upgradeRequired: result.upgradeRequired,
+    currentCount: result.currentCount,
+    limit: result.limit,
+    usage,
+  }, { status: 403 });
 }
 
 async function insertPhotoWithAtomicLimits(
@@ -627,7 +702,15 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
         } catch (cleanupError) {
           console.warn('[API] Failed to cleanup direct upload assets after limit check:', cleanupError);
         }
-        return buildPhotoLimitResponse(insertResult);
+        const usage = await getUploadUsageSnapshot(
+          db,
+          eventId,
+          userId,
+          tierPhotoLimit,
+          eventTotalPhotoLimit,
+          userPhotoLimit
+        );
+        return buildPhotoLimitResponse(insertResult, usage);
       }
 
       const photo = insertResult.photo;
@@ -697,9 +780,19 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
 
       await publishEventBroadcast(eventId, 'new_photo', createdPhoto);
 
+      const usage = await getUploadUsageSnapshot(
+        db,
+        eventId,
+        userId,
+        tierPhotoLimit,
+        eventTotalPhotoLimit,
+        userPhotoLimit
+      );
+
       return NextResponse.json({
         data: [createdPhoto],
         message: 'Photo uploaded successfully',
+        usage,
       }, { status: 201 });
     }
 
@@ -904,10 +997,27 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
     }
 
     if (limitReached && createdPhotos.length === 0) {
-      return buildPhotoLimitResponse(limitReached);
+      const usage = await getUploadUsageSnapshot(
+        db,
+        eventId,
+        userId,
+        tierPhotoLimit,
+        eventTotalPhotoLimit,
+        userPhotoLimit
+      );
+      return buildPhotoLimitResponse(limitReached, usage);
     }
 
     if (limitReached && createdPhotos.length > 0) {
+      const usage = await getUploadUsageSnapshot(
+        db,
+        eventId,
+        userId,
+        tierPhotoLimit,
+        eventTotalPhotoLimit,
+        userPhotoLimit
+      );
+
       return NextResponse.json({
         data: createdPhotos,
         message: `Uploaded ${createdPhotos.length} photo${createdPhotos.length === 1 ? '' : 's'} before reaching upload limit`,
@@ -917,12 +1027,23 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
           limit: limitReached.limit,
           upgradeRequired: limitReached.upgradeRequired,
         },
+        usage,
       }, { status: 201 });
     }
+
+    const usage = await getUploadUsageSnapshot(
+      db,
+      eventId,
+      userId,
+      tierPhotoLimit,
+      eventTotalPhotoLimit,
+      userPhotoLimit
+    );
 
     return NextResponse.json({
       data: createdPhotos,
       message: createdPhotos.length === 1 ? 'Photo uploaded successfully' : 'Photos uploaded successfully',
+      usage,
     }, { status: 201 });
   } catch (error) {
     console.error('[API] Photo upload error:', error);

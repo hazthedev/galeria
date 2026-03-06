@@ -25,6 +25,12 @@ export interface SelectedFile {
   name: string;
 }
 
+interface UploadUsageUser {
+  used: number;
+  limit: number;
+  remaining: number;
+}
+
 const GUEST_MAX_DIMENSION = 4000;
 const PHOTO_PAGE_SIZE = 5;
 
@@ -51,6 +57,7 @@ export function useGuestEventPageController(eventId: string) {
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [uploadSuccessMessage, setUploadSuccessMessage] = useState('Photo uploaded successfully!');
   const [optimizedCount, setOptimizedCount] = useState(0);
+  const [uploadUsageUser, setUploadUsageUser] = useState<UploadUsageUser | null>(null);
   const [moderationNotice, setModerationNotice] = useState<string | null>(null);
   const [moderationNoticeType, setModerationNoticeType] = useState<'approved' | 'rejected' | null>(null);
   const [joinLuckyDraw, setJoinLuckyDraw] = useState(true);
@@ -154,6 +161,10 @@ export function useGuestEventPageController(eventId: string) {
       // ignore malformed storage
     }
   }, [resolvedEventId]);
+
+  useEffect(() => {
+    setUploadUsageUser(null);
+  }, [resolvedEventId, fingerprint]);
 
   useEffect(() => {
     if (!resolvedEventId) return;
@@ -996,6 +1007,20 @@ export function useGuestEventPageController(eventId: string) {
       const data = await response.json();
 
       if (!response.ok) {
+        const usageUser = data?.usage?.user;
+        if (
+          usageUser &&
+          typeof usageUser.used === 'number' &&
+          typeof usageUser.limit === 'number' &&
+          typeof usageUser.remaining === 'number'
+        ) {
+          setUploadUsageUser({
+            used: usageUser.used,
+            limit: usageUser.limit,
+            remaining: usageUser.remaining,
+          });
+        }
+
         const code = typeof data?.code === 'string' ? data.code : '';
         if (code === 'TIER_LIMIT_REACHED' || code === 'EVENT_LIMIT_REACHED') {
           throw new Error('Photo uploads are full for this event.');
@@ -1008,6 +1033,20 @@ export function useGuestEventPageController(eventId: string) {
 
       // Add the new photo(s) to the gallery
       const uploadedPhotos = Array.isArray(data.data) ? data.data : [data.data];
+      const usageUser = data?.usage?.user;
+      if (
+        usageUser &&
+        typeof usageUser.used === 'number' &&
+        typeof usageUser.limit === 'number' &&
+        typeof usageUser.remaining === 'number'
+      ) {
+        setUploadUsageUser({
+          used: usageUser.used,
+          limit: usageUser.limit,
+          remaining: usageUser.remaining,
+        });
+      }
+
       const nextApproved = uploadedPhotos.filter((photo: IPhoto) => photo.status === 'approved');
       const nextPending = uploadedPhotos.filter((photo: IPhoto) => photo.status === 'pending');
       const nextRejected = uploadedPhotos.filter((photo: IPhoto) => photo.status === 'rejected');
@@ -1117,6 +1156,7 @@ export function useGuestEventPageController(eventId: string) {
     uploadSuccess,
     uploadSuccessMessage,
     optimizedCount,
+    uploadUsageUser,
     moderationNotice,
     moderationNoticeType,
     joinLuckyDraw,

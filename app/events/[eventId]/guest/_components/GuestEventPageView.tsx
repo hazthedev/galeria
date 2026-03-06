@@ -61,6 +61,7 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
     luckyDrawEnabled, attendanceEnabled, photoCardStyle, themePrimary, themeSecondary, themeBackground, themeSurface,
     themeGradient, surfaceText, surfaceMuted, surfaceBorder, inputBackground, inputBorder, headerBackground,
     secondaryText, selectedFiles, caption, userLoves, animatingPhotos, selectedPhotoIds, canDownload, selectedCount,
+    uploadUsageUser,
     loadMoreRef, hasMoreApproved, isLoadingMore, handleGuestModalSubmit, setShowGuestModal, handleLoveReaction,
     handleDownloadPhoto, handleDownloadAll, handleDownloadSelected, handleDownloadSelectedIndividually,
     toggleSelectedPhoto, loadMoreApproved, setShowShareModal, shareUrl, handleShare, copyToClipboard, handleFileSelect,
@@ -935,17 +936,19 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
 
                 {/* Photos Remaining Info */}
                 {(() => {
-                  const userLimit = event?.settings?.limits?.max_photos_per_user;
-                  const userPhotos = mergedPhotos.filter(photo => photo.user_fingerprint === `guest_${fingerprint}`).length;
-                  const remaining = userLimit === null || userLimit === undefined
-                    ? `${userPhotos} uploaded`
-                    : Math.max(0, userLimit - userPhotos);
+                  const fallbackUserLimit = event?.settings?.limits?.max_photos_per_user;
+                  const fallbackUserPhotos = mergedPhotos.filter((photo) => photo.user_fingerprint === `guest_${fingerprint}`).length;
+
+                  const userLimit = uploadUsageUser?.limit ?? fallbackUserLimit;
+                  const userPhotos = uploadUsageUser?.used ?? fallbackUserPhotos;
+                  const remaining = uploadUsageUser?.remaining
+                    ?? (userLimit === null || userLimit === undefined ? -1 : Math.max(0, userLimit - userPhotos));
 
                   return (
                     <p className="text-xs text-center" style={{ color: surfaceMuted }}>
-                      {typeof remaining === 'string'
-                        ? `${remaining}`
-                        : `${remaining} photo${userPhotos === 1 && typeof remaining !== 'string' && remaining > 1 ? '' : 's'} remaining`}
+                      {remaining === -1
+                        ? `${userPhotos} uploaded`
+                        : `${remaining} photo${remaining === 1 ? '' : 's'} remaining`}
                     </p>
                   );
                 })()}
