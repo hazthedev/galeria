@@ -204,6 +204,7 @@ export async function GET(
         WITH base_photos AS (
           SELECT
             id,
+            user_fingerprint,
             created_at,
             status,
             contributor_name,
