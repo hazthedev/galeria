@@ -1,5 +1,14 @@
 import { Skeleton } from '@/components/ui/skeleton';
 import { EventStatsSkeleton } from '@/components/events/event-stats';
+import {
+  Settings,
+  QrCode,
+  Users,
+  Image as ImageIcon,
+  Shield,
+  Sparkles,
+  Target,
+} from 'lucide-react';
 
 export function OrganizerEventDetailSkeleton() {
   return (
@@ -54,13 +63,13 @@ export function OrganizerEventDetailSkeleton() {
 
 export function OrganizerEventAdminSkeleton() {
   const tabs = [
-    'Overview',
-    'Lucky Draw',
-    'Attendance',
-    'Photo Challenge',
-    'QR Code',
-    'Settings',
-    'Moderation',
+    { label: 'Overview', icon: ImageIcon },
+    { label: 'Lucky Draw', icon: Sparkles },
+    { label: 'Attendance', icon: Users },
+    { label: 'Photo Challenge', icon: Target },
+    { label: 'QR Code', icon: QrCode },
+    { label: 'Settings', icon: Settings },
+    { label: 'Moderation', icon: Shield },
   ];
 
   return (
@@ -78,20 +87,25 @@ export function OrganizerEventAdminSkeleton() {
 
         <div className="mb-6 border-b border-gray-200 dark:border-gray-700">
           <nav className="-mb-px flex gap-8 overflow-x-auto">
-            {tabs.map((tab, index) => (
+            {tabs.map((tab, index) => {
+              const Icon = tab.icon;
+
+              return (
               <button
-                key={tab}
+                key={tab.label}
                 type="button"
                 disabled
                 className={
                   index === 0
-                    ? 'flex items-center whitespace-nowrap border-b-2 border-violet-500 px-1 py-4 text-sm font-medium text-violet-600 dark:border-violet-400 dark:text-violet-400'
-                    : 'flex items-center whitespace-nowrap border-b-2 border-transparent px-1 py-4 text-sm font-medium text-gray-500 dark:text-gray-400'
+                    ? 'flex items-center gap-2 whitespace-nowrap border-b-2 border-violet-500 px-1 py-4 text-sm font-medium text-violet-600 dark:border-violet-400 dark:text-violet-400'
+                    : 'flex items-center gap-2 whitespace-nowrap border-b-2 border-transparent px-1 py-4 text-sm font-medium text-gray-500 dark:text-gray-400'
                 }
               >
-                {tab}
+                <Icon className="h-4 w-4" />
+                {tab.label}
               </button>
-            ))}
+              );
+            })}
           </nav>
         </div>
 
