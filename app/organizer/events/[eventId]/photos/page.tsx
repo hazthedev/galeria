@@ -10,7 +10,6 @@ import Link from 'next/link';
 import {
   ArrowLeft,
   Shield,
-  Loader2,
   CheckCircle,
   XCircle,
   Clock,
@@ -18,6 +17,7 @@ import {
 } from 'lucide-react';
 import clsx from 'clsx';
 import { PhotoGallery } from '@/components/gallery/PhotoGallery';
+import { OrganizerPhotoModerationSkeleton } from '@/components/events/admin-tab-skeletons';
 import type { IEvent, IPhoto } from '@/lib/types';
 
 type PhotoStatus = 'pending' | 'approved' | 'rejected' | 'all';
@@ -294,6 +294,10 @@ export default function EventPhotosPage() {
     return cached.length;
   };
 
+  if (isLoading || isEventLoading) {
+    return <OrganizerPhotoModerationSkeleton activeStatus={activeStatus} />;
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -363,11 +367,7 @@ export default function EventPhotosPage() {
         </div>
 
         {/* Content */}
-        {isLoading || isEventLoading ? (
-          <div className="flex min-h-[400px] items-center justify-center">
-            <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
-          </div>
-        ) : error ? (
+        {error ? (
           <div className="rounded-lg bg-red-50 p-6 text-center dark:bg-red-900/20">
             <Shield className="mx-auto h-12 w-12 text-red-500" />
             <p className="mt-2 text-sm font-medium text-red-800 dark:text-red-300">{error}</p>

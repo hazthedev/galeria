@@ -1,5 +1,7 @@
 import { Skeleton } from '@/components/ui/skeleton';
 
+type ModerationPhotoStatus = 'all' | 'pending' | 'approved' | 'rejected';
+
 export function LuckyDrawAdminSkeleton() {
   const subTabs = ['Configuration', 'Entries', 'Participants', 'Execute Draw', 'History'];
 
@@ -287,6 +289,91 @@ export function ModerationActivitySkeleton() {
           <Skeleton className="h-3 w-28 animate-none rounded-full" />
         </div>
       ))}
+    </div>
+  );
+}
+
+export function OrganizerPhotoModerationSkeleton({
+  activeStatus = 'all',
+}: {
+  activeStatus?: ModerationPhotoStatus;
+}) {
+  const statusTabs: Array<{ id: ModerationPhotoStatus; label: string }> = [
+    { id: 'all', label: 'All' },
+    { id: 'pending', label: 'Pending' },
+    { id: 'approved', label: 'Approved' },
+    { id: 'rejected', label: 'Rejected' },
+  ];
+
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mb-6">
+          <div className="mb-4 inline-flex items-center text-sm text-gray-600 dark:text-gray-400">
+            Back to Admin
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+                Photo Moderation
+              </h1>
+              <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                Review and manage photo submissions
+              </p>
+            </div>
+            <div className="flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 dark:bg-green-900/20">
+              <Skeleton className="h-4 w-4 animate-none rounded-full bg-green-200 dark:bg-green-800" />
+              <Skeleton className="h-4 w-28 animate-none rounded-full bg-green-200 dark:bg-green-800" />
+            </div>
+          </div>
+        </div>
+
+        <div className="mb-6 border-b border-gray-200 dark:border-gray-700">
+          <nav className="-mb-px flex gap-8 overflow-x-auto">
+            {statusTabs.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                disabled
+                className={
+                  activeStatus === tab.id
+                    ? 'flex items-center gap-2 whitespace-nowrap border-b-2 border-violet-500 px-1 py-4 text-sm font-medium text-violet-600 dark:border-violet-400 dark:text-violet-400'
+                    : 'flex items-center gap-2 whitespace-nowrap border-b-2 border-transparent px-1 py-4 text-sm font-medium text-gray-500 dark:text-gray-400'
+                }
+              >
+                {tab.label}
+                {tab.id !== 'all' && (
+                  <Skeleton className="h-5 w-8 animate-none rounded-full" />
+                )}
+              </button>
+            ))}
+          </nav>
+        </div>
+
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <Skeleton className="h-9 w-24 animate-none rounded-xl" />
+            <Skeleton className="h-9 w-28 animate-none rounded-xl" />
+            <Skeleton className="h-9 w-40 animate-none rounded-xl" />
+            <Skeleton className="h-9 w-36 animate-none rounded-xl" />
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {Array.from({ length: 8 }).map((_, index) => (
+              <div
+                key={index}
+                className="overflow-hidden rounded-lg bg-white shadow-md dark:bg-gray-800"
+              >
+                <Skeleton className="aspect-square rounded-none animate-none" />
+                <div className="space-y-3 p-4">
+                  <Skeleton className="h-4 w-32 animate-none rounded-full" />
+                  <Skeleton className="h-3 w-24 animate-none rounded-full" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

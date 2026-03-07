@@ -62,7 +62,7 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
     luckyDrawEnabled, reactionsEnabled, attendanceEnabled, photoCardStyle, themePrimary, themeSecondary, themeBackground, themeSurface,
     themeGradient, surfaceText, surfaceMuted, surfaceBorder, inputBackground, inputBorder, headerBackground,
     secondaryText, selectedFiles, caption, userLoves, animatingPhotos, selectedPhotoIds, canDownload, selectedCount,
-    uploadUsageUser, skeletonTheme,
+    uploadUsageUser,
     loadMoreRef, hasMoreApproved, isLoadingMore, handleGuestModalSubmit, setShowGuestModal, handleLoveReaction,
     handleDownloadPhoto, handleDownloadAll, handleDownloadSelected, handleDownloadSelectedIndividually,
     toggleSelectedPhoto, loadMoreApproved, setShowShareModal, shareUrl, handleShare, copyToClipboard, handleFileSelect,
@@ -73,7 +73,7 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
 
   // Loading state
   if (isLoading) {
-    return <GuestEventPageSkeleton theme={skeletonTheme} />;
+    return <GuestEventPageSkeleton />;
   }
 
   // Error state

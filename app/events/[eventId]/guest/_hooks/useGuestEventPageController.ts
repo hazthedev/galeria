@@ -10,7 +10,6 @@ import { getClientFingerprint } from '@/lib/rate-limit';
 import { getImageDimensions } from '@/lib/utils';
 import { useLuckyDraw, usePhotoGallery } from '@/lib/realtime/client';
 import { useGuestTheme } from './useGuestTheme';
-import { readGuestThemeSnapshot, writeGuestThemeSnapshot } from '../_lib/guest-theme-cache';
 import {
   formatEntryNumbers,
   mergePhotos,
@@ -49,7 +48,6 @@ export function useGuestEventPageController(eventId: string) {
   const [hasMoreApproved, setHasMoreApproved] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [isResolving, setIsResolving] = useState(false);
-  const [cachedTheme, setCachedTheme] = useState(() => readGuestThemeSnapshot(eventId));
   const [error, setError] = useState<string | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -115,7 +113,6 @@ export function useGuestEventPageController(eventId: string) {
     primaryText,
     secondaryText,
   } = derivedTheme;
-  const skeletonTheme = event ? derivedTheme : (cachedTheme || derivedTheme);
 
   // Selected files for upload (preview before submit)
   const [selectedFiles, setSelectedFiles] = useState<SelectedFile[]>([]);
@@ -148,19 +145,6 @@ export function useGuestEventPageController(eventId: string) {
       setShowGuestModal(true);
     }
   }, [resolvedEventId, allowAnonymous]);
-
-  useEffect(() => {
-    const nextCachedTheme = readGuestThemeSnapshot(resolvedEventId || eventId);
-    if (nextCachedTheme) {
-      setCachedTheme(nextCachedTheme);
-    }
-  }, [eventId, resolvedEventId]);
-
-  useEffect(() => {
-    if (!event) return;
-    writeGuestThemeSnapshot([eventId, resolvedEventId, event.id], derivedTheme);
-    setCachedTheme(derivedTheme);
-  }, [derivedTheme, event, eventId, resolvedEventId]);
 
   useEffect(() => {
     if (!resolvedEventId) return;
@@ -1387,7 +1371,6 @@ export function useGuestEventPageController(eventId: string) {
     headerBackground,
     primaryText,
     secondaryText,
-    skeletonTheme,
     selectedFiles,
     caption,
     userLoves,
