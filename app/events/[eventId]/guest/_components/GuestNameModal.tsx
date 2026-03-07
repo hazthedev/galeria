@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { User } from 'lucide-react';
 import clsx from 'clsx';
 import { greetingModalVariants, modalBackdropVariants } from '@/lib/animations';
-import { hexToRgba } from '../_lib/guest-utils';
+import { hexToRgba } from '../_lib/guest-theme';
 
 interface GuestNameModalProps {
   isOpen: boolean;
