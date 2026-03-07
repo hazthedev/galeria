@@ -6,7 +6,7 @@ import { resolveTenantId } from '@/lib/api-request-context';
 import type { IEvent } from '@/lib/types';
 import { buildGuestTheme, type GuestTheme } from './guest-theme';
 
-export async function resolveGuestThemeForRequest(eventKey: string): Promise<GuestTheme | null> {
+export async function resolveGuestEventForRequest(eventKey: string): Promise<IEvent | null> {
   try {
     const requestHeaders = await headers();
     const tenantId = resolveTenantId(requestHeaders);
@@ -20,8 +20,13 @@ export async function resolveGuestThemeForRequest(eventKey: string): Promise<Gue
       event = await db.findOne<IEvent>('events', { slug: eventKey });
     }
 
-    return event ? buildGuestTheme(event) : null;
+    return event ?? null;
   } catch {
     return null;
   }
+}
+
+export async function resolveGuestThemeForRequest(eventKey: string): Promise<GuestTheme | null> {
+  const event = await resolveGuestEventForRequest(eventKey);
+  return event ? buildGuestTheme(event) : null;
 }

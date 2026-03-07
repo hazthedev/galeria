@@ -18,9 +18,22 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Galeria",
   description: "Capture Moments, Together",
+  applicationName: "Galeria",
   icons: {
-    icon: "/logo.png",
-    apple: "/logo.png",
+    icon: "/icon",
+    shortcut: "/icon",
+    apple: "/apple-icon",
+  },
+  openGraph: {
+    title: "Galeria",
+    description: "Capture Moments, Together",
+    siteName: "Galeria",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Galeria",
+    description: "Capture Moments, Together",
   },
 };
 

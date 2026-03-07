@@ -909,9 +909,14 @@ export function useGuestEventPageController(eventId: string) {
   const handleShare = async () => {
     if (navigator.share) {
       try {
+        const shareTitle = event?.name ? `${event.name} | Galeria` : 'Galeria';
+        const shareText = event?.name
+          ? `Join ${event.name} on Galeria to view and share photos.`
+          : 'View and share event photos on Galeria.';
+
         await navigator.share({
-          title: event?.name || 'Event',
-          text: event?.description || `Join ${event?.name} on Galeria!`,
+          title: shareTitle,
+          text: shareText,
           url: shareUrl,
         });
       } catch (err) {
