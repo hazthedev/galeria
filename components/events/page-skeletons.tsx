@@ -52,23 +52,46 @@ export function OrganizerEventDetailSkeleton() {
 }
 
 export function OrganizerEventAdminSkeleton() {
+  const tabs = [
+    'Overview',
+    'Lucky Draw',
+    'Attendance',
+    'Photo Challenge',
+    'QR Code',
+    'Settings',
+    'Moderation',
+  ];
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mb-8 space-y-4">
-          <Skeleton className="h-5 w-36 rounded-full" />
+        <div className="mb-8">
+          <span className="mb-4 inline-flex items-center text-sm text-gray-600 dark:text-gray-400">
+            Back to Event
+          </span>
           <div className="space-y-3">
             <Skeleton className="h-10 w-80 max-w-full" />
-            <Skeleton className="h-4 w-32 rounded-full" />
+            <p className="text-sm text-gray-600 dark:text-gray-400">Admin Dashboard</p>
           </div>
         </div>
 
         <div className="mb-6 border-b border-gray-200 dark:border-gray-700">
-          <div className="-mb-px flex gap-4 overflow-hidden pb-3">
-            {Array.from({ length: 6 }).map((_, index) => (
-              <Skeleton key={index} className="h-10 w-28 rounded-full" />
+          <nav className="-mb-px flex gap-8 overflow-x-auto">
+            {tabs.map((tab, index) => (
+              <button
+                key={tab}
+                type="button"
+                disabled
+                className={
+                  index === 0
+                    ? 'flex items-center whitespace-nowrap border-b-2 border-violet-500 px-1 py-4 text-sm font-medium text-violet-600 dark:border-violet-400 dark:text-violet-400'
+                    : 'flex items-center whitespace-nowrap border-b-2 border-transparent px-1 py-4 text-sm font-medium text-gray-500 dark:text-gray-400'
+                }
+              >
+                {tab}
+              </button>
             ))}
-          </div>
+          </nav>
         </div>
 
         <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
