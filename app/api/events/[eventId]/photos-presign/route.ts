@@ -10,6 +10,7 @@ import { getSystemSettings } from '@/lib/system-settings';
 import { generatePhotoId } from '@/lib/utils';
 import { checkPhotoLimit } from '@/lib/api/middleware/limit-check';
 import { resolveUserTier } from '@/lib/tenant';
+import type { SubscriptionTier } from '@/lib/types';
 import { resolveOptionalAuth, resolveRequiredTenantId } from '@/lib/api-request-context';
 
 export const runtime = 'nodejs';
@@ -92,8 +93,24 @@ export async function POST(
     }
 
     // Tier limit check (best-effort guard before upload)
-    const subscriptionTier = await resolveUserTier(headers, tenantId, 'free');
-    const tierLimitResult = await checkPhotoLimit(eventId, tenantId, subscriptionTier);
+    const resolvedTier = await resolveUserTier(headers, tenantId, 'free');
+    const tenantTierHeader = headers.get('x-tenant-tier');
+    const allowedTiers = new Set(['free', 'pro', 'premium', 'enterprise', 'tester']);
+    const tenantTierFromHeader = tenantTierHeader && allowedTiers.has(tenantTierHeader)
+      ? (tenantTierHeader as SubscriptionTier)
+      : null;
+    let tenantTierFromDb: SubscriptionTier | null = null;
+
+    if (!authContext?.userId) {
+      const tenant = await db.findOne<{ subscription_tier: SubscriptionTier }>('tenants', { id: tenantId });
+      tenantTierFromDb = tenant?.subscription_tier || null;
+    }
+
+    const effectiveSubscriptionTier: SubscriptionTier = authContext?.userId
+      ? resolvedTier
+      : (tenantTierFromDb || tenantTierFromHeader || resolvedTier);
+
+    const tierLimitResult = await checkPhotoLimit(eventId, tenantId, effectiveSubscriptionTier);
     if (!tierLimitResult.allowed) {
       return NextResponse.json(
         {

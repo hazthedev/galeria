@@ -7,6 +7,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import type { IEvent, IPhoto, IPhotoChallenge, IGuestPhotoProgress } from '@/lib/types';
 import { getClientFingerprint } from '@/lib/rate-limit';
+import { getImageDimensions } from '@/lib/utils';
 import { useLuckyDraw, usePhotoGallery } from '@/lib/realtime/client';
 import { useGuestTheme } from './useGuestTheme';
 import {
@@ -953,6 +954,61 @@ export function useGuestEventPageController(eventId: string) {
     });
   };
 
+  const syncUploadUsageUser = (payload: unknown) => {
+    if (!payload || typeof payload !== 'object') {
+      return;
+    }
+
+    const usageUser = (payload as {
+      usage?: {
+        user?: {
+          used?: number;
+          limit?: number;
+          remaining?: number;
+        };
+      };
+    }).usage?.user;
+
+    if (
+      usageUser &&
+      typeof usageUser.used === 'number' &&
+      typeof usageUser.limit === 'number' &&
+      typeof usageUser.remaining === 'number'
+    ) {
+      setUploadUsageUser({
+        used: usageUser.used,
+        limit: usageUser.limit,
+        remaining: usageUser.remaining,
+      });
+    }
+  };
+
+  const uploadFileToPresignedUrl = async (uploadUrl: string, file: File) => {
+    await new Promise<void>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve();
+          return;
+        }
+        reject(new Error('Failed to upload photo to storage'));
+      };
+
+      xhr.onerror = () => reject(new Error('Failed to upload photo to storage'));
+
+      xhr.open('PUT', uploadUrl);
+      xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+      xhr.send(file);
+    });
+  };
+
+  const isUploadLimitCode = (code: string) => (
+    code === 'TIER_LIMIT_REACHED' ||
+    code === 'EVENT_LIMIT_REACHED' ||
+    code === 'USER_LIMIT_REACHED'
+  );
+
   // Handle actual upload
   const handleUpload = async () => {
     if (selectedFiles.length === 0) {
@@ -985,71 +1041,97 @@ export function useGuestEventPageController(eventId: string) {
       setIsOptimizing(false);
       setIsUploading(true);
 
-      const formData = new FormData();
+      const uploadedPhotos: IPhoto[] = [];
+      let limitReachedMessage: string | null = null;
+
       for (const file of processedFiles) {
-        formData.append('files', file);
-      }
-      formData.append('contributor_name', guestName.trim());
-      formData.append('is_anonymous', isAnonymous ? 'true' : 'false');
-      if (caption.trim()) {
-        formData.append('caption', caption.trim());
-      }
-      if (luckyDrawEnabled && joinLuckyDraw && !isAnonymous) {
-        formData.append('join_lucky_draw', 'true');
-      }
-      if (recaptchaToken) {
-        formData.append('recaptchaToken', recaptchaToken);
-      }
-
-      const response = await fetch(`/api/events/${resolvedEventId}/photos`, {
-        method: 'POST',
-        headers: fingerprint ? {
-          'x-fingerprint': fingerprint,
-        } : {},
-        body: formData,
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        const usageUser = data?.usage?.user;
-        if (
-          usageUser &&
-          typeof usageUser.used === 'number' &&
-          typeof usageUser.limit === 'number' &&
-          typeof usageUser.remaining === 'number'
-        ) {
-          setUploadUsageUser({
-            used: usageUser.used,
-            limit: usageUser.limit,
-            remaining: usageUser.remaining,
-          });
-        }
-
-        const code = typeof data?.code === 'string' ? data.code : '';
-        if (code === 'TIER_LIMIT_REACHED' || code === 'EVENT_LIMIT_REACHED') {
-          throw new Error('Photo uploads are full for this event.');
-        }
-        if (code === 'USER_LIMIT_REACHED') {
-          throw new Error(data?.error || 'You have reached your upload limit for this event.');
-        }
-        throw new Error(data.error || 'Failed to upload photo');
-      }
-
-      // Add the new photo(s) to the gallery
-      const uploadedPhotos = Array.isArray(data.data) ? data.data : [data.data];
-      const usageUser = data?.usage?.user;
-      if (
-        usageUser &&
-        typeof usageUser.used === 'number' &&
-        typeof usageUser.limit === 'number' &&
-        typeof usageUser.remaining === 'number'
-      ) {
-        setUploadUsageUser({
-          used: usageUser.used,
-          limit: usageUser.limit,
-          remaining: usageUser.remaining,
+        const presignResponse = await fetch(`/api/events/${resolvedEventId}/photos/presign`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(fingerprint ? { 'x-fingerprint': fingerprint } : {}),
+          },
+          body: JSON.stringify({
+            filename: file.name,
+            contentType: file.type,
+            fileSize: file.size,
+          }),
         });
+
+        const presignData = await presignResponse.json().catch(() => ({}));
+
+        if (!presignResponse.ok) {
+          const code = typeof presignData?.code === 'string' ? presignData.code : '';
+          if (uploadedPhotos.length > 0 && isUploadLimitCode(code)) {
+            limitReachedMessage = presignData?.error || 'Some photos were uploaded before reaching your upload limit.';
+            break;
+          }
+          if (code === 'TIER_LIMIT_REACHED' || code === 'EVENT_LIMIT_REACHED') {
+            throw new Error('Photo uploads are full for this event.');
+          }
+          if (code === 'USER_LIMIT_REACHED') {
+            throw new Error(presignData?.error || 'You have reached your upload limit for this event.');
+          }
+          throw new Error(presignData?.error || 'Failed to prepare photo upload');
+        }
+
+        const { uploadUrl, key, photoId } = presignData?.data || {};
+        if (!uploadUrl || !key || !photoId) {
+          throw new Error('Failed to prepare photo upload');
+        }
+
+        await uploadFileToPresignedUrl(uploadUrl, file);
+
+        const dimensions = await getImageDimensions(file);
+        const finalizeResponse = await fetch(`/api/events/${resolvedEventId}/photos`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(fingerprint ? { 'x-fingerprint': fingerprint } : {}),
+          },
+          body: JSON.stringify({
+            photoId,
+            key,
+            width: dimensions.width,
+            height: dimensions.height,
+            fileSize: file.size,
+            caption: caption.trim() || undefined,
+            contributorName: guestName.trim() || undefined,
+            isAnonymous,
+            joinLuckyDraw: luckyDrawEnabled && joinLuckyDraw && !isAnonymous,
+            recaptchaToken: recaptchaToken || undefined,
+          }),
+        });
+
+        const finalizeData = await finalizeResponse.json().catch(() => ({}));
+        syncUploadUsageUser(finalizeData);
+
+        if (!finalizeResponse.ok) {
+          const code = typeof finalizeData?.code === 'string' ? finalizeData.code : '';
+          if (uploadedPhotos.length > 0 && isUploadLimitCode(code)) {
+            limitReachedMessage = finalizeData?.error || 'Some photos were uploaded before reaching your upload limit.';
+            break;
+          }
+          if (code === 'TIER_LIMIT_REACHED' || code === 'EVENT_LIMIT_REACHED') {
+            throw new Error('Photo uploads are full for this event.');
+          }
+          if (code === 'USER_LIMIT_REACHED') {
+            throw new Error(finalizeData?.error || 'You have reached your upload limit for this event.');
+          }
+          throw new Error(finalizeData?.error || 'Failed to finalize photo upload');
+        }
+
+        const uploadedBatch = Array.isArray(finalizeData?.data)
+          ? finalizeData.data
+          : finalizeData?.data
+            ? [finalizeData.data]
+            : [];
+
+        uploadedPhotos.push(...uploadedBatch);
+      }
+
+      if (uploadedPhotos.length === 0) {
+        throw new Error(limitReachedMessage || 'Failed to upload photo');
       }
 
       const nextApproved = uploadedPhotos.filter((photo: IPhoto) => photo.status === 'approved');
@@ -1066,8 +1148,8 @@ export function useGuestEventPageController(eventId: string) {
         setRejectedPhotos((prev) => [...nextRejected, ...prev]);
       }
       const hasPending = uploadedPhotos.some((photo: IPhoto) => photo.status === 'pending');
-      if (typeof data?.limitReached === 'object' && data?.limitReached) {
-        setUploadSuccessMessage(data?.message || 'Some photos were uploaded before reaching your upload limit.');
+      if (limitReachedMessage) {
+        setUploadSuccessMessage(limitReachedMessage);
       } else if (hasPending) {
         setUploadSuccessMessage('Photo uploaded and pending approval.');
       } else {
