@@ -16,7 +16,7 @@ import { validateRecaptchaForUpload, isRecaptchaRequiredForUploads } from '@/lib
 import { isModerationEnabled } from '@/lib/moderation/auto-moderate';
 import { queuePhotoScan } from '@/jobs/scan-content';
 import type { DeviceType, IPhoto, SubscriptionTier } from '@/lib/types';
-import { getEffectiveTenantEntitlements, resolveUserTier } from '@/lib/tenant';
+import { getEffectiveEntitlementsForTier, resolveUserTier } from '@/lib/tenant';
 import { applyCacheHeaders, CACHE_PROFILES } from '@/lib/cache/strategy';
 import { publishEventBroadcast } from '@/lib/realtime/server';
 import { resolveOptionalAuth, resolveRequiredTenantId, resolveTenantId } from '@/lib/api-request-context';
@@ -110,6 +110,12 @@ interface UploadCreatedPhoto {
   status: IPhoto['status'];
   created_at: IPhoto['created_at'];
   lucky_draw_entry_id: string | null;
+}
+
+interface UploadTenantEntitlementRecord {
+  subscription_tier?: SubscriptionTier | null;
+  features_enabled?: Record<string, unknown> | null;
+  limits?: Record<string, unknown> | null;
 }
 
 type UploadProfilerMetaValue = string | number | boolean | null | undefined;
@@ -217,6 +223,110 @@ function scheduleDeferredPhotoBroadcasts(
         error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
+  });
+}
+
+function scheduleDeferredDirectUploadPostProcessing(input: {
+  tenantId: string;
+  eventId: string;
+  uploadMode: string;
+  photo: IPhoto;
+  userId: string;
+  userRole: string;
+  isAnonymous: boolean;
+  challengeEnabled: boolean;
+  moderationRequired: boolean;
+  refreshLuckyDrawCache: boolean;
+}): void {
+  const tasks: Array<{
+    name: string;
+    run: () => Promise<void>;
+  }> = [];
+
+  if (input.refreshLuckyDrawCache) {
+    tasks.push({
+      name: 'lucky-draw-cache',
+      run: async () => {
+        await clearLuckyDrawConfigCache(input.tenantId, input.eventId);
+      },
+    });
+  }
+
+  if (input.challengeEnabled && !input.isAnonymous && input.userId) {
+    tasks.push({
+      name: 'challenge',
+      run: async () => {
+        const db = getTenantDb(input.tenantId);
+        const { goalJustReached } = await updateGuestProgress(
+          db,
+          input.eventId,
+          input.userId,
+          !input.moderationRequired
+        );
+        console.log(
+          '[PHOTO_CHALLENGE] Progress updated:',
+          input.userId,
+          goalJustReached ? 'Goal reached!' : ''
+        );
+      },
+    });
+  }
+
+  if (input.moderationRequired) {
+    tasks.push({
+      name: 'moderation',
+      run: async () => {
+        const moderationEnabled = await isModerationEnabled();
+        if (!moderationEnabled) {
+          return;
+        }
+
+        await queuePhotoScan({
+          photoId: input.photo.id,
+          eventId: input.eventId,
+          tenantId: input.tenantId,
+          imageUrl: input.photo.images.full_url,
+          userId: input.userRole === 'guest' ? undefined : input.userId,
+          priority: 'normal',
+        });
+        console.log('[MODERATION] Photo queued for AI scanning:', input.photo.id);
+      },
+    });
+  }
+
+  if (tasks.length === 0) {
+    return;
+  }
+
+  after(async () => {
+    const startedAt = Date.now();
+
+    for (const task of tasks) {
+      try {
+        await task.run();
+      } catch (error) {
+        const logPrefix = task.name === 'moderation'
+          ? '[MODERATION]'
+          : task.name === 'challenge'
+            ? '[PHOTO_CHALLENGE]'
+            : '[API]';
+        const message = task.name === 'moderation'
+          ? 'Failed to queue photo for scanning:'
+          : task.name === 'challenge'
+            ? 'Photo challenge progress update skipped:'
+            : 'Failed to clear lucky draw config cache after photo upload:';
+        console.warn(logPrefix, message, error);
+      }
+    }
+
+    console.info('[PHOTO_UPLOAD_ASYNC_POSTPROCESS]', {
+      eventId: input.eventId,
+      tenantId: input.tenantId,
+      uploadMode: input.uploadMode,
+      photoId: input.photo.id,
+      taskCount: tasks.length,
+      totalMs: Date.now() - startedAt,
+    });
   });
 }
 
@@ -473,14 +583,10 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
     const effectiveTenantTier = tenantTierHeader && allowedTiers.has(tenantTierHeader)
       ? (tenantTierHeader as SubscriptionTier)
       : null;
-    let effectiveTenantTierFallback: SubscriptionTier | null = null;
-    if (!effectiveTenantTier) {
-      const tenant = await profiler.time(
-        'tenant-lookup',
-        () => db.findOne<{ subscription_tier: SubscriptionTier }>('tenants', { id: tenantId })
-      );
-      effectiveTenantTierFallback = tenant?.subscription_tier || null;
-    }
+    const tenant = await profiler.time(
+      'tenant-lookup',
+      () => db.findOne<UploadTenantEntitlementRecord>('tenants', { id: tenantId })
+    );
 
     // Verify event exists and is active
     const event = await profiler.time('event-lookup', () => db.findOne<{
@@ -591,18 +697,9 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
     const uploadUserRole = auth?.role || 'guest';
 
     const isAdminUploadHeader = headers.get('x-admin-upload') === 'true';
-    let tenantTierFromDb: SubscriptionTier | null = null;
-    if (!uploadUserId) {
-      const tenant = await profiler.time(
-        'tenant-lookup',
-        () => db.findOne<{ subscription_tier: SubscriptionTier }>('tenants', { id: tenantId })
-      );
-      tenantTierFromDb = tenant?.subscription_tier || null;
-    }
-
     const effectiveSubscriptionTier: SubscriptionTier = uploadUserId
       ? subscriptionTier
-      : (tenantTierFromDb || effectiveTenantTier || effectiveTenantTierFallback || subscriptionTier);
+      : (tenant?.subscription_tier || effectiveTenantTier || subscriptionTier);
     profiler.setMeta({ effectiveTier: effectiveSubscriptionTier });
     if (isAdminUploadHeader) {
       console.log('[RATE_LIMIT] Skipping for admin upload');
@@ -744,10 +841,10 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
 
     const tenantEntitlements = await profiler.time(
       'entitlements',
-      () => getEffectiveTenantEntitlements(
-        tenantId,
-        effectiveSubscriptionTier
-      )
+      () => getEffectiveEntitlementsForTier(effectiveSubscriptionTier, {
+        featuresEnabled: tenant?.features_enabled,
+        limits: tenant?.limits,
+      })
     );
     const tierPhotoLimit = tenantEntitlements.limits.max_photos_per_event;
     const eventTotalPhotoLimit = normalizeEventTotalPhotoLimit(event.settings.limits.max_total_photos);
@@ -884,62 +981,27 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
 
       const photo = insertResult.photo;
       let luckyDrawEntryId: string | null = null;
+      let refreshLuckyDrawCache = false;
       await profiler.time('lucky-draw', async () => {
-        if (event.settings.features.lucky_draw_enabled && joinLuckyDraw) {
+        if (tenantEntitlements.features.lucky_draw && event.settings.features.lucky_draw_enabled && joinLuckyDraw) {
           try {
             const entryName = isAnonymous ? undefined : contributorName || undefined;
-            const entry = await createEntryFromPhoto(tenantId, eventId, photo.id, userId, entryName);
+            const entry = await createEntryFromPhoto(
+              tenantId,
+              eventId,
+              photo.id,
+              userId,
+              entryName,
+              {
+                maxEntriesPerEvent: tenantEntitlements.limits.max_draw_entries_per_event,
+              }
+            );
             luckyDrawEntryId = entry?.id || null;
             if (luckyDrawEntryId) {
-              await clearLuckyDrawConfigCache(tenantId, eventId);
+              refreshLuckyDrawCache = true;
             }
           } catch (entryError) {
             console.warn('[API] Lucky draw entry skipped:', entryError);
-          }
-        }
-      });
-
-      // ============================================
-      // PHOTO CHALLENGE PROGRESS TRACKING
-      // ============================================
-      await profiler.time('challenge', async () => {
-        if (event.settings.features.photo_challenge_enabled && !isAnonymous && userId) {
-          try {
-            const { goalJustReached } = await updateGuestProgress(
-              db,
-              eventId,
-              userId,
-              !event.settings.features.moderation_required // Photo is approved if moderation is not required
-            );
-            console.log('[PHOTO_CHALLENGE] Progress updated:', userId, goalJustReached ? 'Goal reached!' : '');
-          } catch (challengeError) {
-            console.warn('[API] Photo challenge progress update skipped:', challengeError);
-          }
-        }
-      });
-
-      // ============================================
-      // AI CONTENT MODERATION
-      // ============================================
-      // Queue photo for AI scanning if moderation is enabled
-      const moderationEnabled = event.settings.features.moderation_required
-        ? await profiler.time('moderation-check', () => isModerationEnabled())
-        : false;
-      await profiler.time('moderation', async () => {
-        if (moderationEnabled) {
-          try {
-            await queuePhotoScan({
-              photoId: photo.id,
-              eventId: eventId,
-              tenantId,
-              imageUrl: photo.images.full_url,
-              userId: userRole === 'guest' ? undefined : userId,
-              priority: 'normal',
-            });
-            console.log('[MODERATION] Photo queued for AI scanning:', photo.id);
-          } catch (scanError) {
-            console.error('[MODERATION] Failed to queue photo for scanning:', scanError);
-            // Don't fail the upload if scanning fails
           }
         }
       });
@@ -959,7 +1021,25 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
         )
         : undefined;
 
-      profiler.setMeta({ deferredBroadcastCount: 1 });
+      profiler.setMeta({
+        deferredBroadcastCount: 1,
+        deferredPostProcessCount:
+          (refreshLuckyDrawCache ? 1 : 0) +
+          (event.settings.features.photo_challenge_enabled && !isAnonymous && userId ? 1 : 0) +
+          (event.settings.features.moderation_required ? 1 : 0),
+      });
+      scheduleDeferredDirectUploadPostProcessing({
+        tenantId,
+        eventId,
+        uploadMode,
+        photo,
+        userId,
+        userRole,
+        isAnonymous,
+        challengeEnabled: event.settings.features.photo_challenge_enabled,
+        moderationRequired: event.settings.features.moderation_required,
+        refreshLuckyDrawCache,
+      });
       scheduleDeferredPhotoBroadcasts(eventId, [createdPhoto], { tenantId, uploadMode });
 
       return finalizeUploadResponse(NextResponse.json({
@@ -1057,6 +1137,7 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
 
     const createdPhotos: UploadCreatedPhoto[] = [];
     let limitReached: BlockedPhotoInsert | null = null;
+    let refreshLuckyDrawConfig = false;
 
     for (const file of uploadFiles) {
       const arrayBuffer = await profiler.time('file-read', () => file.arrayBuffer());
@@ -1133,13 +1214,22 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
       // Create lucky draw entry only if user opted in
       let luckyDrawEntryId: string | null = null;
       await profiler.time('lucky-draw', async () => {
-        if (event.settings.features.lucky_draw_enabled && joinLuckyDraw) {
+        if (tenantEntitlements.features.lucky_draw && event.settings.features.lucky_draw_enabled && joinLuckyDraw) {
           try {
             const entryName = isAnonymous ? undefined : contributorName || undefined;
-            const entry = await createEntryFromPhoto(tenantId, eventId, photo.id, userId, entryName);
+            const entry = await createEntryFromPhoto(
+              tenantId,
+              eventId,
+              photo.id,
+              userId,
+              entryName,
+              {
+                maxEntriesPerEvent: tenantEntitlements.limits.max_draw_entries_per_event,
+              }
+            );
             luckyDrawEntryId = entry?.id || null;
             if (luckyDrawEntryId) {
-              await clearLuckyDrawConfigCache(tenantId, eventId);
+              refreshLuckyDrawConfig = true;
             }
           } catch (entryError) {
             console.warn('[API] Lucky draw entry skipped:', entryError);
@@ -1186,6 +1276,12 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
         )
       );
       return finalizeUploadResponse(buildPhotoLimitResponse(limitReached, usage), 'limit-reached');
+    }
+
+    if (refreshLuckyDrawConfig) {
+      after(async () => {
+        await clearLuckyDrawConfigCache(tenantId, eventId);
+      });
     }
 
     if (limitReached && createdPhotos.length > 0) {

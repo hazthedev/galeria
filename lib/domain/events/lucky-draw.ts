@@ -271,10 +271,15 @@ export async function createEntryFromPhoto(
   eventId: string,
   photoId: string,
   userFingerprint: string,
-  participantName?: string
+  participantName?: string,
+  options?: {
+    maxEntriesPerEvent?: number;
+  }
 ): Promise<LuckyDrawEntry> {
   const db = getTenantDb(tenantId);
-  const entitlements = await getLuckyDrawEntitlementsOrThrow(tenantId);
+  const maxEntriesPerEvent = options?.maxEntriesPerEvent ?? (
+    await getLuckyDrawEntitlementsOrThrow(tenantId)
+  ).limits.max_draw_entries_per_event;
 
   // Get active config for event
   const config = await getActiveConfig(tenantId, eventId);
@@ -297,7 +302,7 @@ export async function createEntryFromPhoto(
   await assertTotalEntryCapacity(
     db,
     config.id,
-    entitlements.limits.max_draw_entries_per_event,
+    maxEntriesPerEvent,
     1
   );
 
