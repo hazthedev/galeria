@@ -55,7 +55,7 @@ type GuestEventPageViewProps = {
 export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
   const {
     resolvedEventId, event, isLoading, error, showShareModal, showUploadModal, showCheckInModal,
-    hasCheckedIn, isUploading, isOptimizing, uploadError, uploadSuccess, uploadSuccessMessage, optimizedCount,
+    hasCheckedIn, isUploading, isOptimizing, uploadError, uploadSuccess, uploadSuccessMessage,
     moderationNotice, moderationNoticeType, joinLuckyDraw, hasJoinedDraw, luckyDrawNumbers, hasActiveLuckyDrawConfig,
     photoChallenge, challengeProgress, showPrizeModal, fingerprint, recaptchaToken, recaptchaError, winner,
     showDrawOverlay, showWinnerOverlay, mergedPhotos, guestName, isAnonymous, showGuestModal, allowAnonymous,
@@ -684,11 +684,6 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
                 <Check className="h-5 w-5 flex-shrink-0 text-green-600 dark:text-green-400" />
                 <p className="text-sm font-medium" style={{ color: surfaceText }}>
                   {uploadSuccessMessage}
-                  {optimizedCount > 0 && (
-                    <span className="ml-2 text-xs" style={{ color: surfaceMuted }}>
-                      Optimized {optimizedCount} photo{optimizedCount > 1 ? 's' : ''} for upload.
-                    </span>
-                  )}
                 </p>
               </div>
             )}
