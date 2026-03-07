@@ -14,7 +14,6 @@ import {
   Users,
   Image as ImageIcon,
   Shield,
-  Loader2,
   ChevronDown,
   ChevronUp,
   Sparkles,
@@ -31,6 +30,7 @@ import { UpgradePrompt } from '@/components/upgrade-prompt';
 import { toast } from 'sonner';
 import type { IEvent } from '@/lib/types';
 import { useOrganizerEntitlements } from '@/lib/use-organizer-entitlements';
+import { OrganizerEventAdminSkeleton } from '@/components/events/page-skeletons';
 
 export default function EventAdminPage() {
   const params = useParams();
@@ -118,11 +118,7 @@ export default function EventAdminPage() {
   ];
 
   if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
-      </div>
-    );
+    return <OrganizerEventAdminSkeleton />;
   }
 
   if (error || !event) {

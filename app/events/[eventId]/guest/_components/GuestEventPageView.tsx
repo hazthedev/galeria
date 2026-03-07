@@ -38,6 +38,7 @@ import {
 import { GuestNameModal } from './GuestNameModal';
 import { GuestShareModal } from './GuestShareModal';
 import { useGuestEventPageController } from '../_hooks/useGuestEventPageController';
+import { GuestEventPageSkeleton } from './GuestEventPageSkeleton';
 
 const PHOTO_CARD_STYLE_CLASSES: Record<string, string> = {
   vacation: 'rounded-2xl bg-white shadow-[0_12px_24px_rgba(0,0,0,0.12)] ring-1 ring-black/5',
@@ -53,7 +54,7 @@ type GuestEventPageViewProps = {
 
 export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
   const {
-    resolvedEventId, event, isLoading, isResolving, error, showShareModal, showUploadModal, showCheckInModal,
+    resolvedEventId, event, isLoading, error, showShareModal, showUploadModal, showCheckInModal,
     hasCheckedIn, isUploading, isOptimizing, uploadError, uploadSuccess, uploadSuccessMessage, optimizedCount,
     moderationNotice, moderationNoticeType, joinLuckyDraw, hasJoinedDraw, luckyDrawNumbers, hasActiveLuckyDrawConfig,
     photoChallenge, challengeProgress, showPrizeModal, fingerprint, recaptchaToken, recaptchaError, winner,
@@ -72,14 +73,7 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
 
   // Loading state
   if (isLoading) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
-        {isResolving && (
-          <p className="mt-4 text-sm text-gray-600 dark:text-gray-400">Resolving event link...</p>
-        )}
-      </div>
-    );
+    return <GuestEventPageSkeleton />;
   }
 
   // Error state

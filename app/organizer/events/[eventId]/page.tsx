@@ -16,7 +16,6 @@ import {
   Share2,
   Settings,
   Upload,
-  Loader2,
   Image as ImageIcon,
   Heart,
   Camera,
@@ -29,6 +28,7 @@ import clsx from 'clsx';
 import type { IEvent, IPhoto } from '@/lib/types';
 import { usePhotoGallery } from '@/lib/realtime/client';
 import { getClientFingerprint } from '@/lib/rate-limit';
+import { OrganizerEventDetailSkeleton } from '@/components/events/page-skeletons';
 
 interface ReactionButtonsProps {
   photo: IPhoto;
@@ -249,11 +249,7 @@ export default function EventDetailPage() {
   };
 
   if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
-      </div>
-    );
+    return <OrganizerEventDetailSkeleton />;
   }
 
   if (error || !event) {
