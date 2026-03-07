@@ -5,9 +5,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Image as ImageIcon, Users, Heart, AlertCircle, TrendingUp, Loader2, Sparkles, Trophy } from 'lucide-react';
+import { Image as ImageIcon, Users, Heart, AlertCircle, TrendingUp, Sparkles, Trophy } from 'lucide-react';
 import clsx from 'clsx';
 import { UpgradePrompt } from '@/components/upgrade-prompt';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface EventStatsData {
   totalPhotos: number;
@@ -78,6 +79,118 @@ const statCards = [
   },
 ];
 
+function EventStatsSkeleton({
+  className,
+  allowAdvancedAnalytics,
+  allowReactions,
+}: {
+  className?: string;
+  allowAdvancedAnalytics: boolean;
+  allowReactions: boolean;
+}) {
+  const visibleStatCount = allowReactions ? 4 : 3;
+
+  return (
+    <div className={clsx('space-y-6', className)}>
+      <div className={clsx('grid grid-cols-2 gap-4', visibleStatCount > 3 ? 'sm:grid-cols-4' : 'sm:grid-cols-3')}>
+        {Array.from({ length: visibleStatCount }).map((_, index) => (
+          <div
+            key={index}
+            className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800"
+          >
+            <div className="flex items-center gap-3">
+              <Skeleton className="h-10 w-10 rounded-lg animate-none" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-4 w-24 rounded-full animate-none" />
+                <Skeleton className="h-7 w-16 rounded-full animate-none" />
+                <Skeleton className="h-3 w-20 rounded-full animate-none" />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className={clsx('grid grid-cols-1 gap-4', allowAdvancedAnalytics ? 'sm:grid-cols-2' : 'sm:grid-cols-1')}>
+        {Array.from({ length: allowAdvancedAnalytics ? 2 : 1 }).map((_, index) => (
+          <div
+            key={index}
+            className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800"
+          >
+            <div className="flex items-center gap-3">
+              <Skeleton className="h-8 w-8 rounded-lg animate-none" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-4 w-32 rounded-full animate-none" />
+                <Skeleton className="h-7 w-20 rounded-full animate-none" />
+                <Skeleton className="h-3 w-36 rounded-full animate-none" />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, index) => (
+          <div
+            key={index}
+            className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800"
+          >
+            <div className="flex items-center gap-3">
+              <Skeleton className="h-8 w-8 rounded-lg animate-none" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-4 w-28 rounded-full animate-none" />
+                <Skeleton className="h-7 w-24 rounded-full animate-none" />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {allowAdvancedAnalytics && (
+        <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
+          <Skeleton className="mb-4 h-6 w-40 rounded-full animate-none" />
+          <div className="space-y-3">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div
+                key={index}
+                className="flex items-center justify-between rounded-lg bg-gray-50 px-4 py-3 dark:bg-gray-700/50"
+              >
+                <div className="flex items-center gap-3">
+                  <Skeleton className="h-8 w-8 rounded-full animate-none" />
+                  <Skeleton className="h-4 w-28 rounded-full animate-none" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-4 w-4 rounded-full animate-none" />
+                  <Skeleton className="h-4 w-8 rounded-full animate-none" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {allowAdvancedAnalytics && allowReactions && (
+        <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
+          <Skeleton className="mb-4 h-6 w-36 rounded-full animate-none" />
+          <div className="grid gap-4 sm:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <div
+                key={index}
+                className="overflow-hidden rounded-lg border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800/50"
+              >
+                <Skeleton className="aspect-square rounded-none animate-none" />
+                <div className="flex items-center justify-between px-3 py-3">
+                  <Skeleton className="h-4 w-20 rounded-full animate-none" />
+                  <Skeleton className="h-4 w-10 rounded-full animate-none" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function EventStats({
   eventId,
   refreshInterval = 30000,
@@ -145,9 +258,11 @@ export function EventStats({
 
   if (isLoading) {
     return (
-      <div className={clsx('flex items-center justify-center py-12', className)}>
-        <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
-      </div>
+      <EventStatsSkeleton
+        className={className}
+        allowAdvancedAnalytics={allowAdvancedAnalytics}
+        allowReactions={allowReactions}
+      />
     );
   }
 
