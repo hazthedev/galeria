@@ -5,10 +5,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Users, Download, Upload, UserPlus, Loader2, Search, ChevronLeft, ChevronRight, QrCode, ScanLine, Check, Copy } from 'lucide-react';
+import { Users, Download, Upload, UserPlus, Search, ChevronLeft, ChevronRight, QrCode, ScanLine, Check, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import clsx from 'clsx';
 import { OrganizerQRScanner } from '@/components/attendance/OrganizerQRScanner';
+import {
+  AttendanceGuestListSkeleton,
+  AttendanceOverviewSkeleton,
+} from '@/components/events/admin-tab-skeletons';
 import { generateCheckInUrl, generateCheckInQRCodeUrl } from '@/lib/utils';
 
 interface AttendanceAdminTabProps {
@@ -310,8 +314,8 @@ export function AttendanceAdminTab({ eventId, initialTab, attendanceEnabled = tr
       {activeSubTab === 'overview' && (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {isStatsLoading ? (
-            <div className="col-span-full flex h-48 items-center justify-center">
-              <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
+            <div className="col-span-full">
+              <AttendanceOverviewSkeleton />
             </div>
           ) : stats ? (
             <>
@@ -368,9 +372,7 @@ export function AttendanceAdminTab({ eventId, initialTab, attendanceEnabled = tr
           </div>
 
           {isGuestsLoading ? (
-            <div className="flex h-64 items-center justify-center">
-              <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
-            </div>
+            <AttendanceGuestListSkeleton />
           ) : filteredAttendances.length === 0 ? (
             <div className="flex h-64 flex-col items-center justify-center text-gray-500">
               <Users className="mb-2 h-12 w-12 opacity-50" />

@@ -161,13 +161,6 @@ function createUploadProfiler(eventId: string) {
         response.headers.set('X-Upload-Files', String(fileCount));
       }
 
-      console.info('[PHOTO_UPLOAD_PERF]', {
-        ...meta,
-        responseStatus: response.status,
-        totalMs,
-        stageMs: Object.fromEntries(stageDurations),
-      });
-
       return response;
     },
   };
@@ -200,28 +193,12 @@ function scheduleDeferredPhotoBroadcasts(
   }
 
   after(async () => {
-    const startedAt = Date.now();
-
     try {
       for (const photo of photos) {
         await publishEventBroadcast(eventId, 'new_photo', photo);
       }
-
-      console.info('[PHOTO_UPLOAD_ASYNC_BROADCAST]', {
-        eventId,
-        tenantId: meta.tenantId,
-        uploadMode: meta.uploadMode,
-        photoCount: photos.length,
-        totalMs: Date.now() - startedAt,
-      });
     } catch (error) {
-      console.warn('[PHOTO_UPLOAD_ASYNC_BROADCAST] Deferred broadcast failed:', {
-        eventId,
-        tenantId: meta.tenantId,
-        uploadMode: meta.uploadMode,
-        photoCount: photos.length,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
+      console.warn('[PHOTO_UPLOAD_ASYNC_BROADCAST] Deferred broadcast failed:', error);
     }
   });
 }
@@ -257,16 +234,11 @@ function scheduleDeferredDirectUploadPostProcessing(input: {
       name: 'challenge',
       run: async () => {
         const db = getTenantDb(input.tenantId);
-        const { goalJustReached } = await updateGuestProgress(
+        await updateGuestProgress(
           db,
           input.eventId,
           input.userId,
           !input.moderationRequired
-        );
-        console.log(
-          '[PHOTO_CHALLENGE] Progress updated:',
-          input.userId,
-          goalJustReached ? 'Goal reached!' : ''
         );
       },
     });
@@ -289,7 +261,6 @@ function scheduleDeferredDirectUploadPostProcessing(input: {
           userId: input.userRole === 'guest' ? undefined : input.userId,
           priority: 'normal',
         });
-        console.log('[MODERATION] Photo queued for AI scanning:', input.photo.id);
       },
     });
   }
@@ -299,8 +270,6 @@ function scheduleDeferredDirectUploadPostProcessing(input: {
   }
 
   after(async () => {
-    const startedAt = Date.now();
-
     for (const task of tasks) {
       try {
         await task.run();
@@ -318,15 +287,6 @@ function scheduleDeferredDirectUploadPostProcessing(input: {
         console.warn(logPrefix, message, error);
       }
     }
-
-    console.info('[PHOTO_UPLOAD_ASYNC_POSTPROCESS]', {
-      eventId: input.eventId,
-      tenantId: input.tenantId,
-      uploadMode: input.uploadMode,
-      photoId: input.photo.id,
-      taskCount: tasks.length,
-      totalMs: Date.now() - startedAt,
-    });
   });
 }
 
@@ -701,9 +661,7 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
       ? subscriptionTier
       : (tenant?.subscription_tier || effectiveTenantTier || subscriptionTier);
     profiler.setMeta({ effectiveTier: effectiveSubscriptionTier });
-    if (isAdminUploadHeader) {
-      console.log('[RATE_LIMIT] Skipping for admin upload');
-    } else {
+    if (!isAdminUploadHeader) {
 
     // Check rate limits (IP, fingerprint, event, burst protection)
     const uploadRateLimitOverrides = event.settings?.security?.upload_rate_limits;
@@ -787,9 +745,7 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
       const isNamedGuest = !isAnonymous && hasName;
 
       if (isAdminUpload) {
-        console.log('[RECAPTCHA] Skipping for admin upload');
       } else if (isNamedGuest) {
-        console.log('[RECAPTCHA] Skipping for named guest upload');
       } else {
       // Check for reCAPTCHA token in request body
       let recaptchaToken: string | undefined;
@@ -828,14 +784,6 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
           { status: 400 }
         ), 'captcha-failed');
       }
-
-      // Log the score for monitoring
-      console.log('[RECAPTCHA] Anonymous upload verification:', {
-        score: recaptchaResult.score,
-        eventId,
-        ip: uploadIpAddress,
-        fingerprint: uploadFingerprint,
-      });
       }
     }
 
@@ -1252,7 +1200,6 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
               userId: userRole === 'guest' ? undefined : userId,
               priority: 'normal',
             });
-            console.log('[MODERATION] Photo queued for AI scanning:', photo.id);
           } catch (scanError) {
             console.error('[MODERATION] Failed to queue photo for scanning:', scanError);
             // Don't fail the upload if scanning fails
@@ -1390,11 +1337,6 @@ export async function handleEventPhotoList(request: NextRequest, eventId: string
     let isModerator = false;
     let verifiedRole: string | null = null;
 
-    console.log('[PHOTOS_API] Auth check:', {
-      hasAuth: !!authHeader,
-      authHeaderPrefix: authHeader?.substring(0, 20),
-    });
-
     if (authHeader) {
       try {
         const token = authHeader.replace('Bearer ', '');
@@ -1417,12 +1359,6 @@ export async function handleEventPhotoList(request: NextRequest, eventId: string
         }
       }
     }
-
-    console.log('[PHOTOS_API] Moderator check:', {
-      isModerator,
-      verifiedRole,
-      status,
-    });
 
     const guestFingerprint = headers.get('x-fingerprint');
     const guestUserId = guestFingerprint ? `guest_${guestFingerprint}` : null;
@@ -1448,8 +1384,6 @@ export async function handleEventPhotoList(request: NextRequest, eventId: string
       // Non-moderators only see approved photos when no status filter
       filter.status = 'approved';
     }
-
-    console.log('[PHOTOS_API] Query filter:', filter);
 
     const filterEntries = Object.entries(filter);
     const whereClause = filterEntries
@@ -1484,12 +1418,6 @@ export async function handleEventPhotoList(request: NextRequest, eventId: string
       );
       total = Number(countResult.rows[0]?.count || 0);
     }
-
-    console.log('[PHOTOS_API] Query result:', {
-      photoCount: photos.length,
-      photoStatuses: photos.map((p) => ({ id: p.id, status: p.status })),
-    });
-
     const response = NextResponse.json({
       data: photos,
       pagination: {

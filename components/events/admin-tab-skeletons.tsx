@@ -1,0 +1,292 @@
+import { Skeleton } from '@/components/ui/skeleton';
+
+export function LuckyDrawAdminSkeleton() {
+  const subTabs = ['Configuration', 'Entries', 'Participants', 'Execute Draw', 'History'];
+
+  return (
+    <div className="space-y-6">
+      <div className="border-b border-gray-200 dark:border-gray-700">
+        <nav className="-mb-px flex gap-6 overflow-x-auto">
+          {subTabs.map((tab, index) => (
+            <button
+              key={tab}
+              type="button"
+              disabled
+              className={
+                index === 0
+                  ? 'flex items-center whitespace-nowrap border-b-2 border-violet-500 px-1 py-3 text-sm font-medium text-violet-600 dark:border-violet-400 dark:text-violet-400'
+                  : 'flex items-center whitespace-nowrap border-b-2 border-transparent px-1 py-3 text-sm font-medium text-gray-500 dark:text-gray-400'
+              }
+            >
+              {tab}
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      <div className="space-y-6">
+        <div>
+          <Skeleton className="h-7 w-44 animate-none rounded-full" />
+          <Skeleton className="mt-2 h-4 w-80 max-w-full animate-none rounded-full" />
+        </div>
+
+        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          <div className="mb-4 flex items-center justify-between">
+            <Skeleton className="h-6 w-28 animate-none rounded-full" />
+            <Skeleton className="h-9 w-24 animate-none rounded-xl" />
+          </div>
+          <div className="space-y-4">
+            {Array.from({ length: 2 }).map((_, index) => (
+              <div
+                key={index}
+                className="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900/30"
+              >
+                <div className="grid gap-4 md:grid-cols-4">
+                  <Skeleton className="h-10 w-full animate-none rounded-xl" />
+                  <Skeleton className="h-10 w-full animate-none rounded-xl md:col-span-2" />
+                  <Skeleton className="h-10 w-full animate-none rounded-xl" />
+                  <Skeleton className="h-10 w-full animate-none rounded-xl md:col-span-3" />
+                  <Skeleton className="h-10 w-24 animate-none rounded-xl" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <div
+              key={index}
+              className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800"
+            >
+              <Skeleton className="h-5 w-32 animate-none rounded-full" />
+              <div className="mt-4 space-y-3">
+                <Skeleton className="h-10 w-full animate-none rounded-xl" />
+                <Skeleton className="h-10 w-3/4 animate-none rounded-xl" />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-10 w-40 animate-none rounded-xl" />
+          <Skeleton className="h-10 w-28 animate-none rounded-xl" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function LuckyDrawEntriesPanelSkeleton() {
+  return (
+    <div className="space-y-3">
+      {Array.from({ length: 4 }).map((_, index) => (
+        <div
+          key={index}
+          className="flex items-center gap-4 rounded-lg border border-gray-200 bg-white px-4 py-3 dark:border-gray-700 dark:bg-gray-800"
+        >
+          <Skeleton className="h-12 w-12 animate-none rounded-full" />
+          <div className="min-w-0 flex-1 space-y-2">
+            <Skeleton className="h-4 w-40 animate-none rounded-full" />
+            <Skeleton className="h-3 w-52 max-w-full animate-none rounded-full" />
+          </div>
+          <Skeleton className="h-6 w-16 animate-none rounded-full" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function LuckyDrawParticipantsPanelSkeleton() {
+  return (
+    <div className="space-y-3">
+      {Array.from({ length: 4 }).map((_, index) => (
+        <div
+          key={index}
+          className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 md:flex-row md:items-center md:justify-between"
+        >
+          <div className="min-w-0 space-y-2">
+            <Skeleton className="h-4 w-36 animate-none rounded-full" />
+            <Skeleton className="h-3 w-56 max-w-full animate-none rounded-full" />
+            <Skeleton className="h-3 w-44 animate-none rounded-full" />
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-20 animate-none rounded-full" />
+              <Skeleton className="h-3 w-16 animate-none rounded-full" />
+            </div>
+            <Skeleton className="h-6 w-16 animate-none rounded-full" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function LuckyDrawHistoryPanelSkeleton() {
+  return (
+    <div className="space-y-4">
+      {Array.from({ length: 3 }).map((_, index) => (
+        <div
+          key={index}
+          className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800"
+        >
+          <div className="mb-3 flex items-center justify-between">
+            <Skeleton className="h-4 w-28 animate-none rounded-full" />
+            <Skeleton className="h-6 w-20 animate-none rounded-full" />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Skeleton className="h-4 w-24 animate-none rounded-full" />
+            <Skeleton className="h-4 w-20 animate-none rounded-full" />
+          </div>
+          <div className="mt-4 border-t border-gray-200 pt-4 dark:border-gray-700">
+            <div className="flex flex-wrap gap-2">
+              <Skeleton className="h-6 w-20 animate-none rounded-full" />
+              <Skeleton className="h-6 w-24 animate-none rounded-full" />
+              <Skeleton className="h-6 w-16 animate-none rounded-full" />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function AttendanceOverviewSkeleton() {
+  return (
+    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+      {Array.from({ length: 4 }).map((_, index) => (
+        <div
+          key={index}
+          className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800"
+        >
+          <Skeleton className="h-4 w-28 animate-none rounded-full" />
+          <Skeleton className="mt-4 h-9 w-20 animate-none rounded-full" />
+          <Skeleton className="mt-3 h-3 w-24 animate-none rounded-full" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function AttendanceGuestListSkeleton() {
+  return (
+    <div className="space-y-4">
+      <Skeleton className="h-10 w-full animate-none rounded-xl" />
+
+      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+        <div className="border-b border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-900">
+          <div className="grid grid-cols-6 gap-4">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <Skeleton key={index} className="h-3 w-16 animate-none rounded-full" />
+            ))}
+          </div>
+        </div>
+        <div className="divide-y divide-gray-200 dark:divide-gray-700">
+          {Array.from({ length: 5 }).map((_, row) => (
+            <div key={row} className="grid grid-cols-6 gap-4 px-4 py-4">
+              {Array.from({ length: 6 }).map((_, col) => (
+                <Skeleton
+                  key={col}
+                  className={
+                    col === 0
+                      ? 'h-4 w-24 animate-none rounded-full'
+                      : 'h-4 w-16 animate-none rounded-full'
+                  }
+                />
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function PhotoChallengeAdminSkeleton() {
+  return (
+    <div className="space-y-6">
+      <div className="rounded-xl border border-gray-200 bg-gradient-to-r from-violet-50 to-purple-50 p-6 dark:border-gray-700 dark:from-violet-950/20 dark:to-purple-950/20">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-4">
+            <Skeleton className="h-12 w-12 animate-none rounded-full" />
+            <div className="space-y-2">
+              <Skeleton className="h-6 w-36 animate-none rounded-full" />
+              <Skeleton className="h-4 w-52 max-w-full animate-none rounded-full" />
+              <Skeleton className="h-3 w-40 animate-none rounded-full" />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Skeleton className="h-9 w-20 animate-none rounded-xl" />
+            <Skeleton className="h-9 w-20 animate-none rounded-xl" />
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, index) => (
+          <div
+            key={index}
+            className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800"
+          >
+            <div className="flex items-center gap-3">
+              <Skeleton className="h-10 w-10 animate-none rounded-full" />
+              <div className="space-y-2">
+                <Skeleton className="h-7 w-14 animate-none rounded-full" />
+                <Skeleton className="h-3 w-24 animate-none rounded-full" />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+        <div className="border-b border-gray-200 px-6 py-4 dark:border-gray-700">
+          <Skeleton className="h-6 w-36 animate-none rounded-full" />
+          <Skeleton className="mt-2 h-4 w-56 animate-none rounded-full" />
+        </div>
+        <div className="divide-y divide-gray-200 dark:divide-gray-700">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div key={index} className="px-6 py-4">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <Skeleton className="h-10 w-10 animate-none rounded-full" />
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-28 animate-none rounded-full" />
+                    <Skeleton className="h-3 w-24 animate-none rounded-full" />
+                  </div>
+                </div>
+                <div className="flex items-center gap-4">
+                  <Skeleton className="h-2 w-32 animate-none rounded-full" />
+                  <Skeleton className="h-6 w-16 animate-none rounded-full" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function ModerationActivitySkeleton() {
+  return (
+    <div className="space-y-3">
+      {Array.from({ length: 4 }).map((_, index) => (
+        <div
+          key={index}
+          className="flex items-center justify-between gap-4 rounded-lg bg-gray-50 px-4 py-3 dark:bg-gray-700/50"
+        >
+          <div className="flex items-center gap-3">
+            <Skeleton className="h-10 w-10 animate-none rounded-md" />
+            <div className="space-y-2">
+              <Skeleton className="h-3 w-20 animate-none rounded-full" />
+              <Skeleton className="h-3 w-32 animate-none rounded-full" />
+            </div>
+          </div>
+          <Skeleton className="h-3 w-28 animate-none rounded-full" />
+        </div>
+      ))}
+    </div>
+  );
+}

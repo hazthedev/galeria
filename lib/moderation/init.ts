@@ -20,7 +20,6 @@ let cleanupInterval: NodeJS.Timeout | null = null;
  */
 export async function initializeContentModeration(): Promise<void> {
   if (initialized) {
-    console.log('[MODERATION] Already initialized');
     return;
   }
 
@@ -37,16 +36,13 @@ export async function initializeContentModeration(): Promise<void> {
         // Dynamic import to avoid webpack tracing during build
         const { cleanupExpiredQuarantine } = await import('../storage/quarantine');
         const cleaned = await cleanupExpiredQuarantine();
-        if (cleaned > 0) {
-          console.log(`[MODERATION] Cleaned up ${cleaned} expired quarantined photos`);
-        }
+        void cleaned;
       } catch (error) {
         console.error('[MODERATION] Cleanup job failed:', error);
       }
     }, 24 * 60 * 60 * 1000); // Run daily
 
     initialized = true;
-    console.log('[MODERATION] Content moderation system initialized');
   } catch (error) {
     console.error('[MODERATION] Failed to initialize:', error);
     throw error;
@@ -72,7 +68,6 @@ export async function shutdownContentModeration(): Promise<void> {
     }
 
     initialized = false;
-    console.log('[MODERATION] Content moderation system shut down');
   } catch (error) {
     console.error('[MODERATION] Shutdown error:', error);
   }

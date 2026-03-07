@@ -1,6 +1,7 @@
 import type { ChangeEvent, Dispatch, FormEvent, SetStateAction } from 'react';
 import clsx from 'clsx';
 import { ChevronLeft, ChevronRight, Copy, Loader2, RefreshCw, Upload, Users } from 'lucide-react';
+import { LuckyDrawEntriesPanelSkeleton } from '@/components/events/admin-tab-skeletons';
 import type { LuckyDrawConfig, LuckyDrawEntry } from '@/lib/types';
 
 interface EntriesTabProps {
@@ -253,9 +254,7 @@ export function EntriesTab({
       )}
 
       {isLoading ? (
-        <div className="flex justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
-        </div>
+        <LuckyDrawEntriesPanelSkeleton />
       ) : !hasEntries ? (
         <div className="text-center py-12">
           <Users className="mx-auto h-16 w-16 text-gray-400 mb-4" />

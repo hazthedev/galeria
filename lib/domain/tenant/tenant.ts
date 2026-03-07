@@ -247,11 +247,6 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   const hostname = request.headers.get('host') || '';
   const url = request.nextUrl;
 
-  console.log('[Middleware] Processing request:', {
-    hostname,
-    pathname: url.pathname,
-  });
-
   // Resolve tenant
   const tenantContext = await createTenantContext(hostname);
 
@@ -291,7 +286,6 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     new Date() > tenantContext.tenant.trial_ends_at
   ) {
     // TODO: Handle trial expiration
-    console.log('[Middleware] Trial expired for tenant:', tenantContext.tenant.id);
   }
 
   // Create response with tenant context injected into headers
@@ -443,7 +437,6 @@ export async function warmTenantCache(): Promise<void> {
       }
     }
 
-    console.log(`[Tenant] Warmed cache with ${tenants.length} tenants`);
   } catch (error) {
     console.error('[Tenant] Error warming cache:', error);
   }
@@ -561,7 +554,6 @@ async function seedMasterTenant(): Promise<ITenant | null> {
       updated_at: new Date(),
     });
 
-    console.log('[Tenant] Seeded master tenant', { id: masterId, domain: masterDomain });
     return tenant;
   } catch (error) {
     console.error('[Tenant] Failed to seed master tenant:', error);

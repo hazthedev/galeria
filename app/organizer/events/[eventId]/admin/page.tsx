@@ -31,6 +31,7 @@ import { toast } from 'sonner';
 import type { IEvent } from '@/lib/types';
 import { useOrganizerEntitlements } from '@/lib/use-organizer-entitlements';
 import { OrganizerEventAdminSkeleton } from '@/components/events/page-skeletons';
+import { ModerationActivitySkeleton } from '@/components/events/admin-tab-skeletons';
 
 export default function EventAdminPage() {
   const params = useParams();
@@ -52,6 +53,7 @@ export default function EventAdminPage() {
     photoStatus: string | null;
     imageUrl: string | null;
   }>>([]);
+  const [isModerationLogsLoading, setIsModerationLogsLoading] = useState(false);
   const {
     tier: organizerTier,
     features: organizerFeatures,
@@ -87,10 +89,12 @@ export default function EventAdminPage() {
     const moderationRequired = event?.settings?.features?.moderation_required === true;
     if (activeTab !== 'moderation' || !moderationRequired) {
       setModerationLogs([]);
+      setIsModerationLogsLoading(false);
       return;
     }
 
     const fetchLogs = async () => {
+      setIsModerationLogsLoading(true);
       try {
         const response = await fetch(`/api/events/${eventId}/moderation-logs?limit=10`, {
           credentials: 'include',
@@ -101,10 +105,12 @@ export default function EventAdminPage() {
         }
       } catch (err) {
         console.error('[EVENT_ADMIN] Failed to fetch moderation logs:', err);
+      } finally {
+        setIsModerationLogsLoading(false);
       }
     };
 
-    fetchLogs();
+    void fetchLogs();
   }, [activeTab, eventId, event?.settings?.features?.moderation_required]);
 
   const tabs = [
@@ -359,11 +365,13 @@ export default function EventAdminPage() {
                     View Pending Photos
                   </Link>
 
-                  {moderationLogs.length > 0 && (
-                    <div className="mt-8">
-                      <h3 className="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">
-                        Recent Moderation Activity
-                      </h3>
+                  <div className="mt-8">
+                    <h3 className="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Recent Moderation Activity
+                    </h3>
+                    {isModerationLogsLoading ? (
+                      <ModerationActivitySkeleton />
+                    ) : moderationLogs.length > 0 ? (
                       <div className="space-y-3">
                         {moderationLogs.map((log) => (
                           <div
@@ -404,8 +412,12 @@ export default function EventAdminPage() {
                           </div>
                         ))}
                       </div>
-                    </div>
-                  )}
+                    ) : (
+                      <div className="rounded-lg border border-dashed border-gray-300 px-4 py-6 text-sm text-gray-500 dark:border-gray-600 dark:text-gray-400">
+                        No recent moderation activity yet.
+                      </div>
+                    )}
+                  </div>
                 </>
               ) : (
                 <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-5 py-6 text-amber-900 dark:text-amber-100">

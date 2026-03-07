@@ -316,7 +316,6 @@ export async function storeSession(
 ): Promise<void> {
   // TODO: Implement Redis storage
   // For now, we'll use in-memory (not production-ready)
-  console.log('[Auth] Session stored:', sessionId);
 }
 
 /**
@@ -326,7 +325,6 @@ export async function getSession(
   sessionId: string
 ): Promise<ISession | null> {
   // TODO: Implement Redis retrieval
-  console.log('[Auth] Session retrieved:', sessionId);
   return null;
 }
 
@@ -335,7 +333,6 @@ export async function getSession(
  */
 export async function deleteSession(sessionId: string): Promise<void> {
   // TODO: Implement Redis deletion
-  console.log('[Auth] Session deleted:', sessionId);
 }
 
 // ============================================

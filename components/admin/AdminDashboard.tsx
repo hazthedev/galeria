@@ -236,7 +236,6 @@ export function AdminDashboard({ eventId, tenantId }: AdminDashboardProps) {
       const res = await fetch(`/api/events/${eventId}/lucky-draw/draw`, { method: 'POST' });
       if (res.ok) {
         // Handle success
-        console.log('[Admin] Lucky draw started');
       }
     } catch (error) {
       console.error('[Admin] Error starting lucky draw:', error);

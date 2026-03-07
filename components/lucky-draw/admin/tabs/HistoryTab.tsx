@@ -1,5 +1,6 @@
 import clsx from 'clsx';
-import { History, Loader2, RefreshCw } from 'lucide-react';
+import { History, RefreshCw } from 'lucide-react';
+import { LuckyDrawHistoryPanelSkeleton } from '@/components/events/admin-tab-skeletons';
 import type { Winner } from '@/lib/types';
 import type { DrawHistoryConfig, LuckyDrawHistoryItem } from '../types';
 
@@ -45,9 +46,7 @@ export function HistoryTab({
       </div>
 
       {isLoading ? (
-        <div className="flex justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
-        </div>
+        <LuckyDrawHistoryPanelSkeleton />
       ) : !hasDraws ? (
         <div className="text-center py-12">
           <History className="mx-auto h-16 w-16 text-gray-400 mb-4" />

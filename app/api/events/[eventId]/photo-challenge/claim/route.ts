@@ -158,8 +158,6 @@ export async function POST(req: NextRequest, context: RouteContext) {
     });
   } catch (error) {
     console.error('[PHOTO_CHALLENGE_CLAIM] POST error:', error);
-    console.error('[PHOTO_CHALLENGE_CLAIM] Error stack:', error instanceof Error ? error.stack : 'No stack');
-    console.error('[PHOTO_CHALLENGE_CLAIM] Error message:', error instanceof Error ? error.message : String(error));
     return NextResponse.json(
       {
         error: 'Failed to generate prize claim',

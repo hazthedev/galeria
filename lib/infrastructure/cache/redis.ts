@@ -41,7 +41,6 @@ function parseHostPort(value: string): { host: string; port: number } {
 // ============================================
 
 let redisClient: RedisType | null = null;
-const logRedisEvents = !process.env.JEST_WORKER_ID;
 
 /**
  * Get or create the Redis client singleton
@@ -49,9 +48,6 @@ const logRedisEvents = !process.env.JEST_WORKER_ID;
  */
 export function getRedisClient(): RedisType {
   if (!redisClient) {
-    console.log('[REDIS] URL:', REDIS_URL ? 'configured' : 'NOT CONFIGURED!');
-    console.log('[REDIS] Password:', REDIS_PASSWORD ? 'set' : 'none');
-    console.log('[REDIS] DB:', REDIS_DB);
     const redisOptions = {
       password: REDIS_PASSWORD || undefined,
       db: REDIS_DB,
@@ -62,7 +58,6 @@ export function getRedisClient(): RedisType {
           console.error('[REDIS] Max reconnection attempts reached');
           return null;
         }
-        console.log(`[REDIS] Reconnecting... Attempt ${times}`);
         return delay;
       },
       reconnectOnError: (err: Error) => {
@@ -93,35 +88,8 @@ export function getRedisClient(): RedisType {
       });
     }
 
-    // Event listeners for monitoring
-    redisClient.on('connect', () => {
-      if (logRedisEvents) {
-        console.log('[REDIS] Connecting to Redis...');
-      }
-    });
-
-    redisClient.on('ready', () => {
-      if (logRedisEvents) {
-        console.log('[REDIS] Redis connection ready');
-      }
-    });
-
     redisClient.on('error', (err) => {
-      if (logRedisEvents) {
-        console.error('[REDIS] Connection error:', err.message);
-      }
-    });
-
-    redisClient.on('close', () => {
-      if (logRedisEvents) {
-        console.log('[REDIS] Connection closed');
-      }
-    });
-
-    redisClient.on('reconnecting', () => {
-      if (logRedisEvents) {
-        console.log('[REDIS] Reconnecting...');
-      }
+      console.error('[REDIS] Connection error:', err.message);
     });
   }
 
@@ -157,7 +125,6 @@ export async function closeRedis(): Promise<void> {
   if (redisClient) {
     await redisClient.quit();
     redisClient = null;
-    console.log('[REDIS] Connection closed gracefully');
   }
 }
 
@@ -218,11 +185,9 @@ export async function setKeyWithExpiry<T>(
   ttlSeconds: number
 ): Promise<void> {
   const client = getRedisClient();
-  console.log('[REDIS] Setting key:', key, 'TTL:', ttlSeconds + 's', 'Client status:', client.status);
 
   try {
     await client.set(key, JSON.stringify(value), 'EX', ttlSeconds);
-    console.log('[REDIS] Key saved successfully:', key);
   } catch (error) {
     console.error('[REDIS] setKeyWithExpiry FAILED:', error instanceof Error ? error.message : error);
     // Don't fail silently - this is critical for auth!
@@ -235,11 +200,9 @@ export async function setKeyWithExpiry<T>(
  */
 export async function getKey<T>(key: string): Promise<T | null> {
   const client = getRedisClient();
-  console.log('[REDIS] Getting key:', key, 'Client status:', client.status);
 
   try {
     const data = await client.get(key);
-    console.log('[REDIS] Got data:', data ? 'found' : 'null');
 
     if (!data) {
       return null;

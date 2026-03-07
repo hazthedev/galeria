@@ -139,8 +139,6 @@ export async function quarantinePhoto(
     // 3. Delete original public assets
     await deletePhotoAssets(originalPath);
 
-    console.log(`[Quarantine] Photo ${photoId} moved to quarantine: ${reason}`);
-
     return metadata;
   } catch (error) {
     console.error(`[Quarantine] Error quarantining photo ${photoId}:`, error);
@@ -193,7 +191,6 @@ export async function approveQuarantinedPhoto(
     // 3. Delete quarantine copies
     await deletePhotoAssets(quarantinePath);
 
-    console.log(`[Quarantine] Photo ${photoId} approved and restored by ${reviewedBy}`);
   } catch (error) {
     console.error(`[Quarantine] Error approving photo ${photoId}:`, error);
     throw error;
@@ -228,7 +225,6 @@ export async function rejectQuarantinedPhoto(
     metadata.reviewedAt = new Date();
     await storeQuarantineMetadata(photoId, metadata);
 
-    console.log(`[Quarantine] Photo ${photoId} rejected by ${reviewedBy}`);
   } catch (error) {
     console.error(`[Quarantine] Error rejecting photo ${photoId}:`, error);
     throw error;
@@ -348,10 +344,6 @@ export async function cleanupExpiredQuarantine(): Promise<number> {
         await storeQuarantineMetadata(photoId, metadata);
         cleanedCount++;
       }
-    }
-
-    if (cleanedCount > 0) {
-      console.log(`[Quarantine] Cleaned up ${cleanedCount} expired photos`);
     }
 
     return cleanedCount;

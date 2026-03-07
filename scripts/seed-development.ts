@@ -173,7 +173,6 @@ async function seedDevelopment() {
 
   try {
     console.log('[SEED] Starting development seed...');
-    console.log('[SEED] Database:', connectionString);
 
     await client.query('BEGIN');
 
@@ -231,8 +230,6 @@ async function seedDevelopment() {
       'admin',
       true,
     ]);
-
-    console.log('[SEED] Admin credentials: admin@acme.com / password123');
 
     // ============================================
     // CREATE EVENTS

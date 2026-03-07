@@ -9,7 +9,6 @@ import { useState, useEffect, type FormEvent } from 'react';
 import {
   AlertCircle,
   History,
-  Loader2,
   Play,
   RefreshCw,
   Settings,
@@ -20,6 +19,9 @@ import clsx from 'clsx';
 import { toast } from 'sonner';
 import type { LuckyDrawConfig, LuckyDrawEntry, Winner } from '@/lib/types';
 import { useAuth } from '@/lib/auth';
+import {
+  LuckyDrawAdminSkeleton,
+} from '@/components/events/admin-tab-skeletons';
 import { WinnerModal } from './WinnerModal';
 import { ConfigTab } from './tabs/ConfigTab';
 import { DrawTab } from './tabs/DrawTab';
@@ -78,6 +80,8 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
   const [configForm, setConfigForm] = useState<ConfigFormState>(() => buildConfigForm(null));
   const [isSavingConfig, setIsSavingConfig] = useState(false);
   const [configSaveError, setConfigSaveError] = useState<string | null>(null);
+  const [entriesLoading, setEntriesLoading] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [participantsLoading, setParticipantsLoading] = useState(false);
   const [participantsError, setParticipantsError] = useState<string | null>(null);
 
@@ -118,19 +122,19 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
 
   useEffect(() => {
     if (activeSubTab === 'entries' || activeSubTab === 'draw') {
-      void fetchEntries();
+      void fetchEntries(entries.length === 0);
     }
   }, [activeSubTab, eventId, entriesPage]);
 
   useEffect(() => {
     if (activeSubTab === 'history' || activeSubTab === 'draw') {
-      void fetchDraws();
+      void fetchDraws(drawHistory.length === 0);
     }
   }, [activeSubTab, eventId]);
 
   useEffect(() => {
     if (activeSubTab === 'participants') {
-      void fetchParticipants();
+      void fetchParticipants(participants.length === 0);
     }
   }, [activeSubTab, eventId]);
 
@@ -155,7 +159,7 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
         return;
       }
       if (activeSubTab === 'participants') {
-        void fetchParticipants();
+        void fetchParticipants(false);
         return;
       }
       if (activeSubTab === 'draw') {
@@ -224,10 +228,14 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
     }
   };
 
-    const fetchEntries = async () => {
-      try {
-        const response = await fetch(
-          `/api/events/${eventId}/lucky-draw/entries?limit=${entriesPageSize}&offset=${entriesPage * entriesPageSize}`,
+  const fetchEntries = async (showLoading = false) => {
+    if (showLoading) {
+      setEntriesLoading(true);
+    }
+
+    try {
+      const response = await fetch(
+        `/api/events/${eventId}/lucky-draw/entries?limit=${entriesPageSize}&offset=${entriesPage * entriesPageSize}`,
         {
           credentials: 'include',
         }
@@ -245,32 +253,40 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
     } catch (err) {
       console.error('[LUCKY_DRAW_ADMIN] Failed to fetch entries:', err);
       setError('Failed to load entries');
+    } finally {
+      if (showLoading) {
+        setEntriesLoading(false);
       }
-    };
+    }
+  };
 
-    const fetchDrawEntries = async () => {
-      try {
-        const limit = Math.max(entriesTotal, entriesPageSize, 1);
-        const response = await fetch(
-          `/api/events/${eventId}/lucky-draw/entries?limit=${limit}&offset=0`,
-          {
-            credentials: 'include',
-          }
-        );
-
-        if (response.ok) {
-          const data = await response.json();
-          setDrawEntries(data.data || []);
-        } else {
-          setDrawEntries([]);
+  const fetchDrawEntries = async () => {
+    try {
+      const limit = Math.max(entriesTotal, entriesPageSize, 1);
+      const response = await fetch(
+        `/api/events/${eventId}/lucky-draw/entries?limit=${limit}&offset=0`,
+        {
+          credentials: 'include',
         }
-      } catch (err) {
-        console.error('[LUCKY_DRAW_ADMIN] Failed to fetch draw entries:', err);
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        setDrawEntries(data.data || []);
+      } else {
         setDrawEntries([]);
       }
-    };
+    } catch (err) {
+      console.error('[LUCKY_DRAW_ADMIN] Failed to fetch draw entries:', err);
+      setDrawEntries([]);
+    }
+  };
 
-  const fetchDraws = async () => {
+  const fetchDraws = async (showLoading = false) => {
+    if (showLoading) {
+      setHistoryLoading(true);
+    }
+
     try {
       const response = await fetch(`/api/events/${eventId}/lucky-draw/history`, {
         credentials: 'include',
@@ -287,11 +303,17 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
     } catch (err) {
       console.error('[LUCKY_DRAW_ADMIN] Failed to fetch draws:', err);
       setError('Failed to load draw history');
+    } finally {
+      if (showLoading) {
+        setHistoryLoading(false);
+      }
     }
   };
 
-  const fetchParticipants = async () => {
-    setParticipantsLoading(true);
+  const fetchParticipants = async (showLoading = true) => {
+    if (showLoading) {
+      setParticipantsLoading(true);
+    }
     setParticipantsError(null);
     try {
       const response = await fetch(`/api/events/${eventId}/lucky-draw/participants`, {
@@ -314,7 +336,9 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
       console.error('[LUCKY_DRAW_ADMIN] Failed to fetch participants:', err);
       setParticipantsError('Failed to load participants');
     } finally {
-      setParticipantsLoading(false);
+      if (showLoading) {
+        setParticipantsLoading(false);
+      }
     }
   };
 
@@ -324,15 +348,15 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
     const refreshTasks: Promise<unknown>[] = [fetchConfig()];
 
     if (activeSubTab === 'entries' || activeSubTab === 'draw') {
-      refreshTasks.push(fetchEntries());
+      refreshTasks.push(fetchEntries(false));
     }
 
     if (activeSubTab === 'history' || activeSubTab === 'draw') {
-      refreshTasks.push(fetchDraws());
+      refreshTasks.push(fetchDraws(false));
     }
 
     if (activeSubTab === 'participants') {
-      refreshTasks.push(fetchParticipants());
+      refreshTasks.push(fetchParticipants(false));
     }
 
     await Promise.all(refreshTasks);
@@ -679,11 +703,7 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
   // ============================================
 
   if (isLoading) {
-    return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
-      </div>
-    );
+    return <LuckyDrawAdminSkeleton />;
   }
 
   // ============================================
@@ -774,7 +794,7 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
             entriesTotal={entriesTotal}
             entriesPage={entriesPage}
             entriesPageSize={entriesPageSize}
-            isLoading={isLoading}
+            isLoading={entriesLoading}
             isRefreshing={isRefreshing}
             userRole={userRole}
             config={config}
@@ -821,7 +841,7 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
         {activeSubTab === 'history' && (
           <HistoryTab
             drawHistory={drawHistory}
-            isLoading={isLoading}
+            isLoading={historyLoading}
             isRefreshing={isRefreshing}
             onRefresh={refreshData}
           />

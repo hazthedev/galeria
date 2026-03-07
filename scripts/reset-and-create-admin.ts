@@ -133,11 +133,7 @@ async function resetAndCreateAdmin() {
     console.log('║           DATABASE RESET COMPLETED ✅                   ║');
     console.log('╚════════════════════════════════════════════════════════╝');
     console.log('');
-    console.log('📋 ADMIN CREDENTIALS:');
-    console.log('   Email:    ' + ADMIN_EMAIL);
-    console.log('   Password: ' + ADMIN_PASSWORD);
-    console.log('');
-    console.log('   Use these to log in at: http://localhost:3000/auth/login');
+    console.log('[RESET] Admin account created successfully. Review the configured ADMIN_EMAIL/ADMIN_PASSWORD constants locally if needed.');
     console.log('');
 
   } catch (error) {

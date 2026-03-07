@@ -83,12 +83,10 @@ export function RealtimeProvider({ children }: RealtimeProviderProps) {
             .on('system', { event: '*' }, () => { })
             .subscribe((status) => {
                 if (status === 'SUBSCRIBED') {
-                    console.log('[Realtime] Connected to Supabase');
                     setConnected(true);
                     setConnecting(false);
                     setError(null);
                 } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
-                    console.log('[Realtime] Disconnected');
                     setConnected(false);
                     setConnecting(false);
                 }
@@ -156,14 +154,12 @@ export function usePhotoGallery(eventId: string, handlers?: PhotoGalleryHandlers
         // Listen for new photos
         channel.on('broadcast', { event: 'new_photo' }, ({ payload }) => {
             const nextPhoto = payload as IPhoto;
-            console.log('[Gallery] New photo received:', nextPhoto.id);
             setPhotos((prev) => [nextPhoto, ...prev]);
             handlersRef.current?.onNewPhoto?.(nextPhoto);
         });
 
         // Listen for photo updates
         channel.on('broadcast', { event: 'photo_updated' }, ({ payload }) => {
-            console.log('[Gallery] Photo updated:', payload);
             const nextPayload = payload as PhotoUpdatePayload;
             setPhotos((prev) =>
                 prev.map((photo) =>
@@ -177,7 +173,6 @@ export function usePhotoGallery(eventId: string, handlers?: PhotoGalleryHandlers
 
         // Listen for reactions
         channel.on('broadcast', { event: 'reaction_added' }, ({ payload }) => {
-            console.log('[Gallery] Reaction added:', payload);
             const nextPayload = payload as ReactionAddedPayload;
             setPhotos((prev) =>
                 prev.map((photo) =>
@@ -197,7 +192,6 @@ export function usePhotoGallery(eventId: string, handlers?: PhotoGalleryHandlers
 
         // Listen for stats updates
         channel.on('broadcast', { event: 'stats_update' }, ({ payload }) => {
-            console.log('[Gallery] Stats updated:', payload);
             setStats(payload as IEventStats);
         });
 
@@ -206,7 +200,6 @@ export function usePhotoGallery(eventId: string, handlers?: PhotoGalleryHandlers
             const presenceState = channel.presenceState();
             const count = Object.keys(presenceState).length;
             setUserCount(count);
-            console.log('[Gallery] User count:', count);
         });
 
         // Subscribe and track presence
@@ -295,7 +288,6 @@ export function useLuckyDraw(eventId: string) {
                     origin: { x: 0.5, y: 0.5 },
                 });
             } catch {
-                console.log('[LuckyDraw] Confetti not available');
             }
         }
 
@@ -316,7 +308,6 @@ export function useLuckyDraw(eventId: string) {
 
         // Listen for draw started
         channel.on('broadcast', { event: 'draw_started' }, ({ payload }) => {
-            console.log('[LuckyDraw] Draw started:', payload);
             winnerQueueRef.current = [];
             if (winnerQueueTimerRef.current) {
                 clearTimeout(winnerQueueTimerRef.current);
@@ -329,14 +320,12 @@ export function useLuckyDraw(eventId: string) {
             // Show full-screen draw mode
             if (typeof document !== 'undefined') {
                 document.documentElement.requestFullscreen().catch(() => {
-                    console.log('[LuckyDraw] Fullscreen not supported or denied');
                 });
             }
         });
 
         // Listen for winner announcement
         channel.on('broadcast', { event: 'draw_winner' }, ({ payload }) => {
-            console.log('[LuckyDraw] Winner announced:', payload);
             const normalizedWinner = normalizeWinnerPayload(payload);
             if (!normalizedWinner) {
                 return;
@@ -371,7 +360,9 @@ export function useLuckyDraw(eventId: string) {
     ) => {
         // Entry is handled via HTTP API, not realtime
         // The entry form already uses fetch to submit
-        console.log('[LuckyDraw] Entry submitted via API');
+        void name;
+        void selfieUrl;
+        void contactInfo;
     };
 
     const broadcastDrawStart = useCallback((config: ILuckyDrawConfig) => {
@@ -490,7 +481,6 @@ export function useAdminDashboard(eventId: string) {
         // Listen for new uploads
         channel.on('broadcast', { event: 'new_photo' }, ({ payload }) => {
             const photo = payload as IPhoto;
-            console.log('[Admin] New photo uploaded:', photo.id);
             setRecentActivity((prev) => [
                 {
                     type: 'upload',

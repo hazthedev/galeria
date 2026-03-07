@@ -1,5 +1,6 @@
 import clsx from 'clsx';
-import { Loader2, RefreshCw, Users } from 'lucide-react';
+import { RefreshCw, Users } from 'lucide-react';
+import { LuckyDrawParticipantsPanelSkeleton } from '@/components/events/admin-tab-skeletons';
 import type { LuckyDrawParticipant, ParticipantsSummary } from '../types';
 
 interface ParticipantsTabProps {
@@ -52,9 +53,7 @@ export function ParticipantsTab({
       )}
 
       {participantsLoading ? (
-        <div className="flex justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
-        </div>
+        <LuckyDrawParticipantsPanelSkeleton />
       ) : !hasParticipants ? (
         <div className="text-center py-12">
           <Users className="mx-auto h-16 w-16 text-gray-400 mb-4" />

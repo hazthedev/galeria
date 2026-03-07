@@ -7,6 +7,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Target, Gift, Users, Check, X, Loader2, Plus, Edit, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { PhotoChallengeAdminSkeleton } from '@/components/events/admin-tab-skeletons';
 import { PhotoChallengeSettingsForm } from '@/components/photo-challenge/settings-form';
 import type { IPhotoChallenge, IGuestPhotoProgress } from '@/lib/types';
 
@@ -96,11 +97,7 @@ export function PhotoChallengeAdminTab({ eventId }: PhotoChallengeAdminTabProps)
   };
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
-      </div>
-    );
+    return <PhotoChallengeAdminSkeleton />;
   }
 
   if (showForm) {

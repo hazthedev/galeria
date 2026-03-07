@@ -135,7 +135,6 @@ async function seedTest() {
 
   try {
     console.log('[SEED:TEST] Starting test seed...');
-    console.log('[SEED:TEST] Database:', connectionString);
 
     await client.query('BEGIN');
 

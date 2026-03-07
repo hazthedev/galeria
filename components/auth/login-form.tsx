@@ -119,11 +119,6 @@ export function LoginForm({ onSuccess, redirectTo = '/organizer', className }: L
       const successData = data as LoginResponse;
 
       if (successData.success) {
-        console.log('[LOGIN] Login successful!', {
-          sessionId: successData.sessionId,
-          user: successData.user
-        });
-
         toast.success('Welcome back!');
 
         // Redirect based on user role - use window.location for full page load
@@ -139,7 +134,6 @@ export function LoginForm({ onSuccess, redirectTo = '/organizer', className }: L
           setAuthenticatedUser(successData.user, formData.rememberMe);
         }
 
-        console.log('[LOGIN] Redirecting to:', destination);
         router.replace(destination);
         router.refresh();
       } else {

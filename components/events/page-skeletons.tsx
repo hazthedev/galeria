@@ -1,4 +1,5 @@
 import { Skeleton } from '@/components/ui/skeleton';
+import { EventStatsSkeleton } from '@/components/events/event-stats';
 
 export function OrganizerEventDetailSkeleton() {
   return (
@@ -95,45 +96,10 @@ export function OrganizerEventAdminSkeleton() {
         </div>
 
         <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-          <Skeleton className="mb-3 h-8 w-52" />
-          <Skeleton className="mb-8 h-4 w-full max-w-2xl rounded-full" />
-
-          <div className="grid gap-4 md:grid-cols-3">
-            {Array.from({ length: 3 }).map((_, index) => (
-              <div
-                key={index}
-                className="rounded-2xl border border-gray-100 bg-gray-50/80 p-5 dark:border-gray-700 dark:bg-gray-900/40"
-              >
-                <Skeleton className="h-4 w-24 rounded-full" />
-                <Skeleton className="mt-4 h-8 w-20" />
-                <Skeleton className="mt-3 h-4 w-28 rounded-full" />
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-8 grid gap-6 lg:grid-cols-[1.6fr,1fr]">
-            <div className="rounded-2xl border border-gray-100 p-5 dark:border-gray-700">
-              <Skeleton className="h-5 w-40 rounded-full" />
-              <Skeleton className="mt-6 h-56 w-full rounded-3xl" />
-            </div>
-            <div className="rounded-2xl border border-gray-100 p-5 dark:border-gray-700">
-              <Skeleton className="h-5 w-32 rounded-full" />
-              <div className="mt-6 space-y-4">
-                {Array.from({ length: 4 }).map((_, index) => (
-                  <div key={index} className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                      <Skeleton className="h-11 w-11 rounded-xl" />
-                      <div className="space-y-2">
-                        <Skeleton className="h-4 w-28 rounded-full" />
-                        <Skeleton className="h-3 w-20 rounded-full" />
-                      </div>
-                    </div>
-                    <Skeleton className="h-4 w-16 rounded-full" />
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+          <h2 className="mb-6 text-xl font-semibold text-gray-900 dark:text-gray-100">
+            Event Overview
+          </h2>
+          <EventStatsSkeleton allowAdvancedAnalytics allowReactions />
         </div>
       </div>
     </div>

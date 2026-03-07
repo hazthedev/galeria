@@ -79,7 +79,7 @@ const statCards = [
   },
 ];
 
-function EventStatsSkeleton({
+export function EventStatsSkeleton({
   className,
   allowAdvancedAnalytics,
   allowReactions,

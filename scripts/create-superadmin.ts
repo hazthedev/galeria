@@ -107,11 +107,7 @@ async function createSuperadmin() {
         console.log('║           SUPERADMIN CREATED/UPDATED ✅                ║');
         console.log('╚════════════════════════════════════════════════════════╝');
         console.log('');
-        console.log('📋 CREDENTIALS:');
-        console.log('   Email:    ' + EMAIL);
-        console.log('   Password: ' + PASSWORD);
-        console.log('');
-        console.log('   Login at: http://localhost:3000/auth/login');
+        console.log('[CREATE_SUPERADMIN] Credentials created successfully. Use the configured EMAIL/PASSWORD constants if you need them locally.');
         console.log('');
 
     } catch (error) {

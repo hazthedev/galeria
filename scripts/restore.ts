@@ -135,8 +135,6 @@ async function restore() {
 
     console.log('[RESTORE] Restoring backup...');
     console.log(`[RESTORE] File: ${filename}`);
-    console.log(`[RESTORE] Database: ${conn.database}`);
-    console.log(`[RESTORE] Host: ${conn.host}:${conn.port}`);
     console.log('');
     console.log('[RESTORE] ⚠️  WARNING: This will OVERWRITE all existing data!');
     console.log('[RESTORE] Press Ctrl+C to cancel...');

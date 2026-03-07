@@ -62,7 +62,6 @@ export async function PATCH(
     if (photo.user_fingerprint && !photo.is_anonymous) {
       try {
         await updateGuestProgress(db, photo.event_id, photo.user_fingerprint, true);
-        console.log('[PHOTO_CHALLENGE] Progress updated on approval:', photo.user_fingerprint);
       } catch (challengeError) {
         console.warn('[API] Photo challenge progress update on approval skipped:', challengeError);
       }

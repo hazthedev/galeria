@@ -30,7 +30,7 @@ async function main() {
       return;
     }
 
-    console.log('[grant-organizer-tester] Updated user:', result.rows[0]);
+    console.log(`[grant-organizer-tester] Updated tester tier for ${EMAIL}`);
   } finally {
     await client.end();
   }

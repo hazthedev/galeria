@@ -34,12 +34,7 @@ export async function GET(request: NextRequest) {
     const cookieHeader = request.headers.get('cookie');
     const authHeader = request.headers.get('authorization');
 
-    console.log('[ME] Cookie header:', cookieHeader ? cookieHeader.substring(0, 50) + '...' : 'none');
-    console.log('[ME] Auth header:', authHeader ? 'present' : 'none');
-
     const { sessionId } = extractSessionId(cookieHeader, authHeader);
-
-    console.log('[ME] Extracted sessionId:', sessionId ? sessionId.substring(0, 10) + '...' : 'none');
 
     if (!sessionId) {
       return NextResponse.json(
@@ -58,8 +53,6 @@ export async function GET(request: NextRequest) {
       await delay(120);
       result = await validateSession(sessionId);
     }
-    console.log('[ME] Session valid:', result.valid, 'Error:', result.error);
-
     if (!result.valid || !result.user) {
       return NextResponse.json(
         {

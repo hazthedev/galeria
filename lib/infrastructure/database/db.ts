@@ -111,31 +111,6 @@ export function getPool(): Pool {
       // Don't exit in production - let the application handle it
       // The pool will automatically create a new connection
     });
-
-    pool.on('connect', (client) => {
-      console.log('[DB] New client connected', {
-        totalCount: pool?.totalCount ?? 0,
-        idleCount: pool?.idleCount ?? 0,
-        waitingCount: pool?.waitingCount ?? 0
-      });
-    });
-
-    pool.on('remove', () => {
-      console.log('[DB] Client removed');
-    });
-
-    // Log pool statistics every 30 seconds
-    if (typeof process !== 'undefined' && process.env.NODE_ENV === 'development') {
-      setInterval(() => {
-        if (pool) {
-          console.log('[DB] Pool stats:', {
-            totalCount: pool.totalCount,
-            idleCount: pool.idleCount,
-            waitingCount: pool.waitingCount
-          });
-        }
-      }, 30000);
-    }
   }
 
   return pool;
@@ -513,20 +488,17 @@ export async function closePool(): Promise<void> {
   if (pool) {
     await pool.end();
     pool = null;
-    console.log('[DB] Connection pool closed');
   }
 }
 
 // Graceful shutdown (Node.js only, not Edge Runtime)
 if (typeof process !== 'undefined' && process.on) {
   process.on('SIGINT', async () => {
-    console.log('[DB] Received SIGINT, closing connections...');
     await closePool();
     if (process.exit) process.exit(0);
   });
 
   process.on('SIGTERM', async () => {
-    console.log('[DB] Received SIGTERM, closing connections...');
     await closePool();
     if (process.exit) process.exit(0);
   });

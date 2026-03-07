@@ -71,7 +71,6 @@ async function runMigrations() {
 
     const currentVersion = await getCurrentVersion(pool);
     console.log(`[MIGRATE] Current version: ${currentVersion}`);
-    console.log(`[MIGRATE] Database: ${connectionString}`);
     console.log('');
 
     const migrationsDir = path.join(process.cwd(), 'drizzle', 'migrations');

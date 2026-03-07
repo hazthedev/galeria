@@ -217,7 +217,6 @@ export async function deleteEventPhotos(eventId: string): Promise<void> {
       }));
     }
 
-    console.log(`[Storage] Deleted ${listed.Contents?.length || 0} photos for event ${eventId}`);
   } catch (error) {
     console.error(`[Storage] Error deleting photos for event ${eventId}:`, error);
     throw error;
@@ -248,7 +247,6 @@ export async function deletePhotoAssets(eventId: string, photoId: string): Promi
       }));
     }
 
-    console.log(`[Storage] Deleted ${listed.Contents?.length || 0} objects for photo ${photoId}`);
   } catch (error) {
     console.error(`[Storage] Error deleting photo assets for ${photoId}:`, error);
     throw error;

@@ -65,8 +65,6 @@ async function createBackup() {
     const conn = parseConnectionString(connectionString);
 
     console.log('[BACKUP] Creating backup...');
-    console.log(`[BACKUP] Database: ${conn.database}`);
-    console.log(`[BACKUP] Host: ${conn.host}:${conn.port}`);
     console.log(`[BACKUP] Output: ${filepath}`);
     console.log('');
 

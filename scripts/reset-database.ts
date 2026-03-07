@@ -249,7 +249,6 @@ async function resetDatabase() {
   console.log('╚════════════════════════════════════════════════════════╝');
   console.log('');
   console.log('[RESET] ⚠️  WARNING: This will DELETE ALL DATA!');
-  console.log('[RESET] Database:', connectionString);
   console.log('[RESET] Environment:', process.env.NODE_ENV || 'development');
   console.log('');
 

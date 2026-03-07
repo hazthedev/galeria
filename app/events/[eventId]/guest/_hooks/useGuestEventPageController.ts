@@ -226,7 +226,6 @@ export function useGuestEventPageController(eventId: string) {
           setJoinLuckyDraw(false);
         }
       } catch (err) {
-        console.debug('[GUEST_EVENT] Lucky draw config fetch failed:', err);
         setHasActiveLuckyDrawConfig(null);
       }
     };
@@ -301,7 +300,6 @@ export function useGuestEventPageController(eventId: string) {
           }
         }
       } catch (err) {
-        console.debug('[GUEST_EVENT] Attendance check failed:', err);
       }
     };
     checkAttendanceStatus();
@@ -934,7 +932,6 @@ export function useGuestEventPageController(eventId: string) {
         });
       } catch (err) {
         // User cancelled or share not supported
-        console.log('Share cancelled');
       }
     } else {
       setShowShareModal(true);
