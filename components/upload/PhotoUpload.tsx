@@ -33,6 +33,8 @@ interface UploadFile {
   error?: string;
 }
 
+const BROWSER_DIRECT_UPLOAD_ENABLED = process.env.NEXT_PUBLIC_R2_DIRECT_UPLOAD_ENABLED !== 'false';
+
 async function uploadFileToPresignedUrl(uploadUrl: string, file: File, onProgress: (progress: number) => void) {
   await new Promise<void>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
@@ -234,47 +236,7 @@ export function PhotoUpload({
 
         let response: { data?: unknown };
 
-        try {
-          await uploadFileToPresignedUrl(uploadUrl, fileData.file, (progress) => {
-            setFiles((prev) =>
-              prev.map((f) =>
-                f.id === fileData.id ? { ...f, progress } : f
-              )
-            );
-          });
-
-          // Finalize upload (store metadata in DB)
-          const dimensions = await getImageDimensions(fileData.file);
-          const finalizeRes = await fetch(`/api/events/${eventId}/photos`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              ...(fingerprint ? { 'x-fingerprint': fingerprint } : {}),
-            },
-            body: JSON.stringify({
-              photoId,
-              key,
-              width: dimensions.width,
-              height: dimensions.height,
-              fileSize: fileData.file.size,
-              caption: undefined,
-              contributorName: undefined,
-              isAnonymous: false,
-              joinLuckyDraw: false,
-            }),
-          });
-
-          if (!finalizeRes.ok) {
-            const err = await finalizeRes.json().catch(() => ({}));
-            throw new Error(err.error || 'Failed to finalize upload');
-          }
-
-          response = await finalizeRes.json();
-        } catch (directUploadError) {
-          if (!(directUploadError instanceof Error) || directUploadError.message !== 'Upload failed') {
-            throw directUploadError;
-          }
-
+        const fallbackToMultipartUpload = async () => {
           const fallbackFormData = new FormData();
           fallbackFormData.append('file', fileData.file);
 
@@ -289,7 +251,55 @@ export function PhotoUpload({
             throw new Error(err.error || 'Failed to upload photo');
           }
 
-          response = await fallbackRes.json();
+          return fallbackRes.json();
+        };
+
+        if (!BROWSER_DIRECT_UPLOAD_ENABLED) {
+          response = await fallbackToMultipartUpload();
+        } else {
+          try {
+            await uploadFileToPresignedUrl(uploadUrl, fileData.file, (progress) => {
+              setFiles((prev) =>
+                prev.map((f) =>
+                  f.id === fileData.id ? { ...f, progress } : f
+                )
+              );
+            });
+
+            // Finalize upload (store metadata in DB)
+            const dimensions = await getImageDimensions(fileData.file);
+            const finalizeRes = await fetch(`/api/events/${eventId}/photos`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(fingerprint ? { 'x-fingerprint': fingerprint } : {}),
+              },
+              body: JSON.stringify({
+                photoId,
+                key,
+                width: dimensions.width,
+                height: dimensions.height,
+                fileSize: fileData.file.size,
+                caption: undefined,
+                contributorName: undefined,
+                isAnonymous: false,
+                joinLuckyDraw: false,
+              }),
+            });
+
+            if (!finalizeRes.ok) {
+              const err = await finalizeRes.json().catch(() => ({}));
+              throw new Error(err.error || 'Failed to finalize upload');
+            }
+
+            response = await finalizeRes.json();
+          } catch (directUploadError) {
+            if (!(directUploadError instanceof Error) || directUploadError.message !== 'Upload failed') {
+              throw directUploadError;
+            }
+
+            response = await fallbackToMultipartUpload();
+          }
         }
 
         setFiles((prev) =>

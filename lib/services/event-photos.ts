@@ -775,6 +775,10 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
         getBooleanValue(body['joinLuckyDraw']) ??
         getBooleanValue(body['join_lucky_draw']) ??
         false;
+      const includeUsage =
+        getBooleanValue(body['includeUsage']) ??
+        getBooleanValue(body['include_usage']) ??
+        false;
 
       if (!photoId || !key || width === undefined || height === undefined || fileSize === undefined) {
         return finalizeUploadResponse(NextResponse.json(
@@ -941,17 +945,19 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
       });
 
       const createdPhoto = buildCreatedPhotoPayload(photo, luckyDrawEntryId);
-      const usage = await profiler.time(
-        'usage',
-        () => getUploadUsageSnapshot(
-          db,
-          eventId,
-          userId,
-          tierPhotoLimit,
-          eventTotalPhotoLimit,
-          userPhotoLimit
+      const usage = includeUsage
+        ? await profiler.time(
+          'usage',
+          () => getUploadUsageSnapshot(
+            db,
+            eventId,
+            userId,
+            tierPhotoLimit,
+            eventTotalPhotoLimit,
+            userPhotoLimit
+          )
         )
-      );
+        : undefined;
 
       profiler.setMeta({ deferredBroadcastCount: 1 });
       scheduleDeferredPhotoBroadcasts(eventId, [createdPhoto], { tenantId, uploadMode });
@@ -959,7 +965,7 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
       return finalizeUploadResponse(NextResponse.json({
         data: [createdPhoto],
         message: 'Photo uploaded successfully',
-        usage,
+        ...(usage ? { usage } : {}),
       }, { status: 201 }), 'success');
     }
 

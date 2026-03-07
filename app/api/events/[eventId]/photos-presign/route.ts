@@ -8,10 +8,10 @@ import { getTenantDb } from '@/lib/db';
 import { getPresignedUploadUrl } from '@/lib/images';
 import { getSystemSettings } from '@/lib/system-settings';
 import { generatePhotoId } from '@/lib/utils';
-import { checkPhotoLimit } from '@/lib/api/middleware/limit-check';
 import { resolveUserTier } from '@/lib/tenant';
 import type { SubscriptionTier } from '@/lib/types';
 import { resolveOptionalAuth, resolveRequiredTenantId } from '@/lib/api-request-context';
+import { getEffectiveEntitlementsForTier } from '@/lib/domain/tenant/entitlements';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -59,6 +59,11 @@ export async function POST(
     }
 
     const db = getTenantDb(tenantId);
+    const tenant = await db.findOne<{
+      subscription_tier?: SubscriptionTier | null;
+      features_enabled?: Record<string, unknown> | null;
+      limits?: Record<string, unknown> | null;
+    }>('tenants', { id: tenantId });
 
     // Verify event exists and is active
     const event = await db.findOne<{
@@ -99,29 +104,37 @@ export async function POST(
     const tenantTierFromHeader = tenantTierHeader && allowedTiers.has(tenantTierHeader)
       ? (tenantTierHeader as SubscriptionTier)
       : null;
-    let tenantTierFromDb: SubscriptionTier | null = null;
-
-    if (!authContext?.userId) {
-      const tenant = await db.findOne<{ subscription_tier: SubscriptionTier }>('tenants', { id: tenantId });
-      tenantTierFromDb = tenant?.subscription_tier || null;
-    }
 
     const effectiveSubscriptionTier: SubscriptionTier = authContext?.userId
       ? resolvedTier
-      : (tenantTierFromDb || tenantTierFromHeader || resolvedTier);
+      : (tenant?.subscription_tier || tenantTierFromHeader || resolvedTier);
 
-    const tierLimitResult = await checkPhotoLimit(eventId, tenantId, effectiveSubscriptionTier);
-    if (!tierLimitResult.allowed) {
-      return NextResponse.json(
-        {
-          error: tierLimitResult.message || 'Photo limit reached',
-          code: 'TIER_LIMIT_REACHED',
-          upgradeRequired: true,
-          currentCount: tierLimitResult.currentCount,
-          limit: tierLimitResult.limit,
-        },
-        { status: 403 }
+    const entitlements = getEffectiveEntitlementsForTier(effectiveSubscriptionTier, {
+      featuresEnabled: tenant?.features_enabled,
+      limits: tenant?.limits,
+    });
+
+    const photoLimit = entitlements.limits.max_photos_per_event;
+
+    if (photoLimit !== -1) {
+      const result = await db.query<{ count: string }>(
+        'SELECT COUNT(*)::text AS count FROM photos WHERE event_id = $1',
+        [eventId]
       );
+
+      const currentCount = parseInt(result.rows[0]?.count || '0', 10);
+      if (currentCount >= photoLimit) {
+        return NextResponse.json(
+          {
+            error: `This event has reached its photo limit (${photoLimit}). Upgrade to allow more photos.`,
+            code: 'TIER_LIMIT_REACHED',
+            upgradeRequired: true,
+            currentCount,
+            limit: photoLimit,
+          },
+          { status: 403 }
+        );
+      }
     }
 
     const photoId = generatePhotoId();
