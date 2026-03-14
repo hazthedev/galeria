@@ -107,14 +107,14 @@ function ConfigForm({
       </div>
 
       <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-        <div className="flex items-center justify-between mb-4">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h4 className="text-base font-semibold text-gray-900 dark:text-gray-100">
             Prize Tiers
           </h4>
           <button
             type="button"
             onClick={onAddPrizeTier}
-            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
+            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 sm:w-auto"
           >
             Add Tier
           </button>
@@ -197,7 +197,7 @@ function ConfigForm({
                     onClick={() => onRemovePrizeTier(index)}
                     disabled={configForm.prizeTiers.length <= 1}
                     className={clsx(
-                      'inline-flex items-center justify-center rounded-lg border px-3 py-2 text-xs font-medium transition-colors',
+                      'inline-flex min-h-11 w-full items-center justify-center rounded-lg border px-3 py-2 text-xs font-medium transition-colors',
                       configForm.prizeTiers.length <= 1
                         ? 'border-gray-200 text-gray-300 dark:border-gray-700 dark:text-gray-600'
                         : 'border-red-200 text-red-600 hover:bg-red-50 dark:border-red-500/40 dark:text-red-300 dark:hover:bg-red-500/10'
@@ -376,12 +376,12 @@ function ConfigForm({
         </div>
       )}
 
-      <div className="flex items-center gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <button
           type="submit"
           disabled={isSavingConfig}
           className={clsx(
-            'inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold text-white transition-colors',
+            'inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold text-white transition-colors sm:w-auto',
             'bg-gradient-to-r from-violet-600 to-pink-600',
             'hover:from-violet-700 hover:to-pink-700',
             isSavingConfig && 'opacity-70 cursor-not-allowed'
@@ -393,7 +393,7 @@ function ConfigForm({
           <button
             type="button"
             onClick={onCancelEdit}
-            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
+            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 sm:w-auto"
           >
             Cancel
           </button>
@@ -445,7 +445,7 @@ function DrawConfigSummary({ config }: { config: LuckyDrawConfig }) {
             {config.prizeTiers.map((tier, idx) => (
               <div
                 key={idx}
-                className="flex items-center justify-between rounded-lg bg-gray-50 px-4 py-2 dark:bg-gray-800/50"
+                className="flex flex-col gap-1 rounded-lg bg-gray-50 px-4 py-2 dark:bg-gray-800/50 sm:flex-row sm:items-center sm:justify-between"
               >
                 <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
                   {tier.name}
@@ -465,13 +465,13 @@ function DrawConfigSummary({ config }: { config: LuckyDrawConfig }) {
 function DrawConfigCard({ config, onEdit }: { config: LuckyDrawConfig; onEdit: () => void }) {
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-      <div className="flex items-center justify-between mb-4">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
           Draw Configuration
         </h3>
         <button
           onClick={onEdit}
-          className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
+          className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 sm:w-auto"
         >
           <Settings className="h-4 w-4" />
           Edit Configuration

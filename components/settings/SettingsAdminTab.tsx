@@ -207,8 +207,8 @@ export function SettingsAdminTab({
   return (
     <div className="space-y-6">
       {/* Sub-tab navigation */}
-      <div className="border-b border-gray-200 dark:border-gray-700">
-        <nav className="-mb-px flex gap-6 overflow-x-auto">
+      <div className="-mx-4 border-b border-gray-200 dark:border-gray-700 sm:mx-0">
+        <nav className="-mb-px flex gap-2 overflow-x-auto px-4 pb-1 sm:gap-6 sm:px-0">
           {subTabs.map((tab) => {
             const Icon = tab.icon;
             return (
@@ -216,7 +216,7 @@ export function SettingsAdminTab({
                 key={tab.id}
                 onClick={() => setActiveSubTab(tab.id)}
                 className={clsx(
-                  'flex items-center gap-2 whitespace-nowrap border-b-2 px-1 py-3 text-sm font-medium transition-colors',
+                  'flex min-h-11 items-center gap-2 whitespace-nowrap rounded-t-lg border-b-2 px-3 py-3 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800 sm:px-1 sm:text-sm',
                   activeSubTab === tab.id
                     ? 'border-violet-500 text-violet-600 dark:border-violet-400 dark:text-violet-400'
                     : 'border-transparent text-gray-600 hover:border-gray-300 hover:text-gray-900 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-gray-200'

@@ -67,7 +67,7 @@ export function EntriesTab({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             Draw Entries
@@ -80,7 +80,7 @@ export function EntriesTab({
           onClick={onRefresh}
           disabled={isRefreshing}
           className={clsx(
-            'inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors',
+            'inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors sm:w-auto',
             'hover:bg-gray-50 dark:hover:bg-gray-800',
             'disabled:opacity-50 disabled:cursor-not-allowed'
           )}
@@ -91,27 +91,27 @@ export function EntriesTab({
       </div>
 
       {isAdmin && (
-        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-          <h4 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4">
+        <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-6">
+          <h4 className="mb-4 text-base font-semibold text-gray-900 dark:text-gray-100">
             Manual Entry
           </h4>
           <form onSubmit={onSubmitManualEntry} className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
               <div>
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
                   Participant name
                 </label>
                 <input
                   type="text"
                   value={manualEntryName}
                   onChange={(event) => setManualEntryName(event.target.value)}
-                  className="w-full rounded-md border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-violet-500 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                  className="h-11 w-full rounded-md border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-violet-500 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
                   placeholder="Alex Tan"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
                   Entries to add
                 </label>
                 <input
@@ -122,26 +122,26 @@ export function EntriesTab({
                     const value = Number(event.target.value);
                     setManualEntryCount(Number.isFinite(value) && value > 0 ? Math.floor(value) : 1);
                   }}
-                  className="w-full rounded-md border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-violet-500 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                  className="h-11 w-full rounded-md border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-violet-500 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
                   Participant ID (optional)
                 </label>
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row">
                   <input
                     type="text"
                     value={manualEntryFingerprint}
                     onChange={(event) => setManualEntryFingerprint(event.target.value)}
-                    className="flex-1 rounded-md border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-violet-500 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                    className="h-11 flex-1 rounded-md border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-violet-500 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
                     placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
                   />
                   <button
                     type="button"
                     onClick={onGenerateParticipantUUID}
-                    className="inline-flex items-center gap-1 rounded-lg border border-violet-300 bg-violet-50 px-3 py-2 text-sm font-medium text-violet-700 hover:bg-violet-100 dark:border-violet-700 dark:bg-violet-900/30 dark:text-violet-300 dark:hover:bg-violet-900/50"
+                    className="inline-flex min-h-11 items-center justify-center gap-1 rounded-lg border border-violet-300 bg-violet-50 px-3 py-2 text-sm font-medium text-violet-700 hover:bg-violet-100 dark:border-violet-700 dark:bg-violet-900/30 dark:text-violet-300 dark:hover:bg-violet-900/50"
                     title="Generate UUID"
                   >
                     <Copy className="h-4 w-4" />
@@ -151,29 +151,29 @@ export function EntriesTab({
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
                   Photo ID {config?.requirePhotoUpload ? '(required)' : '(optional)'}
                 </label>
                 {config?.requirePhotoUpload ? (
                   <div className="space-y-2">
-                    <div className="flex gap-2">
+                    <div className="flex flex-col gap-2 sm:flex-row">
                       <input
                         type="text"
                         value={manualEntryPhotoId}
                         onChange={(event) => setManualEntryPhotoId(event.target.value)}
-                        className="flex-1 rounded-md border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-violet-500 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                        className="h-11 flex-1 rounded-md border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-violet-500 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
                         placeholder="Upload a photo below to auto-fill"
                         readOnly
                       />
                       <button
                         type="button"
-                        className="inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-gray-100 px-3 py-2 text-sm font-medium text-gray-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400 cursor-not-allowed"
+                        className="inline-flex min-h-11 items-center justify-center gap-1 rounded-lg border border-gray-300 bg-gray-100 px-3 py-2 text-sm font-medium text-gray-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400 cursor-not-allowed"
                         disabled
                       >
                         Auto-filled
                       </button>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                       <label className="inline-flex items-center gap-2 rounded-lg border border-dashed border-violet-300 bg-violet-50 px-4 py-2 text-sm text-violet-700 hover:bg-violet-100 dark:border-violet-700 dark:bg-violet-900/30 dark:text-violet-300 dark:hover:bg-violet-900/50 cursor-pointer">
                         <Upload className="h-4 w-4" />
                         <span>Upload Photo</span>
@@ -193,18 +193,18 @@ export function EntriesTab({
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    <div className="flex gap-2">
+                    <div className="flex flex-col gap-2 sm:flex-row">
                       <input
                         type="text"
                         value={manualEntryPhotoId}
                         onChange={(event) => setManualEntryPhotoId(event.target.value)}
-                        className="flex-1 rounded-md border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-violet-500 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                        className="h-11 flex-1 rounded-md border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-violet-500 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
                         placeholder="Not needed - leave empty"
                       />
                       <button
                         type="button"
                         onClick={() => setManualEntryPhotoId('')}
-                        className="inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
+                        className="inline-flex min-h-11 items-center justify-center gap-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
                         title="Clear field"
                       >
                         Clear
@@ -230,12 +230,12 @@ export function EntriesTab({
               </div>
             )}
 
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
               <button
                 type="submit"
                 disabled={manualEntrySubmitting || !config}
                 className={clsx(
-                  'inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white transition-colors',
+                  'inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white transition-colors sm:w-auto',
                   'bg-gradient-to-r from-violet-600 to-pink-600',
                   'hover:from-violet-700 hover:to-pink-700',
                   (manualEntrySubmitting || !config) && 'opacity-70 cursor-not-allowed'
@@ -274,12 +274,12 @@ export function EntriesTab({
           </div>
 
           {totalPages > 1 && (
-            <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex flex-col gap-3 border-t border-gray-200 pt-4 dark:border-gray-700 sm:flex-row sm:items-center sm:justify-between">
               <button
                 onClick={() => setEntriesPage((p) => Math.max(0, p - 1))}
                 disabled={!hasPrevPage}
                 className={clsx(
-                  'inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors',
+                  'inline-flex min-h-11 items-center justify-center gap-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors',
                   'hover:bg-gray-50 dark:hover:bg-gray-800',
                   'disabled:opacity-50 disabled:cursor-not-allowed'
                 )}
@@ -296,7 +296,7 @@ export function EntriesTab({
                 onClick={() => setEntriesPage((p) => Math.min(totalPages - 1, p + 1))}
                 disabled={!hasNextPage}
                 className={clsx(
-                  'inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors',
+                  'inline-flex min-h-11 items-center justify-center gap-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors',
                   'hover:bg-gray-50 dark:hover:bg-gray-800',
                   'disabled:opacity-50 disabled:cursor-not-allowed'
                 )}
@@ -319,7 +319,7 @@ function EntryCard({ entry }: { entry: LuckyDrawEntry }) {
   const entryLabel = `Entry: ${entry.id.slice(0, 8)}...`;
 
   return (
-    <div className="flex items-center gap-4 rounded-lg border border-gray-200 bg-white px-4 py-3 dark:border-gray-700 dark:bg-gray-800">
+    <div className="flex flex-col gap-4 rounded-lg border border-gray-200 bg-white px-4 py-3 dark:border-gray-700 dark:bg-gray-800 sm:flex-row sm:items-center">
       <div className="h-12 w-12 rounded-full bg-gradient-to-br from-violet-100 to-pink-100 dark:from-violet-900/30 dark:to-pink-900/30 flex items-center justify-center overflow-hidden">
         <span className="text-xs text-violet-600 dark:text-violet-400">
           Photo
@@ -336,7 +336,7 @@ function EntryCard({ entry }: { entry: LuckyDrawEntry }) {
       </div>
 
       {entry.isWinner && (
-        <span className="flex-shrink-0 rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 px-2.5 py-0.5 text-xs font-medium text-white">
+        <span className="w-fit flex-shrink-0 rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 px-2.5 py-0.5 text-xs font-medium text-white">
           Winner
         </span>
       )}

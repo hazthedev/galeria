@@ -70,7 +70,8 @@ export function WinnerModal({
       <div className="relative bg-gradient-to-br from-violet-50 via-white to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-pink-900/30 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 z-10 text-gray-400 hover:text-gray-600 dark:text-gray-300 dark:hover:text-gray-100"
+          aria-label="Close winner modal"
+          className="absolute right-4 top-4 z-10 flex h-11 w-11 items-center justify-center rounded-full text-gray-400 hover:bg-white/70 hover:text-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-gray-100"
         >
           Close
         </button>
@@ -78,7 +79,7 @@ export function WinnerModal({
         {!showAllWinners ? (
           <>
             {!isAnimating && !showWinner && (
-              <div className="p-8 text-center">
+              <div className="p-4 text-center sm:p-8">
                 <p className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-6">
                   Ready to Reveal: <span className="text-violet-600 font-bold">{currentWinner?.prizeName}</span>
                 </p>
@@ -104,7 +105,7 @@ export function WinnerModal({
             )}
 
             {isAnimating && (
-              <div className="p-8">
+              <div className="p-4 sm:p-8">
                 <DrawAnimation
                   key={`${animationStyle}-${currentIndex}`}
                   style={animationStyle}
@@ -123,7 +124,7 @@ export function WinnerModal({
             )}
 
             {showWinner && currentWinner && (
-              <div className="p-8 text-center">
+              <div className="p-4 text-center sm:p-8">
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                   Winner {currentIndex + 1} of {winners.length}
                 </p>
@@ -144,7 +145,7 @@ export function WinnerModal({
             )}
           </>
         ) : (
-          <div className="p-8">
+          <div className="p-4 sm:p-8">
             <h2 className="text-2xl font-bold text-center text-gray-900 dark:text-gray-100 mb-6">
               Draw Complete!
             </h2>
@@ -188,7 +189,7 @@ function WinnerCard({ winner, rank }: { winner: Winner; rank: number }) {
   const medal = medals[Math.min(rank - 1, medals.length - 1)];
 
   return (
-    <div className="flex items-center gap-4 rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+    <div className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:flex-row sm:items-center">
       <span className="text-2xl">{medal}</span>
       <div className="flex-1">
         <p className="font-semibold text-gray-900 dark:text-gray-100">

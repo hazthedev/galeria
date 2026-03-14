@@ -22,7 +22,7 @@ export function ParticipantsTab({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             Participants
@@ -36,7 +36,7 @@ export function ParticipantsTab({
           onClick={onRefresh}
           disabled={participantsLoading}
           className={clsx(
-            'inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors',
+            'inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors sm:w-auto',
             'hover:bg-gray-50 dark:hover:bg-gray-800',
             'disabled:opacity-50 disabled:cursor-not-allowed'
           )}
@@ -89,11 +89,11 @@ export function ParticipantsTab({
                     ID: {participant.userFingerprint}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    First entry: {firstEntry} - Last entry: {lastEntry}
+                    First entry: {firstEntry} | Last entry: {lastEntry}
                   </p>
                 </div>
-                <div className="flex items-center gap-4">
-                  <div className="text-right">
+                <div className="flex items-center gap-4 self-start md:self-auto">
+                  <div className="text-left md:text-right">
                     <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
                       {participant.entryCount} {participant.entryCount === 1 ? 'entry' : 'entries'}
                     </p>

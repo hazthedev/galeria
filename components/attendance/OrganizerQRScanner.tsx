@@ -134,7 +134,7 @@ export function OrganizerQRScanner({ eventId, onClose, onScanSuccess }: Organize
                 <button
                   onClick={() => setIsScanning(true)}
                   disabled={isLoading}
-                  className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-6 py-2.5 font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+                  className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-6 py-2.5 font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 sm:w-auto"
                 >
                   <Camera className="h-5 w-5" />
                   Start Scanner
@@ -144,7 +144,7 @@ export function OrganizerQRScanner({ eventId, onClose, onScanSuccess }: Organize
                   <button
                     onClick={handleSimulatedScan}
                     disabled={isLoading}
-                    className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-6 py-2.5 font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
+                    className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-violet-600 px-6 py-2.5 font-semibold text-white hover:bg-violet-700 disabled:opacity-50 sm:w-auto"
                   >
                     {isLoading ? (
                       <>
@@ -161,7 +161,7 @@ export function OrganizerQRScanner({ eventId, onClose, onScanSuccess }: Organize
 
                   <button
                     onClick={() => setIsScanning(false)}
-                    className="block w-full rounded-lg border border-gray-300 px-6 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+                    className="block min-h-11 w-full rounded-lg border border-gray-300 px-6 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
                   >
                     Stop Scanner
                   </button>
@@ -190,7 +190,7 @@ export function OrganizerQRScanner({ eventId, onClose, onScanSuccess }: Organize
       </div>
 
       {/* Stats Section */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
           <p className="text-xs text-gray-500 dark:text-gray-400">Scan Method</p>
           <p className="mt-1 text-lg font-semibold text-gray-900 dark:text-gray-100">

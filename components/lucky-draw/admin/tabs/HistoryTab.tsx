@@ -22,7 +22,7 @@ export function HistoryTab({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             Draw History
@@ -35,7 +35,7 @@ export function HistoryTab({
           onClick={onRefresh}
           disabled={isRefreshing}
           className={clsx(
-            'inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors',
+            'inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors sm:w-auto',
             'hover:bg-gray-50 dark:hover:bg-gray-800',
             'disabled:opacity-50 disabled:cursor-not-allowed'
           )}
@@ -96,7 +96,7 @@ function DrawHistoryItem({
 
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-      <div className="flex items-center justify-between mb-2">
+      <div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
           <History className="h-4 w-4 text-gray-500" />
           <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
@@ -119,7 +119,7 @@ function DrawHistoryItem({
         </span>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 text-sm">
+      <div className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
         <div>
           <span className="text-gray-600 dark:text-gray-400">Total Prizes:</span>
           <span className="ml-2 font-medium text-gray-900 dark:text-gray-100">
@@ -167,9 +167,9 @@ function DrawHistoryItem({
               .map((winner) => (
                 <div
                   key={winner.id}
-                  className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 dark:bg-gray-900/30"
+                  className="flex flex-col gap-2 rounded-lg bg-gray-50 px-3 py-2 dark:bg-gray-900/30 sm:flex-row sm:items-center sm:justify-between"
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
                     <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
                       {winner.selectionOrder}. {winner.participantName}
                     </span>
@@ -179,7 +179,7 @@ function DrawHistoryItem({
                       </span>
                     )}
                   </div>
-                  <div className="text-right">
+                  <div className="text-left sm:text-right">
                     <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                       {winner.prizeName}
                     </p>

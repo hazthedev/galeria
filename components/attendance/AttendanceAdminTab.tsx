@@ -5,7 +5,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Users, Download, Upload, UserPlus, Search, ChevronLeft, ChevronRight, QrCode, ScanLine, Check, Copy } from 'lucide-react';
+import { Users, Download, Upload, UserPlus, Search, ChevronLeft, ChevronRight, QrCode, Check, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import clsx from 'clsx';
 import { OrganizerQRScanner } from '@/components/attendance/OrganizerQRScanner';
@@ -286,7 +286,8 @@ export function AttendanceAdminTab({ eventId, initialTab, attendanceEnabled = tr
   return (
     <div className="space-y-6">
       {/* Sub-tabs */}
-      <div className="flex gap-2 border-b border-gray-200 dark:border-gray-700">
+      <div className="-mx-4 border-b border-gray-200 dark:border-gray-700 sm:mx-0">
+        <div className="flex gap-2 overflow-x-auto px-4 pb-1 sm:px-0">
         {[
           { id: 'overview' as const, label: 'Dashboard', icon: Users },
           { id: 'guests' as const, label: 'Guest List', icon: Users },
@@ -298,7 +299,7 @@ export function AttendanceAdminTab({ eventId, initialTab, attendanceEnabled = tr
             key={tab.id}
             onClick={() => setActiveSubTab(tab.id)}
             className={clsx(
-              'flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors',
+              'flex min-h-11 items-center gap-2 whitespace-nowrap border-b-2 px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800',
               activeSubTab === tab.id
                 ? 'border-violet-600 text-violet-600'
                 : 'border-transparent text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100'
@@ -308,6 +309,7 @@ export function AttendanceAdminTab({ eventId, initialTab, attendanceEnabled = tr
             {tab.label}
           </button>
         ))}
+        </div>
       </div>
 
       {/* Overview Tab */}
@@ -358,7 +360,7 @@ export function AttendanceAdminTab({ eventId, initialTab, attendanceEnabled = tr
       {/* Guest List Tab */}
       {activeSubTab === 'guests' && (
         <div className="space-y-4">
-          <div className="flex gap-4">
+          <div className="flex flex-col gap-4 sm:flex-row">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
               <input
@@ -366,7 +368,7 @@ export function AttendanceAdminTab({ eventId, initialTab, attendanceEnabled = tr
                 placeholder="Search by name, email, or phone..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900"
+                className="h-11 w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900"
               />
             </div>
           </div>
@@ -380,66 +382,106 @@ export function AttendanceAdminTab({ eventId, initialTab, attendanceEnabled = tr
             </div>
           ) : (
             <>
-              <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
-                <table className="w-full">
-                  <thead className="border-b border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
-                        Guest
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
-                        Email
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
-                        Phone
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
-                        Companions
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
-                        Check-in Time
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
-                        Method
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                    {filteredAttendances.map((attendance) => (
-                      <tr key={attendance.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                        <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">
+              <div className="space-y-3 md:hidden">
+                {filteredAttendances.map((attendance) => (
+                  <div
+                    key={attendance.id}
+                    className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                           {attendance.guest_name}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                          {attendance.guest_email || '-'}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                          {attendance.guest_phone || '-'}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                          {attendance.companions_count}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                        </p>
+                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                           {new Date(attendance.check_in_time).toLocaleString()}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-300">
-                            {attendance.check_in_method}
-                          </span>
-                        </td>
+                        </p>
+                      </div>
+                      <span className="rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-300">
+                        {attendance.check_in_method}
+                      </span>
+                    </div>
+
+                    <dl className="mt-4 grid grid-cols-1 gap-3 text-sm text-gray-600 dark:text-gray-400">
+                      <div className="rounded-lg bg-gray-50 px-3 py-2 dark:bg-gray-900/40">
+                        <dt className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-500">Email</dt>
+                        <dd className="mt-1 break-all">{attendance.guest_email || '-'}</dd>
+                      </div>
+                      <div className="rounded-lg bg-gray-50 px-3 py-2 dark:bg-gray-900/40">
+                        <dt className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-500">Phone</dt>
+                        <dd className="mt-1">{attendance.guest_phone || '-'}</dd>
+                      </div>
+                      <div className="rounded-lg bg-gray-50 px-3 py-2 dark:bg-gray-900/40">
+                        <dt className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-500">Companions</dt>
+                        <dd className="mt-1">{attendance.companions_count}</dd>
+                      </div>
+                    </dl>
+                  </div>
+                ))}
+              </div>
+
+              <div className="-mx-4 hidden overflow-x-auto px-4 md:block md:px-0">
+                <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                  <table className="min-w-full">
+                    <thead className="border-b border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
+                          Guest
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
+                          Email
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
+                          Phone
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
+                          Companions
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
+                          Check-in Time
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
+                          Method
+                        </th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                      {filteredAttendances.map((attendance) => (
+                        <tr key={attendance.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                          <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">
+                            {attendance.guest_name}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                            {attendance.guest_email || '-'}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                            {attendance.guest_phone || '-'}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                            {attendance.companions_count}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                            {new Date(attendance.check_in_time).toLocaleString()}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-300">
+                              {attendance.check_in_method}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
 
               {/* Pagination */}
               {totalPages > 1 && (
-                <div className="flex items-center justify-between border-t border-gray-200 px-4 py-3 dark:border-gray-700">
+                <div className="flex flex-col gap-3 border-t border-gray-200 px-4 py-3 dark:border-gray-700 sm:flex-row sm:items-center sm:justify-between">
                   <button
                     onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                     disabled={currentPage === 1}
-                    className="flex items-center gap-1 rounded px-3 py-1 text-sm text-gray-600 hover:bg-gray-100 disabled:opacity-50 dark:text-gray-400 dark:hover:bg-gray-700"
+                    className="inline-flex min-h-11 items-center justify-center gap-1 rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 disabled:opacity-50 dark:text-gray-400 dark:hover:bg-gray-700"
                   >
                     <ChevronLeft className="h-4 w-4" /> Previous
                   </button>
@@ -449,7 +491,7 @@ export function AttendanceAdminTab({ eventId, initialTab, attendanceEnabled = tr
                   <button
                     onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                     disabled={currentPage === totalPages}
-                    className="flex items-center gap-1 rounded px-3 py-1 text-sm text-gray-600 hover:bg-gray-100 disabled:opacity-50 dark:text-gray-400 dark:hover:bg-gray-700"
+                    className="inline-flex min-h-11 items-center justify-center gap-1 rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 disabled:opacity-50 dark:text-gray-400 dark:hover:bg-gray-700"
                   >
                     Next <ChevronRight className="h-4 w-4" />
                   </button>
@@ -462,12 +504,13 @@ export function AttendanceAdminTab({ eventId, initialTab, attendanceEnabled = tr
 
       {/* Manual Entry Tab */}
       {activeSubTab === 'manual' && (
-        <div className="max-w-md rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-6 md:max-w-2xl">
           <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">
             Manual Check-in
           </h3>
           <form onSubmit={handleManualCheckIn} className="space-y-4">
-            <div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="md:col-span-2">
               <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Name <span className="text-red-500">*</span>
               </label>
@@ -476,7 +519,7 @@ export function AttendanceAdminTab({ eventId, initialTab, attendanceEnabled = tr
                 required
                 value={manualGuestName}
                 onChange={(e) => setManualGuestName(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900 dark:text-white"
+                className="h-11 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900 dark:text-white"
                 placeholder="Guest name"
                 disabled={isSubmitting}
               />
@@ -490,7 +533,7 @@ export function AttendanceAdminTab({ eventId, initialTab, attendanceEnabled = tr
                 type="email"
                 value={manualGuestEmail}
                 onChange={(e) => setManualGuestEmail(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900 dark:text-white"
+                className="h-11 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900 dark:text-white"
                 placeholder="email@example.com"
                 disabled={isSubmitting}
               />
@@ -504,7 +547,7 @@ export function AttendanceAdminTab({ eventId, initialTab, attendanceEnabled = tr
                 type="tel"
                 value={manualGuestPhone}
                 onChange={(e) => setManualGuestPhone(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900 dark:text-white"
+                className="h-11 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900 dark:text-white"
                 placeholder="+1 234 567 8900"
                 disabled={isSubmitting}
               />
@@ -519,7 +562,7 @@ export function AttendanceAdminTab({ eventId, initialTab, attendanceEnabled = tr
                   type="button"
                   onClick={() => setManualCompanions(Math.max(0, manualCompanions - 1))}
                   disabled={isSubmitting}
-                  className="rounded-lg border border-gray-300 px-3 py-2 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:hover:bg-gray-700"
+                  className="flex h-11 w-11 items-center justify-center rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:hover:bg-gray-700"
                 >
                   -
                 </button>
@@ -528,18 +571,19 @@ export function AttendanceAdminTab({ eventId, initialTab, attendanceEnabled = tr
                   type="button"
                   onClick={() => setManualCompanions(manualCompanions + 1)}
                   disabled={isSubmitting}
-                  className="rounded-lg border border-gray-300 px-3 py-2 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:hover:bg-gray-700"
+                  className="flex h-11 w-11 items-center justify-center rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:hover:bg-gray-700"
                 >
                   +
                 </button>
               </div>
+            </div>
             </div>
 
             <button
               type="submit"
               disabled={isSubmitting || !manualGuestName.trim()}
               className={clsx(
-                'w-full rounded-lg py-2.5 font-semibold text-white transition-colors',
+                'w-full rounded-lg py-3 font-semibold text-white transition-colors',
                 'disabled:cursor-not-allowed disabled:opacity-50',
                 isSubmitting || !manualGuestName.trim()
                   ? 'bg-gray-400'
@@ -556,23 +600,25 @@ export function AttendanceAdminTab({ eventId, initialTab, attendanceEnabled = tr
       {activeSubTab === 'qr' && (
         <div className="space-y-6">
           {/* QR Code Sub-tabs */}
-          <div className="flex gap-2 border-b border-gray-200 dark:border-gray-700">
+          <div className="-mx-4 border-b border-gray-200 dark:border-gray-700 sm:mx-0">
+            <div className="flex gap-2 overflow-x-auto px-4 pb-1 sm:px-0">
             <button
               onClick={() => setActiveSubTab('qr')}
               className={clsx(
-                'flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors',
+                'flex min-h-11 items-center gap-2 whitespace-nowrap border-b-2 px-4 py-2 text-sm font-medium transition-colors',
                 'border-violet-600 text-violet-600'
               )}
             >
               <QrCode className="h-4 w-4" />
               Generate QR Code
             </button>
+            </div>
           </div>
 
           {/* Generate QR Code Section */}
-          <div className="grid gap-6 lg:grid-cols-2">
+          <div className="grid gap-6 xl:grid-cols-2">
             {/* QR Code Display */}
-            <div className="rounded-xl border border-gray-200 bg-white p-8 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-8">
               <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">
                 Check-in QR Code
               </h3>
@@ -586,7 +632,7 @@ export function AttendanceAdminTab({ eventId, initialTab, attendanceEnabled = tr
                   <img
                     src={qrCodeUrl}
                     alt="Event Check-in QR Code"
-                    className="h-64 w-64"
+                    className="h-auto w-full max-w-[16rem] sm:max-w-[18rem]"
                   />
                 </div>
               </div>
@@ -595,7 +641,7 @@ export function AttendanceAdminTab({ eventId, initialTab, attendanceEnabled = tr
               <div className="flex flex-col gap-3">
                 <button
                   onClick={handleDownloadQR}
-                  className="flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                  className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
                 >
                   <Download className="h-4 w-4" />
                   Download QR Code
@@ -604,7 +650,7 @@ export function AttendanceAdminTab({ eventId, initialTab, attendanceEnabled = tr
             </div>
 
             {/* Check-in Link */}
-            <div className="rounded-xl border border-gray-200 bg-white p-8 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-8">
               <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">
                 Check-in Link
               </h3>
@@ -617,14 +663,14 @@ export function AttendanceAdminTab({ eventId, initialTab, attendanceEnabled = tr
                   <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
                     Direct Link
                   </label>
-                  <div className="flex gap-2">
-                    <code className="flex-1 rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-700 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-300 break-all">
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <code className="flex-1 rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-700 break-all dark:border-gray-600 dark:bg-gray-900 dark:text-gray-300">
                       {checkInUrl}
                     </code>
                     <button
                       onClick={handleCopyCheckInLink}
                       className={clsx(
-                        'flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors',
+                        'flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors',
                         copiedLink
                           ? 'bg-emerald-600 text-white'
                           : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700'
@@ -675,7 +721,7 @@ export function AttendanceAdminTab({ eventId, initialTab, attendanceEnabled = tr
           </div>
 
           {/* Scan Guest QR Section */}
-          <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-6">
             <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">
               Scan Guest QR Code
             </h3>
@@ -699,7 +745,7 @@ export function AttendanceAdminTab({ eventId, initialTab, attendanceEnabled = tr
             </p>
             <button
               onClick={handleExport}
-              className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+              className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 sm:w-auto"
             >
               <Download className="h-4 w-4" />
               Export to CSV

@@ -30,7 +30,7 @@ export function AdvancedTab({
 }: AdvancedTabProps) {
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             Advanced Settings
@@ -116,7 +116,7 @@ export function AdvancedTab({
           onClick={onSave}
           disabled={isLoading || !hasChanges}
           className={clsx(
-            'flex items-center gap-2 rounded-lg px-6 py-2.5 text-sm font-semibold text-white transition-colors',
+            'flex min-h-11 w-full items-center justify-center gap-2 rounded-lg px-6 py-2.5 text-sm font-semibold text-white transition-colors sm:w-auto',
             'disabled:cursor-not-allowed disabled:opacity-50',
             isLoading || !hasChanges ? 'bg-gray-400' : 'bg-violet-600 hover:bg-violet-700'
           )}
