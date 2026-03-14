@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantDb } from '@/lib/db';
+import { requireEventModeratorAccess } from '@/lib/domain/auth/auth';
 import type { IAttendance, IAttendanceCreate, CheckInMethod } from '@/lib/types';
 import { resolveOptionalAuth, resolveRequiredTenantId, resolveTenantId } from '@/lib/api-request-context';
 
@@ -44,34 +45,18 @@ export async function GET(
 ) {
   try {
     const { eventId } = await params;
-    const headers = request.headers;
-    const auth = await resolveOptionalAuth(headers);
-    const tenantId = resolveTenantId(headers, auth);
-
-    const db = getTenantDb(tenantId);
-
-    // Verify event exists
-    const event = await db.findOne<EventWithAttendance>('events', { id: eventId });
-
-    if (!event) {
-      return NextResponse.json(
-        { error: 'Event not found', code: 'EVENT_NOT_FOUND' },
-        { status: 404 }
-      );
-    }
+    const { db, event } = await requireEventModeratorAccess(request.headers, eventId);
 
     // Check if attendance feature is enabled
-    if (event.settings?.features?.attendance_enabled === false) {
+    const attendanceDisabled =
+      event.settings &&
+      typeof event.settings === 'object' &&
+      (event.settings as { features?: { attendance_enabled?: boolean } }).features?.attendance_enabled === false;
+
+    if (attendanceDisabled) {
       return NextResponse.json(
         { error: 'Attendance feature is disabled', code: 'FEATURE_DISABLED' },
         { status: 400 }
-      );
-    }
-
-    if (!auth || (auth.role !== 'super_admin' && auth.role !== 'organizer')) {
-      return NextResponse.json(
-        { error: 'Forbidden', code: 'FORBIDDEN' },
-        { status: 403 }
       );
     }
 
@@ -105,6 +90,29 @@ export async function GET(
       pagination: { limit, offset, total }
     });
   } catch (error) {
+    if (error instanceof Error) {
+      if (error.message.includes('Authentication required') || error.message.includes('Invalid or expired access token')) {
+        return NextResponse.json(
+          { error: 'Authentication required', code: 'AUTH_REQUIRED' },
+          { status: 401 }
+        );
+      }
+
+      if (error.message.includes('Forbidden')) {
+        return NextResponse.json(
+          { error: 'Forbidden', code: 'FORBIDDEN' },
+          { status: 403 }
+        );
+      }
+
+      if (error.message.includes('Event not found')) {
+        return NextResponse.json(
+          { error: 'Event not found', code: 'EVENT_NOT_FOUND' },
+          { status: 404 }
+        );
+      }
+    }
+
     if (isMissingTableError(error)) {
       return NextResponse.json({
         data: [],

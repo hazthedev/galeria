@@ -6,6 +6,7 @@ import archiver from 'archiver';
 import { PassThrough, Readable } from 'stream';
 import sharp from 'sharp';
 import type { IEvent, IPhoto } from '@/lib/types';
+import { assertTrustedStorageUrl } from '@/lib/images';
 
 const sanitizeFilename = (value: string) => {
   return value
@@ -42,6 +43,7 @@ export const buildPhotoFilename = (eventName: string, photo: IPhoto) => {
 };
 
 const fetchImageBuffer = async (url: string) => {
+  assertTrustedStorageUrl(url);
   const response = await fetch(url);
   if (!response.ok) {
     throw new Error(`Failed to fetch image: ${response.status}`);

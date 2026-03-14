@@ -3,9 +3,8 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getTenantDb } from '@/lib/db';
+import { requireEventModeratorAccess } from '@/lib/domain/auth/auth';
 import type { IAttendance } from '@/lib/types';
-import { resolveOptionalAuth, resolveRequiredTenantId } from '@/lib/api-request-context';
 
 // ============================================
 // GET /api/events/:eventId/attendance/export
@@ -17,16 +16,16 @@ export async function GET(
 ) {
   try {
     const { eventId } = await params;
-    const headers = request.headers;
-    const auth = await resolveOptionalAuth(headers);
-    const tenantId = resolveRequiredTenantId(headers, auth);
+    const { db, event } = await requireEventModeratorAccess(request.headers, eventId);
 
-    const db = getTenantDb(tenantId);
-
-    if (!auth || (auth.role !== 'super_admin' && auth.role !== 'organizer')) {
+    if (
+      event.settings &&
+      typeof event.settings === 'object' &&
+      (event.settings as { features?: { attendance_enabled?: boolean } }).features?.attendance_enabled === false
+    ) {
       return NextResponse.json(
-        { error: 'Forbidden', code: 'FORBIDDEN' },
-        { status: 403 }
+        { error: 'Attendance feature is disabled', code: 'FEATURE_DISABLED' },
+        { status: 400 }
       );
     }
 
@@ -64,6 +63,29 @@ export async function GET(
       },
     });
   } catch (error) {
+    if (error instanceof Error) {
+      if (error.message.includes('Authentication required') || error.message.includes('Invalid or expired access token')) {
+        return NextResponse.json(
+          { error: 'Authentication required', code: 'AUTH_REQUIRED' },
+          { status: 401 }
+        );
+      }
+
+      if (error.message.includes('Forbidden')) {
+        return NextResponse.json(
+          { error: 'Forbidden', code: 'FORBIDDEN' },
+          { status: 403 }
+        );
+      }
+
+      if (error.message.includes('Event not found')) {
+        return NextResponse.json(
+          { error: 'Event not found', code: 'EVENT_NOT_FOUND' },
+          { status: 404 }
+        );
+      }
+    }
+
     if (error instanceof Error && error.message.includes('Tenant context missing')) {
       return NextResponse.json(
         { error: 'Tenant not found', code: 'TENANT_NOT_FOUND' },

@@ -7,6 +7,7 @@ import { getTenantDb } from '@/lib/db';
 import { requireAuthForApi } from '@/lib/domain/auth/auth';
 import type { IEvent, IPhoto } from '@/lib/types';
 import { buildPhotoFilename } from '@/lib/export/zip-generator';
+import { assertTrustedStorageUrl } from '@/lib/images';
 import sharp from 'sharp';
 import { resolveOptionalAuth, resolveTenantId } from '@/lib/api-request-context';
 
@@ -88,6 +89,12 @@ export async function GET(
     const sourceUrl = photo.images?.original_url || photo.images?.full_url;
     if (!sourceUrl) {
       return NextResponse.json({ error: 'Image not found', code: 'NOT_FOUND' }, { status: 404 });
+    }
+
+    try {
+      assertTrustedStorageUrl(sourceUrl);
+    } catch {
+      return NextResponse.json({ error: 'Image source is invalid', code: 'INVALID_IMAGE_SOURCE' }, { status: 400 });
     }
 
     const response = await fetch(sourceUrl);

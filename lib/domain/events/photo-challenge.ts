@@ -5,6 +5,44 @@
 import type { TenantDatabase } from '@/lib/db';
 import type { IPhotoChallenge, IGuestPhotoProgress } from '@/lib/types';
 
+export function getGuestFingerprintCandidates(fingerprint: string): string[] {
+  const trimmed = fingerprint.trim();
+  if (!trimmed) {
+    return [];
+  }
+
+  if (trimmed.startsWith('guest_')) {
+    const unprefixed = trimmed.slice('guest_'.length).trim();
+    return unprefixed ? [trimmed, unprefixed] : [trimmed];
+  }
+
+  return [trimmed, `guest_${trimmed}`];
+}
+
+export function normalizeGuestChallengeFingerprint(fingerprint: string): string {
+  const [primary, secondary] = getGuestFingerprintCandidates(fingerprint);
+  return secondary || primary || fingerprint.trim();
+}
+
+export async function findGuestProgressByFingerprint(
+  db: TenantDatabase,
+  eventId: string,
+  fingerprint: string
+): Promise<IGuestPhotoProgress | null> {
+  for (const candidate of getGuestFingerprintCandidates(fingerprint)) {
+    const progress = await db.findOne<IGuestPhotoProgress>('guest_photo_progress', {
+      event_id: eventId,
+      user_fingerprint: candidate,
+    });
+
+    if (progress) {
+      return progress;
+    }
+  }
+
+  return null;
+}
+
 // Get active photo challenge config for an event
 export async function getActiveChallenge(
   db: TenantDatabase,

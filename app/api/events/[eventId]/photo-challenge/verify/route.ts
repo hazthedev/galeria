@@ -3,8 +3,8 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getTenantDb } from '@/lib/db';
-import { requireAuthForApi } from '@/lib/domain/auth/auth';
+import { findGuestProgressByFingerprint } from '@/lib/photo-challenge';
+import { requireEventModeratorAccess } from '@/lib/domain/auth/auth';
 
 type RouteContext = {
   params: Promise<{ eventId: string }>;
@@ -17,9 +17,7 @@ type RouteContext = {
 export async function POST(req: NextRequest, context: RouteContext) {
   try {
     const { eventId } = await context.params;
-
-    // Authenticate organizer
-    const { userId, tenantId } = await requireAuthForApi(req.headers);
+    const { db } = await requireEventModeratorAccess(req.headers, eventId);
 
     const body = await req.json();
     const { token } = body;
@@ -30,9 +28,6 @@ export async function POST(req: NextRequest, context: RouteContext) {
         { status: 400 }
       );
     }
-
-    const db = getTenantDb(tenantId);
-
     // Find the prize claim
     const claim = await db.findOne('prize_claims', {
       event_id: eventId,
@@ -60,10 +55,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
     }
 
     // Get progress details
-    const progress = await db.findOne('guest_photo_progress', {
-      event_id: eventId,
-      user_fingerprint: claim.user_fingerprint,
-    });
+    const progress = await findGuestProgressByFingerprint(db, eventId, claim.user_fingerprint);
 
     return NextResponse.json({
       data: {
@@ -80,11 +72,27 @@ export async function POST(req: NextRequest, context: RouteContext) {
   } catch (error) {
     console.error('[PHOTO_CHALLENGE_VERIFY] POST error:', error);
 
-    if (error instanceof Error && error.message.includes('Authentication required')) {
-      return NextResponse.json(
-        { error: 'Authentication required', code: 'AUTH_REQUIRED' },
-        { status: 401 }
-      );
+    if (error instanceof Error) {
+      if (error.message.includes('Authentication required') || error.message.includes('Invalid or expired access token')) {
+        return NextResponse.json(
+          { error: 'Authentication required', code: 'AUTH_REQUIRED' },
+          { status: 401 }
+        );
+      }
+
+      if (error.message.includes('Forbidden')) {
+        return NextResponse.json(
+          { error: 'Forbidden', code: 'FORBIDDEN' },
+          { status: 403 }
+        );
+      }
+
+      if (error.message.includes('Event not found')) {
+        return NextResponse.json(
+          { error: 'Event not found', code: 'EVENT_NOT_FOUND' },
+          { status: 404 }
+        );
+      }
     }
 
     return NextResponse.json(

@@ -28,6 +28,26 @@ const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID || '';
 const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY || '';
 const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME || 'galeria-dev';
 const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL || 'https://pub-xxxxxxxxx.r2.dev';
+const TRUSTED_STORAGE_URLS = [
+  process.env.R2_PUBLIC_URL,
+  process.env.NEXT_PUBLIC_R2_PUBLIC_URL,
+  'https://pub-xxxxxxxxx.r2.dev',
+  'https://pub-6cb0a45a6e9e4069bb6e10a94ae8c269.r2.dev',
+].filter((value): value is string => Boolean(value));
+
+function getTrustedStorageHosts(): Set<string> {
+  const hosts = new Set<string>();
+
+  for (const value of TRUSTED_STORAGE_URLS) {
+    try {
+      hosts.add(new URL(value).hostname.toLowerCase());
+    } catch {
+      // Ignore invalid configuration values.
+    }
+  }
+
+  return hosts;
+}
 
 // Image processing constants
 const MAX_DIMENSION = 1920;
@@ -53,6 +73,24 @@ function getR2Client(): S3Client {
     });
   }
   return r2Client;
+}
+
+export function isTrustedStorageUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return (
+      (url.protocol === 'https:' || url.protocol === 'http:') &&
+      getTrustedStorageHosts().has(url.hostname.toLowerCase())
+    );
+  } catch {
+    return false;
+  }
+}
+
+export function assertTrustedStorageUrl(value: string): void {
+  if (!isTrustedStorageUrl(value)) {
+    throw new Error('Untrusted storage URL');
+  }
 }
 
 // ============================================

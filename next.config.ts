@@ -2,6 +2,16 @@ import type { NextConfig } from "next";
 import webpack from 'webpack';
 
 const R2_PUBLIC_URL = process.env.NEXT_PUBLIC_R2_PUBLIC_URL || process.env.R2_PUBLIC_URL;
+const isProduction = process.env.NODE_ENV === 'production';
+const securityHeaders = [
+  { key: 'X-Frame-Options', value: 'DENY' },
+  { key: 'X-Content-Type-Options', value: 'nosniff' },
+  { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+  { key: 'Permissions-Policy', value: 'camera=(self), microphone=(), geolocation=()' },
+  ...(isProduction
+    ? [{ key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' }]
+    : []),
+];
 
 const remotePatterns: NonNullable<NextConfig['images']>['remotePatterns'] = [];
 if (R2_PUBLIC_URL) {
@@ -21,6 +31,14 @@ remotePatterns.push({
 });
 
 const nextConfig: NextConfig = {
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: securityHeaders,
+      },
+    ];
+  },
   images: {
     remotePatterns,
     loader: 'custom',

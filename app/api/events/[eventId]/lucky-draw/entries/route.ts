@@ -5,9 +5,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantDb } from '@/lib/db';
 import { deleteKeys } from '@/lib/redis';
-import { verifyAccessToken } from '@/lib/domain/auth/auth';
+import { requireEventModeratorAccess } from '@/lib/domain/auth/auth';
 import { createManualEntries, getActiveConfig, getEventEntries } from '@/lib/lucky-draw';
-import { extractSessionId, validateSession } from '@/lib/domain/auth/session';
 import { resolveOptionalAuth, resolveRequiredTenantId, resolveTenantId } from '@/lib/api-request-context';
 import { isTenantFeatureEnabled } from '@/lib/tenant';
 
@@ -65,16 +64,7 @@ export async function GET(
       return createLuckyDrawFeatureUnavailableResponse();
     }
 
-    const db = getTenantDb(tenantId);
-
-    // Verify event exists
-    const event = await db.findOne('events', { id: eventId });
-    if (!event) {
-      return NextResponse.json(
-        { error: 'Event not found', code: 'EVENT_NOT_FOUND' },
-        { status: 404 }
-      );
-    }
+    const { db } = await requireEventModeratorAccess(request.headers, eventId);
 
     // Get active config
     const config = await getActiveConfig(tenantId, eventId);
@@ -123,6 +113,29 @@ export async function GET(
       warnings: warnings.length > 0 ? warnings : undefined,
     });
   } catch (error) {
+    if (error instanceof Error) {
+      if (error.message.includes('Authentication required') || error.message.includes('Invalid or expired access token')) {
+        return NextResponse.json(
+          { error: 'Authentication required', code: 'AUTH_REQUIRED' },
+          { status: 401 }
+        );
+      }
+
+      if (error.message.includes('Forbidden')) {
+        return NextResponse.json(
+          { error: 'Forbidden', code: 'FORBIDDEN' },
+          { status: 403 }
+        );
+      }
+
+      if (error.message.includes('Event not found')) {
+        return NextResponse.json(
+          { error: 'Event not found', code: 'EVENT_NOT_FOUND' },
+          { status: 404 }
+        );
+      }
+    }
+
     if (isRecoverableReadError(error)) {
       return NextResponse.json({
         data: [],
@@ -160,63 +173,7 @@ export async function POST(
       return createLuckyDrawFeatureUnavailableResponse();
     }
 
-    const db = getTenantDb(tenantId);
-
-    // Verify user is authenticated (session or JWT)
-    const cookieHeader = headers.get('cookie');
-    const authHeader = headers.get('authorization');
-    let userId: string | null = null;
-    let userRole: string | null = null;
-
-    // Try session-based auth first
-    const sessionResult = extractSessionId(cookieHeader, authHeader);
-    if (sessionResult.sessionId) {
-      const session = await validateSession(sessionResult.sessionId, false);
-      if (session.valid && session.session) {
-        userId = session.session.userId;
-        // Get user role from database
-        const user = await db.findOne('users', { id: userId });
-        userRole = user?.role || null;
-      }
-    }
-
-    // Fallback to JWT token
-    if (!userId && authHeader) {
-      try {
-        const token = authHeader.replace('Bearer ', '');
-        const payload = verifyAccessToken(token);
-        userId = payload.sub;
-        userRole = payload.role;
-      } catch {
-        return NextResponse.json(
-          { error: 'Unauthorized', code: 'UNAUTHORIZED' },
-          { status: 401 }
-        );
-      }
-    }
-
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'Unauthorized', code: 'UNAUTHORIZED' },
-        { status: 401 }
-      );
-    }
-
-    const isAdmin = userRole === 'super_admin' || userRole === 'organizer';
-    if (!isAdmin) {
-      return NextResponse.json(
-        { error: 'Forbidden', code: 'FORBIDDEN' },
-        { status: 403 }
-      );
-    }
-
-    const event = await db.findOne('events', { id: eventId });
-    if (!event) {
-      return NextResponse.json(
-        { error: 'Event not found', code: 'EVENT_NOT_FOUND' },
-        { status: 404 }
-      );
-    }
+    const { db } = await requireEventModeratorAccess(headers, eventId);
 
     const body = await request.json();
     const participantName = typeof body.participantName === 'string' ? body.participantName.trim() : '';
@@ -306,6 +263,27 @@ export async function POST(
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to create manual entries';
+    if (message.includes('Authentication required') || message.includes('Invalid or expired access token')) {
+      return NextResponse.json(
+        { error: 'Authentication required', code: 'AUTH_REQUIRED' },
+        { status: 401 }
+      );
+    }
+
+    if (message.includes('Forbidden')) {
+      return NextResponse.json(
+        { error: 'Forbidden', code: 'FORBIDDEN' },
+        { status: 403 }
+      );
+    }
+
+    if (message.includes('Event not found')) {
+      return NextResponse.json(
+        { error: 'Event not found', code: 'EVENT_NOT_FOUND' },
+        { status: 404 }
+      );
+    }
+
     if (message.includes('Lucky Draw is not available on your current plan')) {
       return createLuckyDrawFeatureUnavailableResponse();
     }

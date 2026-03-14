@@ -3,9 +3,8 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getTenantDb } from '@/lib/db';
+import { requireEventModeratorAccess } from '@/lib/domain/auth/auth';
 import type { IAttendanceStats, CheckInMethod } from '@/lib/types';
-import { resolveOptionalAuth, resolveRequiredTenantId } from '@/lib/api-request-context';
 
 // ============================================
 // GET /api/events/:eventId/attendance/stats
@@ -62,28 +61,14 @@ export async function GET(
 ) {
   try {
     const { eventId } = await params;
-    const headers = request.headers;
-    const auth = await resolveOptionalAuth(headers);
-    const tenantId = resolveRequiredTenantId(headers, auth);
+    const { db, event } = await requireEventModeratorAccess(request.headers, eventId);
 
-    const db = getTenantDb(tenantId);
+    const attendanceDisabled =
+      event.settings &&
+      typeof event.settings === 'object' &&
+      (event.settings as { features?: { attendance_enabled?: boolean } }).features?.attendance_enabled === false;
 
-    if (!auth || (auth.role !== 'super_admin' && auth.role !== 'organizer')) {
-      return NextResponse.json(
-        { error: 'Forbidden', code: 'FORBIDDEN' },
-        { status: 403 }
-      );
-    }
-
-    const event = await db.findOne<EventWithAttendance>('events', { id: eventId });
-    if (!event) {
-      return NextResponse.json(
-        { error: 'Event not found', code: 'EVENT_NOT_FOUND' },
-        { status: 404 }
-      );
-    }
-
-    if (event.settings?.features?.attendance_enabled === false) {
+    if (attendanceDisabled) {
       return NextResponse.json(
         { error: 'Attendance feature is disabled', code: 'FEATURE_DISABLED' },
         { status: 400 }
@@ -144,6 +129,29 @@ export async function GET(
         },
         { headers: cacheHeaders }
       );
+    }
+
+    if (error instanceof Error) {
+      if (error.message.includes('Authentication required') || error.message.includes('Invalid or expired access token')) {
+        return NextResponse.json(
+          { error: 'Authentication required', code: 'AUTH_REQUIRED' },
+          { status: 401 }
+        );
+      }
+
+      if (error.message.includes('Forbidden')) {
+        return NextResponse.json(
+          { error: 'Forbidden', code: 'FORBIDDEN' },
+          { status: 403 }
+        );
+      }
+
+      if (error.message.includes('Event not found')) {
+        return NextResponse.json(
+          { error: 'Event not found', code: 'EVENT_NOT_FOUND' },
+          { status: 404 }
+        );
+      }
     }
 
     if (error instanceof Error && error.message.includes('Tenant context missing')) {

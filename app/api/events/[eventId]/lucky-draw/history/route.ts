@@ -3,7 +3,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getTenantDb } from '@/lib/db';
+import { requireEventModeratorAccess } from '@/lib/domain/auth/auth';
 import type { Winner } from '@/lib/types';
 import { resolveOptionalAuth, resolveTenantId } from '@/lib/api-request-context';
 import { isTenantFeatureEnabled } from '@/lib/tenant';
@@ -43,16 +43,7 @@ export async function GET(
       return createLuckyDrawFeatureUnavailableResponse();
     }
 
-    const db = getTenantDb(tenantId);
-
-    // Verify event exists
-    const event = await db.findOne('events', { id: eventId });
-    if (!event) {
-      return NextResponse.json(
-        { error: 'Event not found', code: 'EVENT_NOT_FOUND' },
-        { status: 404 }
-      );
-    }
+    const { db } = await requireEventModeratorAccess(request.headers, eventId);
 
     const warnings: string[] = [];
     const [configsResult, winnersResult] = await Promise.allSettled([
@@ -162,6 +153,29 @@ export async function GET(
       warnings: warnings.length > 0 ? warnings : undefined,
     });
   } catch (error) {
+    if (error instanceof Error) {
+      if (error.message.includes('Authentication required') || error.message.includes('Invalid or expired access token')) {
+        return NextResponse.json(
+          { error: 'Authentication required', code: 'AUTH_REQUIRED' },
+          { status: 401 }
+        );
+      }
+
+      if (error.message.includes('Forbidden')) {
+        return NextResponse.json(
+          { error: 'Forbidden', code: 'FORBIDDEN' },
+          { status: 403 }
+        );
+      }
+
+      if (error.message.includes('Event not found')) {
+        return NextResponse.json(
+          { error: 'Event not found', code: 'EVENT_NOT_FOUND' },
+          { status: 404 }
+        );
+      }
+    }
+
     if (isRecoverableReadError(error)) {
       return NextResponse.json({
         data: [],

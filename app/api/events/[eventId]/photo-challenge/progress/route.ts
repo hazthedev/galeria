@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantDb } from '@/lib/db';
+import { findGuestProgressByFingerprint } from '@/lib/photo-challenge';
 import { resolveOptionalAuth, resolveTenantId } from '@/lib/api-request-context';
 
 type RouteContext = {
@@ -55,10 +56,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
     }
 
     // Get user's progress
-    const progress = await db.findOne('guest_photo_progress', {
-      event_id: eventId,
-      user_fingerprint: fingerprint,
-    });
+    const progress = await findGuestProgressByFingerprint(db, eventId, fingerprint);
 
     // Get user's approved photos count
     const photos = await db.findMany('photos', {

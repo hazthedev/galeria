@@ -65,8 +65,10 @@
     "zod": "^4.3.6"
   },
   "overrides": {
-    "fast-xml-parser": "^5.3.6",
-    "minimatch": "^10.2.1"
+    "@aws-sdk/xml-builder": "^3.972.11",
+    "fast-xml-parser": "^5.3.8",
+    "minimatch": "^10.2.3",
+    "rollup": "^4.59.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

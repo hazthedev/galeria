@@ -574,6 +574,47 @@ export async function requireAuthForApi(headers: Headers): Promise<{
   };
 }
 
+export interface EventModeratorAccessRecord {
+  id: string;
+  organizer_id: string;
+  status?: string | null;
+  settings?: Record<string, unknown> | null;
+}
+
+export async function requireEventModeratorAccess(
+  headers: Headers,
+  eventId: string
+): Promise<{
+  payload: IJWTPayload;
+  userId: string;
+  tenantId: string;
+  db: ReturnType<typeof getTenantDb>;
+  event: EventModeratorAccessRecord;
+}> {
+  const auth = await requireAuthForApi(headers);
+
+  if (!hasModeratorRole(auth.payload.role)) {
+    throw new Error('Forbidden');
+  }
+
+  const db = getTenantDb(auth.tenantId);
+  const event = await db.findOne<EventModeratorAccessRecord>('events', { id: eventId });
+
+  if (!event) {
+    throw new Error('Event not found');
+  }
+
+  if (auth.payload.role === 'organizer' && event.organizer_id !== auth.userId) {
+    throw new Error('Forbidden');
+  }
+
+  return {
+    ...auth,
+    db,
+    event,
+  };
+}
+
 /**
  * Check if user has organizer or super_admin role (can moderate content)
  */
@@ -624,6 +665,6 @@ export async function verifyPhotoModerationAccess(
   return {
     photo,
     isOwner: photo.organizer_id === userId,
-    isAdmin: hasModeratorRole(userRole),
+    isAdmin: userRole === 'super_admin',
   };
 }

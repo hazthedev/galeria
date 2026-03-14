@@ -3,8 +3,8 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getTenantDb } from '@/lib/db';
-import { requireAuthForApi } from '@/lib/domain/auth/auth';
+import { getGuestFingerprintCandidates } from '@/lib/photo-challenge';
+import { requireEventModeratorAccess } from '@/lib/domain/auth/auth';
 
 type RouteContext = {
   params: Promise<{ eventId: string }>;
@@ -17,9 +17,7 @@ type RouteContext = {
 export async function POST(req: NextRequest, context: RouteContext) {
   try {
     const { eventId } = await context.params;
-
-    // Authenticate organizer
-    const { userId, tenantId } = await requireAuthForApi(req.headers);
+    const { db } = await requireEventModeratorAccess(req.headers, eventId);
 
     const body = await req.json();
 
@@ -31,18 +29,6 @@ export async function POST(req: NextRequest, context: RouteContext) {
         { status: 400 }
       );
     }
-
-    const db = getTenantDb(tenantId);
-
-    // Check if event exists
-    const event = await db.findOne('events', { id: eventId });
-    if (!event) {
-      return NextResponse.json(
-        { error: 'Event not found', code: 'EVENT_NOT_FOUND' },
-        { status: 404 }
-      );
-    }
-
     // Revoke the prize
     await db.update(
       'prize_claims',
@@ -54,19 +40,44 @@ export async function POST(req: NextRequest, context: RouteContext) {
     );
 
     // Update progress record
-    await db.update(
-      'guest_photo_progress',
-      { prize_revoked: true, revoke_reason: reason },
-      {
-        event_id: eventId,
-        user_fingerprint: user_fingerprint,
-      }
-    );
+    for (const candidate of getGuestFingerprintCandidates(String(user_fingerprint))) {
+      await db.update(
+        'guest_photo_progress',
+        { prize_revoked: true, revoke_reason: reason },
+        {
+          event_id: eventId,
+          user_fingerprint: candidate,
+        }
+      );
+    }
 
     return NextResponse.json({
       message: 'Prize revoked successfully',
     });
   } catch (error) {
+    if (error instanceof Error) {
+      if (error.message.includes('Authentication required') || error.message.includes('Invalid or expired access token')) {
+        return NextResponse.json(
+          { error: 'Authentication required', code: 'AUTH_REQUIRED' },
+          { status: 401 }
+        );
+      }
+
+      if (error.message.includes('Forbidden')) {
+        return NextResponse.json(
+          { error: 'Forbidden', code: 'FORBIDDEN' },
+          { status: 403 }
+        );
+      }
+
+      if (error.message.includes('Event not found')) {
+        return NextResponse.json(
+          { error: 'Event not found', code: 'EVENT_NOT_FOUND' },
+          { status: 404 }
+        );
+      }
+    }
+
     console.error('[PHOTO_CHALLENGE_REVOKE] POST error:', error);
     return NextResponse.json(
       { error: 'Failed to revoke prize', code: 'REVOKE_ERROR' },

@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantDb } from '@/lib/db';
 import crypto from 'crypto';
+import { findGuestProgressByFingerprint, normalizeGuestChallengeFingerprint } from '@/lib/photo-challenge';
 import { resolveOptionalAuth, resolveRequiredTenantId } from '@/lib/api-request-context';
 
 type RouteContext = {
@@ -75,10 +76,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
     }
 
     // Get user's progress record
-    const progress = await db.findOne('guest_photo_progress', {
-      event_id: eventId,
-      user_fingerprint: fingerprint,
-    });
+    const progress = await findGuestProgressByFingerprint(db, eventId, fingerprint);
 
     if (progress?.prize_revoked) {
       return NextResponse.json(
@@ -131,9 +129,10 @@ export async function POST(req: NextRequest, context: RouteContext) {
         { id: progress.id }
       );
     } else {
+      const normalizedProgressFingerprint = normalizeGuestChallengeFingerprint(fingerprint);
       await db.insert('guest_photo_progress', {
         event_id: eventId,
-        user_fingerprint: fingerprint,
+        user_fingerprint: normalizedProgressFingerprint,
         photos_uploaded: photosApproved,
         goal_reached: true,
         prize_claimed_at: new Date(),

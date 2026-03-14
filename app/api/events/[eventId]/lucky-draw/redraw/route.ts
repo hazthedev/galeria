@@ -4,10 +4,8 @@
 // Endpoint to redraw a single prize tier when winner is unavailable
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getTenantDb } from '@/lib/db';
 import { redrawPrizeTier } from '@/lib/lucky-draw';
-import { extractSessionId, validateSession } from '@/lib/domain/auth/session';
-import { verifyAccessToken } from '@/lib/domain/auth/auth';
+import { requireEventModeratorAccess } from '@/lib/domain/auth/auth';
 import { publishEventBroadcast } from '@/lib/realtime/server';
 import { resolveOptionalAuth, resolveRequiredTenantId } from '@/lib/api-request-context';
 import { isTenantFeatureEnabled } from '@/lib/tenant';
@@ -34,19 +32,17 @@ export async function POST(
 ) {
     try {
         const { eventId } = await params;
-        const headers = request.headers;
-        const authContext = await resolveOptionalAuth(headers);
-        const tenantId = resolveRequiredTenantId(headers, authContext);
+    const headers = request.headers;
+    const authContext = await resolveOptionalAuth(headers);
+    const tenantId = resolveRequiredTenantId(headers, authContext);
 
         if (!(await isTenantFeatureEnabled(tenantId, 'lucky_draw'))) {
             return createLuckyDrawFeatureUnavailableResponse();
         }
 
-        const db = getTenantDb(tenantId);
-
-        // Parse request body
-        const body = await request.json();
-        const { prizeTier, previousWinnerId, configId, reason } = body;
+    // Parse request body
+    const body = await request.json();
+    const { prizeTier, previousWinnerId, configId, reason } = body;
 
         if (!prizeTier || !configId) {
             return NextResponse.json(
@@ -55,41 +51,7 @@ export async function POST(
             );
         }
 
-        // Verify user is admin
-        const cookieHeader = headers.get('cookie');
-        const authHeader = headers.get('authorization');
-        let userId: string | null = null;
-        let userRole: string | null = null;
-
-        // Try session-based auth first
-        const sessionResult = extractSessionId(cookieHeader, authHeader);
-        if (sessionResult.sessionId) {
-            const session = await validateSession(sessionResult.sessionId, false);
-            if (session.valid && session.session) {
-                userId = session.session.userId;
-                const user = await db.findOne('users', { id: userId });
-                userRole = user?.role || null;
-            }
-        }
-
-        // Fallback to JWT token
-        if (!userId && authHeader) {
-            try {
-                const token = authHeader.replace('Bearer ', '');
-                const payload = verifyAccessToken(token);
-                userId = payload.sub;
-                userRole = payload.role;
-            } catch {
-                // Token invalid
-            }
-        }
-
-        if (!userId || !userRole || !['super_admin', 'organizer'].includes(userRole)) {
-            return NextResponse.json(
-                { error: 'Unauthorized', code: 'UNAUTHORIZED' },
-                { status: 401 }
-            );
-        }
+    const { userId } = await requireEventModeratorAccess(headers, eventId);
 
         // Execute redraw
         const result = await redrawPrizeTier(tenantId, {
@@ -110,12 +72,30 @@ export async function POST(
             },
             message: `Redraw successful. New winner: ${result.newWinner.participantName}`,
         });
-    } catch (error) {
-        console.error('[API] Redraw error:', error);
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        if (errorMessage.includes('Lucky Draw is not available on your current plan')) {
-            return createLuckyDrawFeatureUnavailableResponse();
-        }
+  } catch (error) {
+    console.error('[API] Redraw error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    if (errorMessage.includes('Authentication required') || errorMessage.includes('Invalid or expired access token')) {
+      return NextResponse.json(
+        { error: 'Authentication required', code: 'AUTH_REQUIRED' },
+        { status: 401 }
+      );
+    }
+    if (errorMessage.includes('Forbidden')) {
+      return NextResponse.json(
+        { error: 'Forbidden', code: 'FORBIDDEN' },
+        { status: 403 }
+      );
+    }
+    if (errorMessage.includes('Event not found')) {
+      return NextResponse.json(
+        { error: 'Event not found', code: 'EVENT_NOT_FOUND' },
+        { status: 404 }
+      );
+    }
+    if (errorMessage.includes('Lucky Draw is not available on your current plan')) {
+      return createLuckyDrawFeatureUnavailableResponse();
+    }
         return NextResponse.json(
             { error: errorMessage || 'Failed to redraw', code: 'REDRAW_ERROR' },
             { status: 500 }

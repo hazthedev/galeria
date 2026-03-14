@@ -3,11 +3,8 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getTenantDb } from '@/lib/db';
-import { verifyAccessToken } from '@/lib/domain/auth/auth';
-import { extractSessionId, validateSession } from '@/lib/domain/auth/session';
+import { requireEventModeratorAccess } from '@/lib/domain/auth/auth';
 import type { IAttendance, IAttendanceCreate } from '@/lib/types';
-import { resolveOptionalAuth, resolveRequiredTenantId } from '@/lib/api-request-context';
 
 // ============================================
 // POST /api/events/:eventId/attendance/manual
@@ -20,59 +17,23 @@ export async function POST(
 ) {
   try {
     const { eventId } = await params;
-    const headers = request.headers;
-    const auth = await resolveOptionalAuth(headers);
-    const tenantId = resolveRequiredTenantId(headers, auth);
+    const { db, userId, event } = await requireEventModeratorAccess(request.headers, eventId);
 
-    const db = getTenantDb(tenantId);
-
-    // Verify organizer authorization
-    const authHeader = headers.get('authorization');
-    const cookieHeader = headers.get('cookie');
-    let userId: string | null = null;
-    let userRole: string | null = null;
-
-    const sessionResult = extractSessionId(cookieHeader, authHeader);
-    if (sessionResult.sessionId) {
-      const session = await validateSession(sessionResult.sessionId, false);
-      if (session.valid && session.user) {
-        userId = session.user.id;
-        userRole = session.user.role;
-      }
-    }
-
-    if (!userId && authHeader) {
-      try {
-        const token = authHeader.replace('Bearer ', '');
-        const payload = verifyAccessToken(token);
-        userId = payload.sub;
-        userRole = payload.role;
-      } catch {
-        // Token invalid
-      }
-    }
-
-    if (userRole !== 'super_admin' && userRole !== 'organizer') {
+    if (event.status !== 'active') {
       return NextResponse.json(
-        { error: 'Forbidden - organizer access required', code: 'FORBIDDEN' },
-        { status: 403 }
+        { error: 'Event is not active', code: 'EVENT_NOT_ACTIVE' },
+        { status: 400 }
       );
     }
 
-    if (!userId) {
+    if (
+      event.settings &&
+      typeof event.settings === 'object' &&
+      (event.settings as { features?: { attendance_enabled?: boolean } }).features?.attendance_enabled === false
+    ) {
       return NextResponse.json(
-        { error: 'Unauthorized - no user found', code: 'UNAUTHORIZED' },
-        { status: 401 }
-      );
-    }
-
-    // Verify event exists
-    const event = await db.findOne<{ id: string; status: string }>('events', { id: eventId });
-
-    if (!event) {
-      return NextResponse.json(
-        { error: 'Event not found', code: 'EVENT_NOT_FOUND' },
-        { status: 404 }
+        { error: 'Attendance check-in is disabled', code: 'FEATURE_DISABLED' },
+        { status: 400 }
       );
     }
 
@@ -142,8 +103,8 @@ export async function POST(
         userId,
         body.notes || null,
         JSON.stringify({
-          ip_address: headers.get('x-forwarded-for') || headers.get('x-real-ip') || 'unknown',
-          user_agent: headers.get('user-agent') || 'unknown',
+          ip_address: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown',
+          user_agent: request.headers.get('user-agent') || 'unknown',
           manual_entry: true,
         })
       ]
@@ -156,6 +117,29 @@ export async function POST(
       message: 'Manual check-in successful'
     }, { status: 201 });
   } catch (error) {
+    if (error instanceof Error) {
+      if (error.message.includes('Authentication required') || error.message.includes('Invalid or expired access token')) {
+        return NextResponse.json(
+          { error: 'Authentication required', code: 'AUTH_REQUIRED' },
+          { status: 401 }
+        );
+      }
+
+      if (error.message.includes('Forbidden')) {
+        return NextResponse.json(
+          { error: 'Forbidden - organizer access required', code: 'FORBIDDEN' },
+          { status: 403 }
+        );
+      }
+
+      if (error.message.includes('Event not found')) {
+        return NextResponse.json(
+          { error: 'Event not found', code: 'EVENT_NOT_FOUND' },
+          { status: 404 }
+        );
+      }
+    }
+
     console.error('[API] Manual check-in error:', error);
     return NextResponse.json(
       { error: 'Failed to check in', code: 'CHECKIN_ERROR' },

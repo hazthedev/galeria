@@ -21,6 +21,10 @@ export interface IRateLimitConfig {
   keyPrefix: string;
 }
 
+interface IRateLimitOptions {
+  failOpen?: boolean;
+}
+
 // Predefined rate limit configurations
 export const RATE_LIMIT_CONFIGS = {
   // Login: 5 attempts per 15 minutes per email
@@ -151,7 +155,8 @@ export interface IRateLimitError {
  */
 export async function checkRateLimit(
   identifier: string,
-  config: IRateLimitConfig
+  config: IRateLimitConfig,
+  options: IRateLimitOptions = {}
 ): Promise<IRateLimitResult> {
   try {
     const redis = getRedisClient();
@@ -193,9 +198,23 @@ export async function checkRateLimit(
       windowSeconds: config.windowSeconds,
     };
   } catch (error) {
-    // Redis unavailable - allow request to proceed (fail open for development)
-    // In production, you may want to fail closed instead
-    console.warn('[RATE_LIMIT] Redis unavailable, skipping rate limit check:', error instanceof Error ? error.message : error);
+    const failOpen = options.failOpen !== false;
+    console.warn(
+      '[RATE_LIMIT] Redis unavailable:',
+      error instanceof Error ? error.message : error,
+      failOpen ? '(fail-open)' : '(fail-closed)'
+    );
+
+    if (!failOpen) {
+      return {
+        allowed: false,
+        remaining: 0,
+        resetAt: new Date(Date.now() + config.windowSeconds * 1000),
+        limit: config.maxRequests,
+        windowSeconds: config.windowSeconds,
+      };
+    }
+
     return {
       allowed: true,
       remaining: config.maxRequests,
@@ -410,8 +429,8 @@ export async function checkLoginRateLimit(
   const normalizedEmail = email.toLowerCase().trim();
 
   const [emailResult, ipResult] = await Promise.all([
-    checkRateLimit(normalizedEmail, RATE_LIMIT_CONFIGS.loginEmail),
-    checkRateLimit(ipAddress, RATE_LIMIT_CONFIGS.loginIp),
+    checkRateLimit(normalizedEmail, RATE_LIMIT_CONFIGS.loginEmail, { failOpen: false }),
+    checkRateLimit(ipAddress, RATE_LIMIT_CONFIGS.loginIp, { failOpen: false }),
   ]);
 
   // Both must be allowed
@@ -447,8 +466,8 @@ export async function checkRegistrationRateLimit(
   const normalizedEmail = email.toLowerCase().trim();
 
   const [emailResult, ipResult] = await Promise.all([
-    checkRateLimit(normalizedEmail, RATE_LIMIT_CONFIGS.registerEmail),
-    checkRateLimit(ipAddress, RATE_LIMIT_CONFIGS.registerIp),
+    checkRateLimit(normalizedEmail, RATE_LIMIT_CONFIGS.registerEmail, { failOpen: false }),
+    checkRateLimit(ipAddress, RATE_LIMIT_CONFIGS.registerIp, { failOpen: false }),
   ]);
 
   // Both must be allowed

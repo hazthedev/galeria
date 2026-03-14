@@ -3,8 +3,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getTenantDb } from '@/lib/db';
-import { requireAuthForApi } from '@/lib/domain/auth/auth';
+import { requireEventModeratorAccess } from '@/lib/domain/auth/auth';
 
 type RouteContext = {
   params: Promise<{ eventId: string }>;
@@ -17,20 +16,7 @@ type RouteContext = {
 export async function GET(req: NextRequest, context: RouteContext) {
   try {
     const { eventId } = await context.params;
-
-    // Authenticate organizer
-    const { userId, tenantId } = await requireAuthForApi(req.headers);
-
-    const db = getTenantDb(tenantId);
-
-    // Verify event exists
-    const event = await db.findOne('events', { id: eventId });
-    if (!event) {
-      return NextResponse.json(
-        { error: 'Event not found', code: 'EVENT_NOT_FOUND' },
-        { status: 404 }
-      );
-    }
+    const { db } = await requireEventModeratorAccess(req.headers, eventId);
 
     // Get all progress entries for this event
     const progressEntries = await db.findMany('guest_photo_progress', {
@@ -43,11 +29,27 @@ export async function GET(req: NextRequest, context: RouteContext) {
   } catch (error) {
     console.error('[PHOTO_CHALLENGE_PROGRESS_ALL] GET error:', error);
 
-    if (error instanceof Error && error.message.includes('Authentication required')) {
-      return NextResponse.json(
-        { error: 'Authentication required', code: 'AUTH_REQUIRED' },
-        { status: 401 }
-      );
+    if (error instanceof Error) {
+      if (error.message.includes('Authentication required') || error.message.includes('Invalid or expired access token')) {
+        return NextResponse.json(
+          { error: 'Authentication required', code: 'AUTH_REQUIRED' },
+          { status: 401 }
+        );
+      }
+
+      if (error.message.includes('Forbidden')) {
+        return NextResponse.json(
+          { error: 'Forbidden', code: 'FORBIDDEN' },
+          { status: 403 }
+        );
+      }
+
+      if (error.message.includes('Event not found')) {
+        return NextResponse.json(
+          { error: 'Event not found', code: 'EVENT_NOT_FOUND' },
+          { status: 404 }
+        );
+      }
     }
 
     return NextResponse.json(

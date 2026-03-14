@@ -20,6 +20,7 @@ import {
   Label,
 } from '@aws-sdk/client-rekognition';
 import { getSystemSettings } from '../system-settings';
+import { assertTrustedStorageUrl } from '../images';
 
 // ============================================
 // TYPES & INTERFACES
@@ -403,6 +404,7 @@ function parseS3Object(imageUrl: string): { Bucket: string; Name: string } | und
  */
 async function fetchImageBytes(imageUrl: string): Promise<Uint8Array | undefined> {
   try {
+    assertTrustedStorageUrl(imageUrl);
     const response = await fetch(imageUrl);
     if (!response.ok) return undefined;
     const buffer = await response.arrayBuffer();
