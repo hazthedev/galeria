@@ -63,7 +63,7 @@ export default function SuperAdminProfilePage() {
     };
 
     return (
-        <div className="max-w-2xl mx-auto space-y-6">
+        <div className="mx-auto w-full max-w-2xl space-y-6">
             <div>
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
                     Profile Settings
@@ -73,8 +73,8 @@ export default function SuperAdminProfilePage() {
                 </p>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
-                <form onSubmit={handleSubmit} className="p-6 space-y-6">
+            <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                <form onSubmit={handleSubmit} className="space-y-6 p-4 sm:p-6">
                     {/* Basic Info Section */}
                     <div className="space-y-4">
                         <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
@@ -145,11 +145,11 @@ export default function SuperAdminProfilePage() {
                         )}
                     </div>
 
-                    <div className="pt-4 flex justify-end">
+                    <div className="flex pt-4">
                         <button
                             type="submit"
                             disabled={isLoading}
-                            className="flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-50 transition-colors"
+                            className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-700 disabled:opacity-50 sm:ml-auto sm:w-auto"
                         >
                             {isLoading ? (
                                 <Loader2 className="h-4 w-4 animate-spin" />

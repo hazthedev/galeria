@@ -93,9 +93,9 @@ export function QRCodeDisplay({
   };
 
   return (
-    <div className={clsx('flex flex-col items-center', className)}>
+    <div className={clsx('flex w-full flex-col items-center', className)}>
       {/* QR Code Container */}
-      <div className="relative rounded-2xl bg-white p-6 shadow-lg ring-1 ring-gray-900/5">
+      <div className="relative w-full max-w-sm rounded-2xl bg-white p-4 shadow-lg ring-1 ring-gray-900/5 sm:p-6">
         {/* Hidden ref for download */}
         <div className="hidden">
           <div
@@ -111,18 +111,18 @@ export function QRCodeDisplay({
 
         {/* Visible QR Code */}
         <div className="flex flex-col items-center">
-          <QRCodeSVG value={url} size={size} level="M" />
+          <QRCodeSVG value={url} size={size} level="M" className="h-auto w-full max-w-[18rem]" />
           <p className="mt-3 text-center text-sm text-gray-500">Scan to join event</p>
         </div>
       </div>
 
       {/* Actions */}
-      <div className="mt-6 flex items-center justify-center gap-3">
+      <div className="mt-6 flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-center">
         {/* Copy Link */}
         <button
           onClick={handleCopyLink}
           className={clsx(
-            'flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium',
+            'flex min-h-11 w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium sm:w-auto',
             'transition-all duration-200',
             'focus:outline-none focus:ring-2 focus:ring-offset-2',
             'border border-gray-300 bg-white text-gray-700',
@@ -149,7 +149,7 @@ export function QRCodeDisplay({
             onClick={handleDownload}
             disabled={isDownloading}
             className={clsx(
-              'flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium',
+              'flex min-h-11 w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium sm:w-auto',
               'transition-all duration-200',
               'focus:outline-none focus:ring-2 focus:ring-offset-2',
               'border border-gray-300 bg-white text-gray-700',
@@ -177,7 +177,7 @@ export function QRCodeDisplay({
           <button
             onClick={handleShare}
             className={clsx(
-              'flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium',
+              'flex min-h-11 w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium sm:w-auto',
               'transition-all duration-200',
               'focus:outline-none focus:ring-2 focus:ring-offset-2',
               'bg-gradient-to-r from-violet-600 to-pink-600 text-white',
@@ -191,10 +191,10 @@ export function QRCodeDisplay({
       </div>
 
       {/* Event URL */}
-      <div className="mt-4 max-w-full overflow-hidden">
+      <div className="mt-4 w-full max-w-sm overflow-hidden">
         <p className="text-xs text-gray-500 dark:text-gray-400">
           <span className="font-medium">Event URL:</span>{' '}
-          <span className="truncate">{url}</span>
+          <span className="block break-all">{url}</span>
         </p>
       </div>
     </div>

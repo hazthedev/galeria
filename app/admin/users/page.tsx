@@ -10,8 +10,6 @@ import {
     Users as UsersIcon,
     Loader2,
     Trash2,
-    Edit,
-    Shield,
     ChevronLeft,
     ChevronRight
 } from 'lucide-react';
@@ -160,7 +158,7 @@ export default function SupervisorUsersPage() {
             {/* Header */}
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white sm:text-3xl">
                         User Management
                     </h1>
                     <p className="text-gray-600 dark:text-gray-400">
@@ -179,7 +177,7 @@ export default function SupervisorUsersPage() {
                             placeholder="Search by name or email..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-4 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                            className="h-11 w-full rounded-lg border border-gray-300 bg-white pl-10 pr-4 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
                         />
                     </div>
                 </form>
@@ -189,7 +187,7 @@ export default function SupervisorUsersPage() {
                         setRoleFilter(e.target.value);
                         setCurrentPage(1);
                     }}
-                    className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                    className="h-11 rounded-lg border border-gray-300 bg-white px-3 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
                 >
                     <option value="all">All Roles</option>
                     <option value="super_admin">Super Admin</option>
@@ -210,108 +208,196 @@ export default function SupervisorUsersPage() {
                         <p>No users found</p>
                     </div>
                 ) : (
-                    <table className="w-full">
-                        <thead className="border-b border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900">
-                            <tr>
-                                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
-                                    User
-                                </th>
-                                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
-                                    Role
-                                </th>
-                                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
-                                    Plan
-                                </th>
-                                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
-                                    Joined
-                                </th>
-                                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
-                                    Last Login
-                                </th>
-                                <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
-                                    Actions
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                            {users.map((user) => (
-                                <tr key={user.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                                    <td className="px-4 py-3">
-                                        <div>
-                                            <p className="font-medium text-gray-900 dark:text-white">
-                                                {user.name}
-                                            </p>
-                                            <p className="text-sm text-gray-500">{user.email}</p>
+                    <>
+                        <div className="space-y-3 p-4 md:hidden">
+                            {users.map((user) => {
+                                const tierValue = user.role === 'super_admin'
+                                    ? (user.user_subscription_tier || user.subscription_tier || 'free')
+                                    : (user.tenant_subscription_tier || user.subscription_tier || 'free');
+
+                                return (
+                                    <div
+                                        key={user.id}
+                                        className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800"
+                                    >
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="min-w-0">
+                                                <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                                                    {user.name}
+                                                </p>
+                                                <p className="mt-1 break-all text-xs text-gray-500 dark:text-gray-400">
+                                                    {user.email}
+                                                </p>
+                                            </div>
+                                            <button
+                                                onClick={() => handleDeleteUser(user.id)}
+                                                className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                                aria-label={`Delete ${user.name}`}
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </button>
                                         </div>
-                                    </td>
-                                    <td className="px-4 py-3">
-                                        <select
-                                            value={user.role}
-                                            onChange={(e) => handleRoleChange(user.id, e.target.value)}
-                                            className={clsx(
-                                                'rounded-full px-2 py-1 text-xs font-medium',
-                                                getRoleBadgeColor(user.role)
-                                            )}
-                                        >
-                                            <option value="guest">Guest</option>
-                                            <option value="organizer">Organizer</option>
-                                            <option value="super_admin">Super Admin</option>
-                                        </select>
-                                    </td>
-                                    <td className="px-4 py-3 text-sm text-gray-500">
-                                        {/**
-                                          * Super admins keep account-level tier.
-                                          * Organizer/guest rows reflect shared tenant plan.
-                                          */}
-                                        {(() => {
-                                            const tierValue = user.role === 'super_admin'
-                                                ? (user.user_subscription_tier || user.subscription_tier || 'free')
-                                                : (user.tenant_subscription_tier || user.subscription_tier || 'free');
-                                            return (
-                                        <select
-                                            value={tierValue}
-                                            onChange={(e) => handleTierChange(user.id, user.role, e.target.value)}
-                                            className="rounded-full px-2 py-1 text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200"
-                                        >
-                                            <option value="free">Free</option>
-                                            <option value="pro">Pro</option>
-                                            <option value="premium">Premium</option>
-                                            <option value="enterprise">Enterprise</option>
-                                            <option value="tester">Tester</option>
-                                        </select>
-                                            );
-                                        })()}
-                                    </td>
-                                    <td className="px-4 py-3 text-sm text-gray-500">
-                                        {new Date(user.created_at).toLocaleDateString()}
-                                    </td>
-                                    <td className="px-4 py-3 text-sm text-gray-500">
-                                        {user.last_login_at
-                                            ? new Date(user.last_login_at).toLocaleDateString()
-                                            : 'Never'}
-                                    </td>
-                                    <td className="px-4 py-3 text-right">
-                                        <button
-                                            onClick={() => handleDeleteUser(user.id)}
-                                            className="rounded p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-                                            title="Delete user"
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+
+                                        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                                            <label className="space-y-1 text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                                <span>Role</span>
+                                                <select
+                                                    value={user.role}
+                                                    onChange={(e) => handleRoleChange(user.id, e.target.value)}
+                                                    className={clsx(
+                                                        'h-11 w-full rounded-lg border border-transparent px-3 text-sm font-medium',
+                                                        getRoleBadgeColor(user.role)
+                                                    )}
+                                                >
+                                                    <option value="guest">Guest</option>
+                                                    <option value="organizer">Organizer</option>
+                                                    <option value="super_admin">Super Admin</option>
+                                                </select>
+                                            </label>
+
+                                            <label className="space-y-1 text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                                <span>Plan</span>
+                                                <select
+                                                    value={tierValue}
+                                                    onChange={(e) => handleTierChange(user.id, user.role, e.target.value)}
+                                                    className="h-11 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm font-medium text-gray-700 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-200"
+                                                >
+                                                    <option value="free">Free</option>
+                                                    <option value="pro">Pro</option>
+                                                    <option value="premium">Premium</option>
+                                                    <option value="enterprise">Enterprise</option>
+                                                    <option value="tester">Tester</option>
+                                                </select>
+                                            </label>
+                                        </div>
+
+                                        <dl className="mt-4 grid grid-cols-1 gap-3 text-sm text-gray-600 dark:text-gray-400 sm:grid-cols-2">
+                                            <div className="rounded-lg bg-gray-50 px-3 py-2 dark:bg-gray-900/40">
+                                                <dt className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-500">Joined</dt>
+                                                <dd className="mt-1">
+                                                    {new Date(user.created_at).toLocaleDateString()}
+                                                </dd>
+                                            </div>
+                                            <div className="rounded-lg bg-gray-50 px-3 py-2 dark:bg-gray-900/40">
+                                                <dt className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-500">Last Login</dt>
+                                                <dd className="mt-1">
+                                                    {user.last_login_at
+                                                        ? new Date(user.last_login_at).toLocaleDateString()
+                                                        : 'Never'}
+                                                </dd>
+                                            </div>
+                                        </dl>
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        <div className="-mx-4 hidden overflow-x-auto px-4 md:block md:px-0">
+                            <table className="min-w-[860px] w-full">
+                                <thead className="border-b border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900">
+                                    <tr>
+                                        <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
+                                            User
+                                        </th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
+                                            Role
+                                        </th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
+                                            Plan
+                                        </th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
+                                            Joined
+                                        </th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
+                                            Last Login
+                                        </th>
+                                        <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
+                                            Actions
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                                    {users.map((user) => (
+                                        <tr key={user.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                                            <td className="px-4 py-3">
+                                                <div>
+                                                    <p className="font-medium text-gray-900 dark:text-white">
+                                                        {user.name}
+                                                    </p>
+                                                    <p className="text-sm text-gray-500">{user.email}</p>
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <select
+                                                    value={user.role}
+                                                    onChange={(e) => handleRoleChange(user.id, e.target.value)}
+                                                    className={clsx(
+                                                        'h-11 rounded-full px-3 text-xs font-medium',
+                                                        getRoleBadgeColor(user.role)
+                                                    )}
+                                                >
+                                                    <option value="guest">Guest</option>
+                                                    <option value="organizer">Organizer</option>
+                                                    <option value="super_admin">Super Admin</option>
+                                                </select>
+                                            </td>
+                                            <td className="px-4 py-3 text-sm text-gray-500">
+                                                {/**
+                                                  * Super admins keep account-level tier.
+                                                  * Organizer/guest rows reflect shared tenant plan.
+                                                  */}
+                                                {(() => {
+                                                    const tierValue = user.role === 'super_admin'
+                                                        ? (user.user_subscription_tier || user.subscription_tier || 'free')
+                                                        : (user.tenant_subscription_tier || user.subscription_tier || 'free');
+                                                    return (
+                                                <select
+                                                    value={tierValue}
+                                                    onChange={(e) => handleTierChange(user.id, user.role, e.target.value)}
+                                                    className="h-11 rounded-full bg-gray-100 px-3 text-xs font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-200"
+                                                >
+                                                    <option value="free">Free</option>
+                                                    <option value="pro">Pro</option>
+                                                    <option value="premium">Premium</option>
+                                                    <option value="enterprise">Enterprise</option>
+                                                    <option value="tester">Tester</option>
+                                                </select>
+                                                    );
+                                                })()}
+                                            </td>
+                                            <td className="px-4 py-3 text-sm text-gray-500">
+                                                {new Date(user.created_at).toLocaleDateString()}
+                                            </td>
+                                            <td className="px-4 py-3 text-sm text-gray-500">
+                                                {user.last_login_at
+                                                    ? new Date(user.last_login_at).toLocaleDateString()
+                                                    : 'Never'}
+                                            </td>
+                                            <td className="px-4 py-3 text-right">
+                                                <button
+                                                    onClick={() => handleDeleteUser(user.id)}
+                                                    className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                                    title="Delete user"
+                                                    aria-label={`Delete ${user.name}`}
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </>
                 )}
 
                 {/* Pagination */}
                 {totalPages > 1 && (
-                    <div className="flex items-center justify-between border-t border-gray-200 px-4 py-3 dark:border-gray-700">
+                    <div className="flex flex-col gap-3 border-t border-gray-200 px-4 py-3 dark:border-gray-700 sm:flex-row sm:items-center sm:justify-between">
                         <button
                             onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                             disabled={currentPage === 1}
-                            className="flex items-center gap-1 rounded px-3 py-1 text-sm text-gray-600 hover:bg-gray-100 disabled:opacity-50 dark:text-gray-400 dark:hover:bg-gray-700"
+                            className="inline-flex min-h-11 items-center justify-center gap-1 rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 disabled:opacity-50 dark:text-gray-400 dark:hover:bg-gray-700"
                         >
                             <ChevronLeft className="h-4 w-4" /> Previous
                         </button>
@@ -321,7 +407,7 @@ export default function SupervisorUsersPage() {
                         <button
                             onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                             disabled={currentPage === totalPages}
-                            className="flex items-center gap-1 rounded px-3 py-1 text-sm text-gray-600 hover:bg-gray-100 disabled:opacity-50 dark:text-gray-400 dark:hover:bg-gray-700"
+                            className="inline-flex min-h-11 items-center justify-center gap-1 rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 disabled:opacity-50 dark:text-gray-400 dark:hover:bg-gray-700"
                         >
                             Next <ChevronRight className="h-4 w-4" />
                         </button>

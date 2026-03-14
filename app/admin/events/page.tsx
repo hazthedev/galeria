@@ -38,7 +38,7 @@ export default function SupervisorEventsPage() {
 
     useEffect(() => {
         fetchEvents();
-    }, [currentPage, statusFilter]);
+    }, [currentPage, statusFilter, searchQuery]);
 
     const fetchEvents = async () => {
         setIsLoading(true);
@@ -49,6 +49,9 @@ export default function SupervisorEventsPage() {
             });
             if (statusFilter !== 'all') {
                 params.append('status', statusFilter);
+            }
+            if (searchQuery.trim()) {
+                params.append('search', searchQuery.trim());
             }
 
             const response = await fetch(`/api/events?${params}`, {
@@ -107,7 +110,7 @@ export default function SupervisorEventsPage() {
         <div className="space-y-6">
             {/* Header */}
             <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white sm:text-3xl">
                     Event Management
                 </h1>
                 <p className="text-gray-600 dark:text-gray-400">
@@ -123,8 +126,11 @@ export default function SupervisorEventsPage() {
                         type="text"
                         placeholder="Search events..."
                         value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-4 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                        onChange={(e) => {
+                            setSearchQuery(e.target.value);
+                            setCurrentPage(1);
+                        }}
+                        className="h-11 w-full rounded-lg border border-gray-300 bg-white pl-10 pr-4 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
                     />
                 </div>
                 <select
@@ -133,7 +139,7 @@ export default function SupervisorEventsPage() {
                         setStatusFilter(e.target.value);
                         setCurrentPage(1);
                     }}
-                    className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                    className="h-11 rounded-lg border border-gray-300 bg-white px-3 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
                 >
                     <option value="all">All Status</option>
                     <option value="active">Active</option>
@@ -155,32 +161,24 @@ export default function SupervisorEventsPage() {
                         <p>No events found</p>
                     </div>
                 ) : (
-                    <table className="w-full">
-                        <thead className="border-b border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900">
-                            <tr>
-                                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
-                                    Event
-                                </th>
-                                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
-                                    Status
-                                </th>
-                                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
-                                    Date
-                                </th>
-                                <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
-                                    Actions
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                    <>
+                        <div className="space-y-3 p-4 md:hidden">
                             {events.map((event) => (
-                                <tr key={event.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                                    <td className="px-4 py-3">
-                                        <p className="font-medium text-gray-900 dark:text-white">
-                                            {event.name}
-                                        </p>
-                                    </td>
-                                    <td className="px-4 py-3">
+                                <div
+                                    key={event.id}
+                                    className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800"
+                                >
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                                                {event.name}
+                                            </p>
+                                            {event.organizer_name && (
+                                                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                                    Organizer: {event.organizer_name}
+                                                </p>
+                                            )}
+                                        </div>
                                         <span
                                             className={clsx(
                                                 'rounded-full px-2 py-1 text-xs font-medium',
@@ -189,41 +187,115 @@ export default function SupervisorEventsPage() {
                                         >
                                             {event.status}
                                         </span>
-                                    </td>
-                                    <td className="px-4 py-3 text-sm text-gray-500">
-                                        {new Date(event.event_date).toLocaleDateString()}
-                                    </td>
-                                    <td className="px-4 py-3 text-right">
-                                        <div className="flex items-center justify-end gap-2">
-                                            <Link
-                                                href={`/organizer/events/${event.id}/admin`}
-                                                className="rounded p-1 text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-900/20"
-                                                title="View event"
-                                            >
-                                                <ExternalLink className="h-4 w-4" />
-                                            </Link>
-                                            <button
-                                                onClick={() => handleDeleteEvent(event.id)}
-                                                className="rounded p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-                                                title="Delete event"
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </button>
+                                    </div>
+
+                                    <dl className="mt-4 grid grid-cols-1 gap-3 text-sm text-gray-600 dark:text-gray-400 sm:grid-cols-2">
+                                        <div className="rounded-lg bg-gray-50 px-3 py-2 dark:bg-gray-900/40">
+                                            <dt className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-500">Date</dt>
+                                            <dd className="mt-1">
+                                                {new Date(event.event_date).toLocaleDateString()}
+                                            </dd>
                                         </div>
-                                    </td>
-                                </tr>
+                                        <div className="rounded-lg bg-gray-50 px-3 py-2 dark:bg-gray-900/40">
+                                            <dt className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-500">Photos</dt>
+                                            <dd className="mt-1">{event.photo_count ?? 0}</dd>
+                                        </div>
+                                    </dl>
+
+                                    <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                                        <Link
+                                            href={`/organizer/events/${event.id}/admin`}
+                                            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-4 py-2 text-sm font-medium text-violet-700 hover:bg-violet-100 dark:border-violet-500/40 dark:bg-violet-500/10 dark:text-violet-300 dark:hover:bg-violet-500/20"
+                                        >
+                                            <ExternalLink className="h-4 w-4" />
+                                            Open Admin
+                                        </Link>
+                                        <button
+                                            onClick={() => handleDeleteEvent(event.id)}
+                                            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-100 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-300 dark:hover:bg-red-500/20"
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                            Delete
+                                        </button>
+                                    </div>
+                                </div>
                             ))}
-                        </tbody>
-                    </table>
+                        </div>
+
+                        <div className="-mx-4 hidden overflow-x-auto px-4 md:block md:px-0">
+                            <table className="min-w-[700px] w-full">
+                                <thead className="border-b border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900">
+                                    <tr>
+                                        <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
+                                            Event
+                                        </th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
+                                            Status
+                                        </th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
+                                            Date
+                                        </th>
+                                        <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
+                                            Actions
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                                    {events.map((event) => (
+                                        <tr key={event.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                                            <td className="px-4 py-3">
+                                                <p className="font-medium text-gray-900 dark:text-white">
+                                                    {event.name}
+                                                </p>
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <span
+                                                    className={clsx(
+                                                        'rounded-full px-2 py-1 text-xs font-medium',
+                                                        getStatusBadgeColor(event.status)
+                                                    )}
+                                                >
+                                                    {event.status}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-3 text-sm text-gray-500">
+                                                {new Date(event.event_date).toLocaleDateString()}
+                                            </td>
+                                            <td className="px-4 py-3 text-right">
+                                                <div className="flex items-center justify-end gap-2">
+                                                    <Link
+                                                        href={`/organizer/events/${event.id}/admin`}
+                                                        className="flex h-11 w-11 items-center justify-center rounded-lg text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-900/20"
+                                                        title="View event"
+                                                        aria-label={`Open admin for ${event.name}`}
+                                                    >
+                                                        <ExternalLink className="h-4 w-4" />
+                                                    </Link>
+                                                    <button
+                                                        onClick={() => handleDeleteEvent(event.id)}
+                                                        className="flex h-11 w-11 items-center justify-center rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                                        title="Delete event"
+                                                        aria-label={`Delete ${event.name}`}
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </>
                 )}
 
                 {/* Pagination */}
                 {totalPages > 1 && (
-                    <div className="flex items-center justify-between border-t border-gray-200 px-4 py-3 dark:border-gray-700">
+                    <div className="flex flex-col gap-3 border-t border-gray-200 px-4 py-3 dark:border-gray-700 sm:flex-row sm:items-center sm:justify-between">
                         <button
                             onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                             disabled={currentPage === 1}
-                            className="flex items-center gap-1 rounded px-3 py-1 text-sm text-gray-600 hover:bg-gray-100 disabled:opacity-50 dark:text-gray-400 dark:hover:bg-gray-700"
+                            className="inline-flex min-h-11 items-center justify-center gap-1 rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 disabled:opacity-50 dark:text-gray-400 dark:hover:bg-gray-700"
                         >
                             <ChevronLeft className="h-4 w-4" /> Previous
                         </button>
@@ -233,7 +305,7 @@ export default function SupervisorEventsPage() {
                         <button
                             onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                             disabled={currentPage === totalPages}
-                            className="flex items-center gap-1 rounded px-3 py-1 text-sm text-gray-600 hover:bg-gray-100 disabled:opacity-50 dark:text-gray-400 dark:hover:bg-gray-700"
+                            className="inline-flex min-h-11 items-center justify-center gap-1 rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 disabled:opacity-50 dark:text-gray-400 dark:hover:bg-gray-700"
                         >
                             Next <ChevronRight className="h-4 w-4" />
                         </button>

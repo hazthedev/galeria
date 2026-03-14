@@ -167,15 +167,15 @@ export default function SupervisorSettingsPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">System Settings</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white sm:text-3xl">System Settings</h1>
           <p className="text-gray-600 dark:text-gray-400">
             Configure system-wide settings and defaults
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
           <button
             onClick={fetchSettings}
-            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
+            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 sm:w-auto"
           >
             <RefreshCcw className="h-4 w-4" />
             Refresh
@@ -183,7 +183,7 @@ export default function SupervisorSettingsPage() {
           <button
             onClick={saveSettings}
             disabled={isSaving}
-            className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700"
+            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-50 sm:w-auto"
           >
             <Save className="h-4 w-4" />
             {isSaving ? 'Saving...' : 'Save Changes'}
@@ -192,7 +192,7 @@ export default function SupervisorSettingsPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+        <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-6">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Uploads</h2>
           <p className="mt-1 text-sm text-gray-500">Limits enforced on direct browser uploads.</p>
           <div className="mt-4 space-y-4 text-sm">
@@ -208,7 +208,7 @@ export default function SupervisorSettingsPage() {
                     uploads: { ...prev.uploads, max_file_mb: parseInt(e.target.value || '0', 10) },
                   }))
                 }
-                className="w-40 rounded border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900"
+                className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900 sm:w-40"
               />
             </label>
             <div>
@@ -229,7 +229,7 @@ export default function SupervisorSettingsPage() {
           </div>
         </section>
 
-        <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+        <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-6">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">AI Content Moderation</h2>
           <p className="mt-1 text-sm text-gray-500">
             AWS Rekognition for detecting inappropriate content. Free tier: 5,000 scans/month.
@@ -362,7 +362,7 @@ export default function SupervisorSettingsPage() {
           </div>
         </section>
 
-        <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+        <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-6">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Default Event Theme</h2>
           <p className="mt-1 text-sm text-gray-500">Applied when organizers create new events.</p>
           <div className="mt-4 grid gap-4 text-sm sm:grid-cols-2">
@@ -473,7 +473,7 @@ export default function SupervisorSettingsPage() {
           </div>
         </section>
 
-        <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+        <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-6">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Default Event Features</h2>
           <p className="mt-1 text-sm text-gray-500">Feature toggles applied to newly created events.</p>
           <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">

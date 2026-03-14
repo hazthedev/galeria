@@ -92,7 +92,7 @@ export function EventStatsSkeleton({
 
   return (
     <div className={clsx('space-y-6', className)}>
-      <div className={clsx('grid grid-cols-2 gap-4', visibleStatCount > 3 ? 'sm:grid-cols-4' : 'sm:grid-cols-3')}>
+      <div className={clsx('grid grid-cols-1 gap-4 sm:grid-cols-2', visibleStatCount > 3 ? 'lg:grid-cols-4' : 'lg:grid-cols-3')}>
         {Array.from({ length: visibleStatCount }).map((_, index) => (
           <div
             key={index}
@@ -110,7 +110,7 @@ export function EventStatsSkeleton({
         ))}
       </div>
 
-      <div className={clsx('grid grid-cols-1 gap-4', allowAdvancedAnalytics ? 'sm:grid-cols-2' : 'sm:grid-cols-1')}>
+      <div className={clsx('grid grid-cols-1 gap-4', allowAdvancedAnalytics ? 'md:grid-cols-2' : 'md:grid-cols-1')}>
         {Array.from({ length: allowAdvancedAnalytics ? 2 : 1 }).map((_, index) => (
           <div
             key={index}
@@ -171,7 +171,7 @@ export function EventStatsSkeleton({
       {allowAdvancedAnalytics && allowReactions && (
         <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
           <Skeleton className="mb-4 h-6 w-36 rounded-full animate-none" />
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 3 }).map((_, index) => (
               <div
                 key={index}
@@ -315,7 +315,7 @@ export function EventStats({
       )}
 
       {/* Stats Grid */}
-      <div className={clsx('grid grid-cols-2 gap-4', visibleStatCards.length > 3 ? 'sm:grid-cols-4' : 'sm:grid-cols-3')}>
+      <div className={clsx('grid grid-cols-1 gap-4 sm:grid-cols-2', visibleStatCards.length > 3 ? 'lg:grid-cols-4' : 'lg:grid-cols-3')}>
         {visibleStatCards.map(card => {
           const Icon = card.icon;
           const value = stats[card.key as keyof EventStatsData] as number;
@@ -335,7 +335,7 @@ export function EventStats({
                 </div>
                 <div className="flex-1">
                   <p className="text-sm text-gray-600 dark:text-gray-400">{card.label}</p>
-                  <p className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+                  <p className="text-xl font-semibold text-gray-900 dark:text-gray-100 sm:text-2xl">
                     {value.toLocaleString()}
                   </p>
                   {subValue !== undefined && subValue > 0 && (
@@ -351,14 +351,14 @@ export function EventStats({
       </div>
 
       {/* Additional Stats Row */}
-      <div className={clsx('grid grid-cols-1 gap-4', allowAdvancedAnalytics ? 'sm:grid-cols-2' : 'sm:grid-cols-1')}>
+      <div className={clsx('grid grid-cols-1 gap-4', allowAdvancedAnalytics ? 'md:grid-cols-2' : 'md:grid-cols-1')}>
         {allowAdvancedAnalytics && (
           <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
             <div className="flex items-center gap-3">
               <TrendingUp className="h-8 w-8 text-violet-600" />
               <div>
                 <p className="text-sm text-gray-600 dark:text-gray-400">Avg Photos Per User</p>
-                <p className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+                <p className="text-xl font-semibold text-gray-900 dark:text-gray-100 sm:text-2xl">
                   {stats.avgPhotosPerUser.toFixed(1)}
                 </p>
               </div>
@@ -372,7 +372,7 @@ export function EventStats({
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 Event Photo Remaining
               </p>
-              <p className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+              <p className="text-xl font-semibold text-gray-900 dark:text-gray-100 sm:text-2xl">
                 {remainingEventLabel}
               </p>
               <p className="text-xs text-gray-500 dark:text-gray-500">
@@ -398,13 +398,13 @@ export function EventStats({
       )}
 
       {/* Lucky Draw Status */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
           <div className="flex items-center gap-3">
             <Users className="h-8 w-8 text-emerald-600" />
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Tier Status</p>
-              <p className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+              <p className="text-xl font-semibold text-gray-900 dark:text-gray-100 sm:text-2xl">
                 {stats.tierDisplayName}
               </p>
             </div>
@@ -415,7 +415,7 @@ export function EventStats({
             <Sparkles className="h-8 w-8 text-amber-500" />
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Lucky Draw Status</p>
-              <p className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+              <p className="text-xl font-semibold text-gray-900 dark:text-gray-100 sm:text-2xl">
                 {stats.luckyDrawStatus === 'active' ? 'Configured' : 'Not set'}
               </p>
             </div>
@@ -426,7 +426,7 @@ export function EventStats({
             <Trophy className="h-8 w-8 text-amber-500" />
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Lucky Draw Entries</p>
-              <p className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+              <p className="text-xl font-semibold text-gray-900 dark:text-gray-100 sm:text-2xl">
                 {stats.luckyDrawEntryCount.toLocaleString()}
               </p>
             </div>
@@ -444,7 +444,7 @@ export function EventStats({
             {stats.topContributors.map((contributor, index) => (
               <div
                 key={contributor.name}
-                className="flex items-center justify-between rounded-lg bg-gray-50 px-4 py-3 dark:bg-gray-700/50"
+                className="flex flex-col gap-3 rounded-lg bg-gray-50 px-4 py-3 dark:bg-gray-700/50 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="flex items-center gap-3">
                   <div
@@ -465,7 +465,7 @@ export function EventStats({
                     {contributor.name}
                   </span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 sm:justify-end">
                   <ImageIcon className="h-4 w-4 text-gray-400" />
                   <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                     {contributor.count}
@@ -483,7 +483,7 @@ export function EventStats({
           <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">
             Top Liked Photos
           </h3>
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {stats.topLikedPhotos.map((photo, index) => (
               <div
                 key={photo.id}

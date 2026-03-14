@@ -5,7 +5,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowLeft,
@@ -14,8 +14,6 @@ import {
   Users,
   Image as ImageIcon,
   Shield,
-  ChevronDown,
-  ChevronUp,
   Sparkles,
   Target,
 } from 'lucide-react';
@@ -27,7 +25,6 @@ import { AttendanceAdminTab } from '@/components/attendance/AttendanceAdminTab';
 import { PhotoChallengeAdminTab } from '@/components/photo-challenge/admin-tab';
 import { SettingsAdminTab } from '@/components/settings/SettingsAdminTab';
 import { UpgradePrompt } from '@/components/upgrade-prompt';
-import { toast } from 'sonner';
 import type { IEvent } from '@/lib/types';
 import { useOrganizerEntitlements } from '@/lib/use-organizer-entitlements';
 import { OrganizerEventAdminSkeleton } from '@/components/events/page-skeletons';
@@ -35,7 +32,6 @@ import { ModerationActivitySkeleton } from '@/components/events/admin-tab-skelet
 
 export default function EventAdminPage() {
   const params = useParams();
-  const router = useRouter();
   const eventId = params.eventId as string;
 
   const [event, setEvent] = useState<IEvent | null>(null);
@@ -156,18 +152,18 @@ export default function EventAdminPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl px-4 py-6 pt-20 sm:px-6 sm:py-8 lg:px-8 lg:pt-8">
         {/* Header */}
-        <div className="mb-8">
+        <div className="mb-6 sm:mb-8">
           <Link
             href={`/organizer/events/${eventId}`}
-            className="mb-4 inline-flex items-center text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+            className="mb-4 inline-flex min-h-11 items-center rounded-lg px-2 text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100 dark:focus-visible:ring-offset-gray-900"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Event
           </Link>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 sm:text-3xl">
               {event.name}
             </h1>
             <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">Admin Dashboard</p>
@@ -175,8 +171,8 @@ export default function EventAdminPage() {
         </div>
 
         {/* Tabs */}
-        <div className="mb-6 border-b border-gray-200 dark:border-gray-700">
-          <nav className="-mb-px flex gap-8 overflow-x-auto">
+        <div className="-mx-4 mb-6 border-b border-gray-200 dark:border-gray-700 sm:mx-0">
+          <nav className="-mb-px flex gap-2 overflow-x-auto px-4 pb-2 sm:gap-6 sm:px-0">
             {tabs.map(tab => {
               const Icon = tab.icon;
               return (
@@ -184,7 +180,7 @@ export default function EventAdminPage() {
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={clsx(
-                    'flex items-center gap-2 whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium transition-colors',
+                    'flex min-h-11 items-center gap-2 whitespace-nowrap rounded-t-lg border-b-2 px-3 py-3 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900 sm:px-1 sm:py-4 sm:text-sm',
                     activeTab === tab.id
                       ? 'border-violet-500 text-violet-600 dark:border-violet-400 dark:text-violet-400'
                       : 'border-transparent text-gray-600 hover:border-gray-300 hover:text-gray-900 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-gray-200'
@@ -204,10 +200,10 @@ export default function EventAdminPage() {
         </div>
 
         {/* Tab Content */}
-        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-6 lg:p-8">
           {activeTab === 'lucky_draw' && (
             <div>
-              <h2 className="mb-2 text-xl font-semibold text-gray-900 dark:text-gray-100">
+              <h2 className="mb-2 text-lg font-semibold text-gray-900 dark:text-gray-100 sm:text-xl">
                 Lucky Draw Management
               </h2>
               <p className="mb-6 text-sm text-gray-600 dark:text-gray-400">
@@ -237,7 +233,7 @@ export default function EventAdminPage() {
 
           {activeTab === 'attendance' && (
             <div>
-              <h2 className="mb-2 text-xl font-semibold text-gray-900 dark:text-gray-100">
+              <h2 className="mb-2 text-lg font-semibold text-gray-900 dark:text-gray-100 sm:text-xl">
                 Attendance Management
               </h2>
               <p className="mb-6 text-sm text-gray-600 dark:text-gray-400">
@@ -253,7 +249,7 @@ export default function EventAdminPage() {
 
           {activeTab === 'photo_challenge' && (
             <div>
-              <h2 className="mb-2 text-xl font-semibold text-gray-900 dark:text-gray-100">
+              <h2 className="mb-2 text-lg font-semibold text-gray-900 dark:text-gray-100 sm:text-xl">
                 Photo Challenge Management
               </h2>
               <p className="mb-6 text-sm text-gray-600 dark:text-gray-400">
@@ -274,7 +270,7 @@ export default function EventAdminPage() {
 
           {activeTab === 'overview' && (
             <div>
-              <h2 className="mb-6 text-xl font-semibold text-gray-900 dark:text-gray-100">
+              <h2 className="mb-6 text-lg font-semibold text-gray-900 dark:text-gray-100 sm:text-xl">
                 Event Overview
               </h2>
               <EventStats
@@ -289,7 +285,7 @@ export default function EventAdminPage() {
 
           {activeTab === 'qr' && (
             <div>
-              <h2 className="mb-2 text-xl font-semibold text-gray-900 dark:text-gray-100">
+              <h2 className="mb-2 text-lg font-semibold text-gray-900 dark:text-gray-100 sm:text-xl">
                 QR Code for Event Sharing
               </h2>
               <p className="mb-6 text-sm text-gray-600 dark:text-gray-400">
@@ -307,18 +303,18 @@ export default function EventAdminPage() {
                   <h3 className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                     Short Link (Easy to Share)
                   </h3>
-                  <div className="flex items-center gap-2 rounded-lg border border-gray-300 bg-gray-50 p-3 dark:border-gray-600 dark:bg-gray-700">
+                  <div className="flex flex-col gap-2 rounded-lg border border-gray-300 bg-gray-50 p-3 dark:border-gray-600 dark:bg-gray-700 sm:flex-row sm:items-center">
                     <input
                       type="text"
                       readOnly
                       value={shortLink}
-                      className="flex-1 bg-transparent text-sm text-gray-900 dark:text-gray-100 outline-none"
+                      className="min-w-0 flex-1 bg-transparent text-sm text-gray-900 outline-none dark:text-gray-100"
                     />
                     <button
                       onClick={() => {
                         navigator.clipboard.writeText(shortLink);
                       }}
-                      className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700"
+                      className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800 sm:w-auto"
                     >
                       Copy
                     </button>
@@ -330,7 +326,7 @@ export default function EventAdminPage() {
 
           {activeTab === 'settings' && (
             <div>
-              <h2 className="mb-2 text-xl font-semibold text-gray-900 dark:text-gray-100">
+              <h2 className="mb-2 text-lg font-semibold text-gray-900 dark:text-gray-100 sm:text-xl">
                 Event Settings
               </h2>
               <p className="mb-6 text-sm text-gray-600 dark:text-gray-400">
@@ -348,7 +344,7 @@ export default function EventAdminPage() {
 
           {activeTab === 'moderation' && (
             <div>
-              <h2 className="mb-2 text-xl font-semibold text-gray-900 dark:text-gray-100">
+              <h2 className="mb-2 text-lg font-semibold text-gray-900 dark:text-gray-100 sm:text-xl">
                 Photo Moderation
               </h2>
               <p className="mb-6 text-sm text-gray-600 dark:text-gray-400">
@@ -359,7 +355,7 @@ export default function EventAdminPage() {
                 <>
                   <Link
                     href={`/organizer/events/${eventId}/photos?status=pending`}
-                    className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                    className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:focus-visible:ring-offset-gray-800 sm:w-auto"
                   >
                     <ImageIcon className="mr-2 h-4 w-4" />
                     View Pending Photos
@@ -376,9 +372,9 @@ export default function EventAdminPage() {
                         {moderationLogs.map((log) => (
                           <div
                             key={log.id}
-                            className="flex items-center justify-between gap-4 rounded-lg bg-gray-50 px-4 py-3 dark:bg-gray-700/50"
+                            className="flex flex-col gap-4 rounded-lg bg-gray-50 px-4 py-3 dark:bg-gray-700/50 sm:flex-row sm:items-center sm:justify-between"
                           >
-                            <div className="flex items-center gap-3">
+                            <div className="flex min-w-0 items-center gap-3">
                               <div className="h-10 w-10 overflow-hidden rounded-md bg-gray-200 dark:bg-gray-700">
                                 {log.imageUrl ? (
                                   <img
@@ -393,7 +389,7 @@ export default function EventAdminPage() {
                                   </div>
                                 )}
                               </div>
-                              <div>
+                              <div className="min-w-0">
                                 <div className="text-xs text-gray-500 dark:text-gray-400">
                                   {(() => {
                                     const statusRaw = (log.photoStatus || log.action || '').toLowerCase();
@@ -406,7 +402,7 @@ export default function EventAdminPage() {
                                 </div>
                               </div>
                             </div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                            <div className="text-xs text-gray-500 dark:text-gray-400 sm:text-right">
                               {new Date(log.createdAt).toLocaleString()}
                             </div>
                           </div>

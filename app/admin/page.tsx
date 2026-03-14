@@ -190,10 +190,10 @@ export default function SupervisorDashboardPage() {
     };
 
     return (
-        <div className="space-y-8">
+        <div className="space-y-6 sm:space-y-8">
             {/* Header */}
             <div>
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white sm:text-3xl">
                     Super Admin Dashboard
                 </h1>
                 <p className="mt-1 text-gray-600 dark:text-gray-400">
@@ -202,11 +202,11 @@ export default function SupervisorDashboardPage() {
             </div>
 
             {/* Stats Grid */}
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {statCards.map((stat) => (
                     <div
                         key={stat.label}
-                        className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800"
+                        className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-6"
                     >
                         <div className="flex items-center justify-between">
                             <div>
@@ -224,9 +224,9 @@ export default function SupervisorDashboardPage() {
                         {stat.href && (
                             <Link
                                 href={stat.href}
-                                className="mt-4 flex items-center text-sm font-medium text-violet-600 hover:text-violet-700 dark:text-violet-400"
+                                className="mt-4 inline-flex min-h-11 items-center gap-1 text-sm font-medium text-violet-600 hover:text-violet-700 dark:text-violet-400"
                             >
-                                View all <ArrowRight className="ml-1 h-4 w-4" />
+                                View all <ArrowRight className="h-4 w-4" />
                             </Link>
                         )}
                     </div>
@@ -234,14 +234,14 @@ export default function SupervisorDashboardPage() {
             </div>
 
             {/* Quick Actions */}
-            <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-6">
                 <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
                     Quick Actions
                 </h2>
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                     <Link
                         href="/admin/users"
-                        className="flex items-center gap-3 rounded-lg border border-gray-200 p-4 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700"
+                        className="flex min-h-11 items-center gap-3 rounded-lg border border-gray-200 p-4 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700"
                     >
                         <Users className="h-5 w-5 text-blue-500" />
                         <span className="font-medium text-gray-900 dark:text-white">
@@ -250,7 +250,7 @@ export default function SupervisorDashboardPage() {
                     </Link>
                     <Link
                         href="/admin/events"
-                        className="flex items-center gap-3 rounded-lg border border-gray-200 p-4 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700"
+                        className="flex min-h-11 items-center gap-3 rounded-lg border border-gray-200 p-4 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700"
                     >
                         <Calendar className="h-5 w-5 text-violet-500" />
                         <span className="font-medium text-gray-900 dark:text-white">
@@ -259,7 +259,7 @@ export default function SupervisorDashboardPage() {
                     </Link>
                     <Link
                         href="/admin/settings"
-                        className="flex items-center gap-3 rounded-lg border border-gray-200 p-4 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700"
+                        className="flex min-h-11 items-center gap-3 rounded-lg border border-gray-200 p-4 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700"
                     >
                         <Shield className="h-5 w-5 text-emerald-500" />
                         <span className="font-medium text-gray-900 dark:text-white">
@@ -270,7 +270,7 @@ export default function SupervisorDashboardPage() {
             </div>
 
             {/* Recent Activity Placeholder */}
-            <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-6">
                 <div className="flex items-center gap-2">
                     <TrendingUp className="h-5 w-5 text-green-500" />
                     <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
