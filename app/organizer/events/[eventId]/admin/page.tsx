@@ -152,7 +152,7 @@ export default function EventAdminPage() {
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-gray-50 dark:bg-gray-900">
-      <div className="mx-auto max-w-7xl px-4 py-6 pt-20 sm:px-6 sm:py-8 lg:px-8 lg:pt-8">
+      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:pt-8">
         {/* Header */}
         <div className="mb-6 sm:mb-8">
           <Link
