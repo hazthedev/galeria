@@ -160,7 +160,7 @@ export default function DashboardPage() {
     }
 
     return (
-        <div className="min-h-screen">
+        <div className="min-h-screen overflow-x-hidden">
             <div className="mx-auto max-w-7xl px-4 py-8 pt-16 sm:px-6 lg:px-8 lg:pt-8">
                 {/* Welcome Section */}
                 <div className="mb-8">

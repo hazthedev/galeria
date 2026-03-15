@@ -91,7 +91,7 @@ export function EventStatsSkeleton({
   const visibleStatCount = allowReactions ? 4 : 3;
 
   return (
-    <div className={clsx('space-y-6', className)}>
+    <div className={clsx('space-y-4 sm:space-y-6', className)}>
       <div className={clsx('grid grid-cols-1 gap-4 sm:grid-cols-2', visibleStatCount > 3 ? 'lg:grid-cols-4' : 'lg:grid-cols-3')}>
         {Array.from({ length: visibleStatCount }).map((_, index) => (
           <div
@@ -146,7 +146,7 @@ export function EventStatsSkeleton({
       </div>
 
       {allowAdvancedAnalytics && (
-        <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
+        <div className="rounded-xl border border-gray-200 bg-white p-4 sm:p-6 dark:border-gray-700 dark:bg-gray-800">
           <Skeleton className="mb-4 h-6 w-40 rounded-full animate-none" />
           <div className="space-y-3">
             {Array.from({ length: 4 }).map((_, index) => (
@@ -169,7 +169,7 @@ export function EventStatsSkeleton({
       )}
 
       {allowAdvancedAnalytics && allowReactions && (
-        <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
+        <div className="rounded-xl border border-gray-200 bg-white p-4 sm:p-6 dark:border-gray-700 dark:bg-gray-800">
           <Skeleton className="mb-4 h-6 w-36 rounded-full animate-none" />
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 3 }).map((_, index) => (
@@ -305,9 +305,10 @@ export function EventStats({
   const visibleStatCards = statCards.filter(
     (card) => allowReactions || card.key !== 'totalReactions'
   );
+  const limitsSummary = `Configured: ${configuredLimitLabel} | Tier: ${tierLimitLabel}`;
 
   return (
-    <div className={clsx('space-y-6', className)}>
+    <div className={clsx('space-y-4 sm:space-y-6', className)}>
       {warnings.length > 0 && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800/60 dark:bg-amber-900/20 dark:text-amber-300">
           {warnings[0]}
@@ -379,6 +380,9 @@ export function EventStats({
                 {stats.totalPhotos.toLocaleString()} used of {effectiveLimitLabel}
               </p>
               <p className="text-xs text-gray-500 dark:text-gray-500">
+                {limitsSummary}
+              </p>
+              <p className="hidden text-xs text-gray-500 dark:text-gray-500">
                 Configured: {configuredLimitLabel} · Tier: {tierLimitLabel}
               </p>
             </div>
@@ -436,7 +440,7 @@ export function EventStats({
 
       {/* Top Contributors */}
       {allowAdvancedAnalytics && stats.topContributors.length > 0 && (
-        <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
+        <div className="rounded-xl border border-gray-200 bg-white p-4 sm:p-6 dark:border-gray-700 dark:bg-gray-800">
           <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">
             Top Contributors
           </h3>
@@ -479,11 +483,11 @@ export function EventStats({
 
       {/* Top Liked Photos */}
       {allowAdvancedAnalytics && allowReactions && stats.topLikedPhotos.length > 0 && (
-        <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
+        <div className="rounded-xl border border-gray-200 bg-white p-4 sm:p-6 dark:border-gray-700 dark:bg-gray-800">
           <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">
             Top Liked Photos
           </h3>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {stats.topLikedPhotos.map((photo, index) => (
               <div
                 key={photo.id}
@@ -506,8 +510,8 @@ export function EventStats({
                     #{index + 1}
                   </div>
                 </div>
-                <div className="flex items-center justify-between px-3 py-2">
-                  <div className="truncate text-xs text-gray-600 dark:text-gray-400">
+                <div className="flex items-center justify-between gap-2 px-3 py-2">
+                  <div className="min-w-0 truncate text-[11px] text-gray-600 dark:text-gray-400 sm:text-xs">
                     {photo.contributorName}
                   </div>
                   <div className="flex items-center gap-1 text-sm font-semibold text-pink-600 dark:text-pink-400">

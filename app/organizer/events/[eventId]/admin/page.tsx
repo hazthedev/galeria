@@ -151,7 +151,7 @@ export default function EventAdminPage() {
   const moderationEnabled = event.settings?.features?.moderation_required === true;
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen overflow-x-hidden bg-gray-50 dark:bg-gray-900">
       <div className="mx-auto max-w-7xl px-4 py-6 pt-20 sm:px-6 sm:py-8 lg:px-8 lg:pt-8">
         {/* Header */}
         <div className="mb-6 sm:mb-8">
@@ -171,8 +171,8 @@ export default function EventAdminPage() {
         </div>
 
         {/* Tabs */}
-        <div className="-mx-4 mb-6 border-b border-gray-200 dark:border-gray-700 sm:mx-0">
-          <nav className="-mb-px flex gap-2 overflow-x-auto px-4 pb-2 sm:gap-6 sm:px-0">
+        <div className="-mx-4 mb-6 overflow-hidden border-b border-gray-200 dark:border-gray-700 sm:mx-0">
+          <nav className="-mb-px flex gap-1.5 overflow-x-auto px-4 pb-2 pr-6 sm:gap-6 sm:px-0 sm:pr-0">
             {tabs.map(tab => {
               const Icon = tab.icon;
               return (
@@ -180,13 +180,13 @@ export default function EventAdminPage() {
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={clsx(
-                    'flex min-h-11 items-center gap-2 whitespace-nowrap rounded-t-lg border-b-2 px-3 py-3 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900 sm:px-1 sm:py-4 sm:text-sm',
+                    'flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-t-lg border-b-2 px-2.5 py-2.5 text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900 sm:gap-2 sm:px-1 sm:py-4 sm:text-sm',
                     activeTab === tab.id
                       ? 'border-violet-500 text-violet-600 dark:border-violet-400 dark:text-violet-400'
                       : 'border-transparent text-gray-600 hover:border-gray-300 hover:text-gray-900 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-gray-200'
                   )}
                 >
-                  <Icon className="h-4 w-4" />
+                  <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                   {tab.label}
                   {tab.id === 'lucky_draw' && luckyDrawPlanLocked && (
                     <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:bg-amber-900/40 dark:text-amber-200">
@@ -200,7 +200,7 @@ export default function EventAdminPage() {
         </div>
 
         {/* Tab Content */}
-        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-6 lg:p-8">
+        <div className="min-w-0 overflow-hidden rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-6 lg:p-8">
           {activeTab === 'lucky_draw' && (
             <div>
               <h2 className="mb-2 text-lg font-semibold text-gray-900 dark:text-gray-100 sm:text-xl">

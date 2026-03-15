@@ -286,8 +286,8 @@ export function AttendanceAdminTab({ eventId, initialTab, attendanceEnabled = tr
   return (
     <div className="space-y-6">
       {/* Sub-tabs */}
-      <div className="-mx-4 border-b border-gray-200 dark:border-gray-700 sm:mx-0">
-        <div className="flex gap-2 overflow-x-auto px-4 pb-1 sm:px-0">
+      <div className="-mx-4 overflow-hidden border-b border-gray-200 dark:border-gray-700 sm:mx-0">
+        <div className="flex gap-1.5 overflow-x-auto px-4 pb-1 pr-6 sm:gap-2 sm:px-0 sm:pr-0">
         {[
           { id: 'overview' as const, label: 'Dashboard', icon: Users },
           { id: 'guests' as const, label: 'Guest List', icon: Users },
@@ -299,13 +299,13 @@ export function AttendanceAdminTab({ eventId, initialTab, attendanceEnabled = tr
             key={tab.id}
             onClick={() => setActiveSubTab(tab.id)}
             className={clsx(
-              'flex min-h-11 items-center gap-2 whitespace-nowrap border-b-2 px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800',
+              'flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800 sm:gap-2 sm:px-4 sm:text-sm',
               activeSubTab === tab.id
                 ? 'border-violet-600 text-violet-600'
                 : 'border-transparent text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100'
             )}
           >
-            <tab.icon className="h-4 w-4" />
+            <tab.icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             {tab.label}
           </button>
         ))}
@@ -600,16 +600,16 @@ export function AttendanceAdminTab({ eventId, initialTab, attendanceEnabled = tr
       {activeSubTab === 'qr' && (
         <div className="space-y-6">
           {/* QR Code Sub-tabs */}
-          <div className="-mx-4 border-b border-gray-200 dark:border-gray-700 sm:mx-0">
-            <div className="flex gap-2 overflow-x-auto px-4 pb-1 sm:px-0">
+          <div className="-mx-4 overflow-hidden border-b border-gray-200 dark:border-gray-700 sm:mx-0">
+            <div className="flex gap-1.5 overflow-x-auto px-4 pb-1 pr-6 sm:gap-2 sm:px-0 sm:pr-0">
             <button
               onClick={() => setActiveSubTab('qr')}
               className={clsx(
-                'flex min-h-11 items-center gap-2 whitespace-nowrap border-b-2 px-4 py-2 text-sm font-medium transition-colors',
+                'flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 text-[11px] font-medium transition-colors sm:gap-2 sm:px-4 sm:text-sm',
                 'border-violet-600 text-violet-600'
               )}
             >
-              <QrCode className="h-4 w-4" />
+              <QrCode className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               Generate QR Code
             </button>
             </div>

@@ -278,7 +278,7 @@ export default function EventDetailPage() {
   const reactionsEnabled = event.settings?.features?.reactions_enabled !== false;
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen overflow-x-hidden bg-gray-50 dark:bg-gray-900">
       {/* Hero Section */}
       <div className="relative h-64 overflow-hidden bg-gradient-to-br from-violet-600 to-pink-600 sm:h-80">
         <div className="absolute inset-0 bg-black/20" />
@@ -332,17 +332,17 @@ export default function EventDetailPage() {
             </div>
 
             {/* Action Buttons */}
-            <div className="flex items-center gap-2">
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
               <Link
                 href={`/events/${event.id}/upload`}
-                className="inline-flex items-center rounded-lg bg-gradient-to-r from-violet-600 to-pink-600 px-4 py-2 text-sm font-medium text-white hover:from-violet-700 hover:to-pink-700"
+                className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-gradient-to-r from-violet-600 to-pink-600 px-4 py-2 text-sm font-medium text-white hover:from-violet-700 hover:to-pink-700 sm:w-auto"
               >
                 <Upload className="mr-2 h-4 w-4" />
                 Upload Photos
               </Link>
               <Link
                 href={`/organizer/events/${event.id}/admin`}
-                className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 sm:w-auto"
               >
                 <Settings className="mr-2 h-4 w-4" />
                 Admin

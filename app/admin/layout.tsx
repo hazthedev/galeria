@@ -105,14 +105,17 @@ export default function SupervisorLayout({
     }
 
     return (
-        <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900">
+        <div className="flex min-h-screen overflow-x-hidden bg-gray-50 dark:bg-gray-900">
             <button
                 type="button"
                 onClick={() => setSidebarOpen(!sidebarOpen)}
                 aria-label={sidebarOpen ? 'Close navigation menu' : 'Open navigation menu'}
                 aria-controls="admin-sidebar"
                 aria-expanded={sidebarOpen}
-                className="fixed left-4 top-4 z-50 flex h-11 w-11 items-center justify-center rounded-xl border border-gray-200 bg-white shadow-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 lg:hidden dark:border-gray-700 dark:bg-gray-800"
+                className={clsx(
+                    'fixed left-4 top-4 z-50 flex h-11 w-11 items-center justify-center rounded-xl border border-gray-200 bg-white shadow-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 lg:hidden dark:border-gray-700 dark:bg-gray-800',
+                    sidebarOpen ? 'pointer-events-none opacity-0' : 'opacity-100'
+                )}
             >
                 {sidebarOpen ? (
                     <X className="h-6 w-6 text-gray-600 dark:text-gray-300" />
@@ -134,18 +137,28 @@ export default function SupervisorLayout({
                 ref={sidebarRef}
                 id="admin-sidebar"
                 className={clsx(
-                    'fixed inset-y-0 left-0 z-40 flex h-screen w-64 flex-col border-r border-gray-200 bg-white transition-transform duration-200 dark:border-gray-700 dark:bg-gray-800',
+                    'fixed inset-y-0 left-0 z-40 flex h-screen w-[85vw] max-w-64 flex-col border-r border-gray-200 bg-white transition-transform duration-200 dark:border-gray-700 dark:bg-gray-800 lg:w-64',
                     'lg:translate-x-0',
                     sidebarOpen ? 'translate-x-0' : '-translate-x-full'
                 )}
                 aria-label="Admin navigation"
             >
                 {/* Header */}
-                <div className="flex h-16 items-center gap-2 border-b border-gray-200 px-4 dark:border-gray-700">
-                    <Shield className="h-6 w-6 text-violet-600" />
-                    <span className="text-lg font-bold text-gray-900 dark:text-white">
-                        Super Admin
-                    </span>
+                <div className="flex h-16 items-center justify-between gap-2 border-b border-gray-200 px-4 dark:border-gray-700">
+                    <div className="flex items-center gap-2">
+                        <Shield className="h-6 w-6 text-violet-600" />
+                        <span className="text-lg font-bold text-gray-900 dark:text-white">
+                            Super Admin
+                        </span>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setSidebarOpen(false)}
+                        aria-label="Close navigation menu"
+                        className="flex h-10 w-10 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 lg:hidden dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200"
+                    >
+                        <X className="h-5 w-5" />
+                    </button>
                 </div>
 
                 {/* Navigation */}
@@ -177,7 +190,7 @@ export default function SupervisorLayout({
             </aside>
 
             {/* Main Content */}
-            <main className="flex-1 lg:ml-64">
+            <main className="min-w-0 flex-1 lg:ml-64">
                 <div className="mx-auto min-h-screen w-full max-w-7xl px-4 pb-6 pt-20 sm:px-6 lg:px-8 lg:pb-8 lg:pt-8">
                     {children}
                 </div>
