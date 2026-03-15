@@ -137,7 +137,7 @@ export default function SupervisorLayout({
                 ref={sidebarRef}
                 id="admin-sidebar"
                 className={clsx(
-                    'fixed inset-y-0 left-0 z-40 flex h-screen w-[85vw] max-w-64 flex-col border-r border-gray-200 bg-white transition-transform duration-200 dark:border-gray-700 dark:bg-gray-800 lg:w-64',
+                    'fixed inset-y-0 left-0 z-40 flex h-dvh w-[85vw] max-w-64 flex-col border-r border-gray-200 bg-white transition-transform duration-200 dark:border-gray-700 dark:bg-gray-800 lg:h-screen lg:w-64',
                     'lg:translate-x-0',
                     sidebarOpen ? 'translate-x-0' : '-translate-x-full'
                 )}
@@ -193,7 +193,7 @@ function UserMenu() {
     const { user } = useAuth();
 
     return (
-        <div className="border-t border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+        <div className="border-t border-gray-200 bg-white p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] dark:border-gray-700 dark:bg-gray-800">
             <div className="flex items-center gap-3 mb-3">
                 <div className="h-10 w-10 rounded-full bg-violet-100 flex items-center justify-center text-violet-700 font-bold dark:bg-violet-900 dark:text-violet-300">
                     {user?.name?.[0]?.toUpperCase() || 'U'}
@@ -208,7 +208,7 @@ function UserMenu() {
                 </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2 min-[380px]:grid-cols-2">
                 <Link
                     href="/admin/profile"
                     className="flex min-h-11 items-center justify-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:focus-visible:ring-offset-gray-800"
