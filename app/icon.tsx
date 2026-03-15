@@ -14,7 +14,7 @@ export default function Icon() {
       <div
         style={{
           alignItems: 'center',
-          background: '#F8FAFC',
+          background: 'transparent',
           display: 'flex',
           height: '100%',
           justifyContent: 'center',

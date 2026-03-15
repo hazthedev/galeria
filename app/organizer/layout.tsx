@@ -148,15 +148,12 @@ export default function OrganizerLayout({
                 <div className="flex h-16 items-center gap-2 border-b border-gray-200 px-4 dark:border-gray-700">
                     <Link href="/" className="flex items-center gap-2">
                         <Image
-                            src="/logo.svg"
+                            src="/logo-light.svg"
                             alt="Galeria Logo"
                             width={138}
                             height={32}
                             className="h-8 w-auto"
                         />
-                        <span className="text-lg font-bold text-gray-900 dark:text-white">
-                            Galeria
-                        </span>
                     </Link>
                 </div>
 
