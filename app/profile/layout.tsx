@@ -8,8 +8,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { useEffect } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
-import { LayoutDashboard, Plus, User, LogOut, ArrowLeft } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 
 export default function ProfileLayout({
     children,
@@ -43,25 +42,13 @@ export default function ProfileLayout({
             {/* Simple header for profile page */}
             <header className="border-b border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
                 <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                    <div className="flex h-16 items-center justify-between">
+                    <div className="flex h-16 items-center">
                         <div className="flex items-center gap-4">
                             <Link href="/organizer" className="flex items-center gap-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white">
                                 <ArrowLeft className="h-5 w-5" />
                                 <span className="text-sm font-medium">Back to Dashboard</span>
                             </Link>
                         </div>
-                        <Link href="/" className="flex items-center gap-2">
-                            <Image
-                                src="/logo.svg"
-                                alt="Galeria Logo"
-                                width={138}
-                                height={32}
-                                className="h-8 w-auto"
-                            />
-                            <span className="text-lg font-bold text-gray-900 dark:text-white">
-                                Galeria
-                            </span>
-                        </Link>
                     </div>
                 </div>
             </header>
