@@ -146,15 +146,15 @@ export function PhotoChallengeAdminTab({ eventId }: PhotoChallengeAdminTabProps)
   const claimedCount = progress.filter(p => p.prize_claimed_at && !p.prize_revoked).length;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Challenge Header */}
-      <div className="flex items-start justify-between rounded-xl border border-gray-200 bg-gradient-to-r from-violet-50 to-purple-50 p-6 dark:border-gray-700 dark:from-violet-950/20 dark:to-purple-950/20">
-        <div className="flex items-start gap-4">
+      <div className="flex flex-col gap-4 rounded-xl border border-gray-200 bg-gradient-to-r from-violet-50 to-purple-50 p-4 dark:border-gray-700 dark:from-violet-950/20 dark:to-purple-950/20 sm:p-6 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex min-w-0 items-start gap-4">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-pink-500">
             <Target className="h-6 w-6 text-white" />
           </div>
-          <div>
-            <div className="flex items-center gap-2">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                 {challenge.goal_photos} Photo Goal
               </h3>
@@ -171,23 +171,23 @@ export function PhotoChallengeAdminTab({ eventId }: PhotoChallengeAdminTabProps)
               )}
             </div>
             <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-              Prize: <span className="font-medium text-gray-900 dark:text-gray-100">{challenge.prize_title}</span>
+              Prize: <span className="break-words font-medium text-gray-900 dark:text-gray-100">{challenge.prize_title}</span>
             </p>
             {challenge.prize_description && (
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-500">
                 {challenge.prize_description}
               </p>
             )}
-            <div className="mt-2 flex items-center gap-4 text-xs text-gray-500 dark:text-gray-500">
+            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500 dark:text-gray-500">
               <span>Auto-grant: {challenge.auto_grant ? 'Yes' : 'No'}</span>
               {challenge.prize_tier && <span>Tier: {challenge.prize_tier}</span>}
             </div>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto">
           <button
             onClick={() => setShowForm(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+            className="inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 sm:w-auto"
           >
             <Edit className="h-4 w-4" />
             Edit
@@ -195,7 +195,7 @@ export function PhotoChallengeAdminTab({ eventId }: PhotoChallengeAdminTabProps)
           <button
             onClick={handleDelete}
             disabled={isDeleting}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50 dark:border-red-900 dark:bg-gray-800 dark:text-red-400 dark:hover:bg-red-950/20"
+            className="inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50 dark:border-red-900 dark:bg-gray-800 dark:text-red-400 dark:hover:bg-red-950/20 sm:w-auto"
           >
             {isDeleting ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -247,8 +247,8 @@ export function PhotoChallengeAdminTab({ eventId }: PhotoChallengeAdminTabProps)
       </div>
 
       {/* Progress List */}
-      <div className="rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
-        <div className="border-b border-gray-200 px-6 py-4 dark:border-gray-700">
+      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+        <div className="border-b border-gray-200 px-4 py-4 dark:border-gray-700 sm:px-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             Guest Progress
           </h3>
@@ -269,14 +269,14 @@ export function PhotoChallengeAdminTab({ eventId }: PhotoChallengeAdminTabProps)
             {progress.map((p) => {
               const percent = Math.min(100, Math.round((p.photos_approved / challenge.goal_photos) * 100));
               return (
-                <div key={p.id} className="px-6 py-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
+                <div key={p.id} className="px-4 py-4 sm:px-6">
+                  <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                    <div className="flex min-w-0 items-center gap-3">
                       <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-violet-100 to-pink-100 text-sm font-semibold text-violet-700 dark:from-violet-900/30 dark:to-pink-900/30 dark:text-violet-300">
                         {p.user_fingerprint.slice(0, 2).toUpperCase()}
                       </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
                           Guest {p.user_fingerprint.slice(0, 8)}
                         </p>
                         <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -284,8 +284,8 @@ export function PhotoChallengeAdminTab({ eventId }: PhotoChallengeAdminTabProps)
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4">
-                      <div className="w-32">
+                    <div className="flex w-full flex-col gap-3 md:w-auto md:flex-row md:items-center md:justify-end">
+                      <div className="w-full md:w-32">
                         <div className="mb-1 flex items-center justify-between text-xs">
                           <span className="text-gray-500 dark:text-gray-400">{percent}%</span>
                         </div>
@@ -297,12 +297,12 @@ export function PhotoChallengeAdminTab({ eventId }: PhotoChallengeAdminTabProps)
                         </div>
                       </div>
                       {p.goal_reached && !p.prize_revoked && (
-                        <span className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400">
+                        <span className="inline-flex self-start rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 md:self-auto">
                           {p.prize_claimed_at ? 'Claimed' : 'Ready!'}
                         </span>
                       )}
                       {p.prize_revoked && (
-                        <span className="inline-flex items-center rounded-full bg-red-100 px-3 py-1 text-xs font-medium text-red-800 dark:bg-red-900/30 dark:text-red-400">
+                        <span className="inline-flex self-start rounded-full bg-red-100 px-3 py-1 text-xs font-medium text-red-800 dark:bg-red-900/30 dark:text-red-400 md:self-auto">
                           Revoked
                         </span>
                       )}

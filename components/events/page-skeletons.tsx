@@ -10,6 +10,100 @@ import {
   Target,
 } from 'lucide-react';
 
+export function OrganizerDashboardSkeleton() {
+  return (
+    <div className="min-h-screen overflow-x-hidden">
+      <div className="mx-auto max-w-7xl px-4 py-8 pt-16 sm:px-6 lg:px-8 lg:pt-8">
+        <div className="mb-8 space-y-3">
+          <Skeleton className="h-10 w-72 max-w-full" />
+          <Skeleton className="h-4 w-56 max-w-full rounded-full" />
+        </div>
+
+        <div className="mb-8 grid gap-4 sm:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <div
+              key={index}
+              className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800"
+            >
+              <div className="flex items-center gap-4">
+                <Skeleton className="h-12 w-12 rounded-lg animate-none" />
+                <div className="min-w-0 flex-1 space-y-2">
+                  <Skeleton className="h-4 w-24 rounded-full animate-none" />
+                  <Skeleton className="h-8 w-16 rounded-full animate-none" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mb-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <Skeleton className="h-7 w-32 rounded-full animate-none" />
+            <Skeleton className="h-11 w-full rounded-xl animate-none sm:w-40" />
+          </div>
+        </div>
+
+        <div className="mb-6 space-y-4">
+          <div className="flex flex-col gap-4 sm:flex-row">
+            <Skeleton className="h-11 w-full flex-1 rounded-xl animate-none" />
+            <Skeleton className="h-11 w-full rounded-xl animate-none sm:w-32" />
+          </div>
+          <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+            <Skeleton className="mb-2 h-4 w-20 rounded-full animate-none" />
+            <Skeleton className="h-11 w-full rounded-xl animate-none sm:w-56" />
+          </div>
+        </div>
+
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <div
+              key={index}
+              className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800"
+            >
+              <div className="relative h-32 bg-gradient-to-br from-violet-500 to-pink-500">
+                <div className="absolute left-3 top-3">
+                  <Skeleton className="h-6 w-14 rounded-full bg-white/25 animate-none" />
+                </div>
+                <div className="absolute right-3 top-3">
+                  <Skeleton className="h-6 w-16 rounded-full bg-white/25 animate-none" />
+                </div>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Skeleton className="h-12 w-12 rounded-full bg-white/20 animate-none" />
+                </div>
+              </div>
+              <div className="space-y-4 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <Skeleton className="h-6 w-32 max-w-full rounded-full animate-none" />
+                    <Skeleton className="h-4 w-full rounded-full animate-none" />
+                    <Skeleton className="h-4 w-2/3 rounded-full animate-none" />
+                  </div>
+                  <Skeleton className="h-8 w-8 rounded-lg animate-none" />
+                </div>
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-36 max-w-full rounded-full animate-none" />
+                  <Skeleton className="h-4 w-28 max-w-full rounded-full animate-none" />
+                  <Skeleton className="h-4 w-20 rounded-full animate-none" />
+                </div>
+                <div className="flex items-center gap-4 border-t border-gray-100 pt-3 dark:border-gray-700">
+                  <Skeleton className="h-4 w-20 rounded-full animate-none" />
+                  <Skeleton className="h-4 w-20 rounded-full animate-none" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-center">
+          <Skeleton className="h-10 w-full rounded-xl animate-none sm:w-24" />
+          <Skeleton className="h-4 w-28 rounded-full animate-none" />
+          <Skeleton className="h-10 w-full rounded-xl animate-none sm:w-24" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function OrganizerEventDetailSkeleton() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -50,7 +144,7 @@ export function OrganizerEventDetailSkeleton() {
             <Skeleton className="h-7 w-32" />
             <Skeleton className="h-5 w-20 rounded-full" />
           </div>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
             {Array.from({ length: 10 }).map((_, index) => (
               <Skeleton key={index} className="aspect-square rounded-xl" />
             ))}

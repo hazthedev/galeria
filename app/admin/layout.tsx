@@ -113,7 +113,7 @@ export default function SupervisorLayout({
                 aria-controls="admin-sidebar"
                 aria-expanded={sidebarOpen}
                 className={clsx(
-                    'fixed left-4 top-4 z-50 flex h-11 w-11 items-center justify-center rounded-xl border border-gray-200 bg-white shadow-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 lg:hidden dark:border-gray-700 dark:bg-gray-800',
+                    'fixed right-4 top-4 z-50 flex h-11 w-11 items-center justify-center rounded-xl border border-gray-200 bg-white shadow-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 lg:hidden dark:border-gray-700 dark:bg-gray-800',
                     sidebarOpen ? 'pointer-events-none opacity-0' : 'opacity-100'
                 )}
             >
@@ -144,21 +144,11 @@ export default function SupervisorLayout({
                 aria-label="Admin navigation"
             >
                 {/* Header */}
-                <div className="flex h-16 items-center justify-between gap-2 border-b border-gray-200 px-4 dark:border-gray-700">
-                    <div className="flex items-center gap-2">
-                        <Shield className="h-6 w-6 text-violet-600" />
-                        <span className="text-lg font-bold text-gray-900 dark:text-white">
-                            Super Admin
-                        </span>
-                    </div>
-                    <button
-                        type="button"
-                        onClick={() => setSidebarOpen(false)}
-                        aria-label="Close navigation menu"
-                        className="flex h-10 w-10 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 lg:hidden dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200"
-                    >
-                        <X className="h-5 w-5" />
-                    </button>
+                <div className="flex h-16 items-center gap-2 border-b border-gray-200 px-4 dark:border-gray-700">
+                    <Shield className="h-6 w-6 text-violet-600" />
+                    <span className="text-lg font-bold text-gray-900 dark:text-white">
+                        Super Admin
+                    </span>
                 </div>
 
                 {/* Navigation */}

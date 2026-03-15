@@ -207,20 +207,20 @@ export function AttendanceGuestListSkeleton() {
 
 export function PhotoChallengeAdminSkeleton() {
   return (
-    <div className="space-y-6">
-      <div className="rounded-xl border border-gray-200 bg-gradient-to-r from-violet-50 to-purple-50 p-6 dark:border-gray-700 dark:from-violet-950/20 dark:to-purple-950/20">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-start gap-4">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="rounded-xl border border-gray-200 bg-gradient-to-r from-violet-50 to-purple-50 p-4 dark:border-gray-700 dark:from-violet-950/20 dark:to-purple-950/20 sm:p-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex min-w-0 items-start gap-4">
             <Skeleton className="h-12 w-12 animate-none rounded-full" />
-            <div className="space-y-2">
+            <div className="min-w-0 flex-1 space-y-2">
               <Skeleton className="h-6 w-36 animate-none rounded-full" />
               <Skeleton className="h-4 w-52 max-w-full animate-none rounded-full" />
               <Skeleton className="h-3 w-40 animate-none rounded-full" />
             </div>
           </div>
-          <div className="flex gap-2">
-            <Skeleton className="h-9 w-20 animate-none rounded-xl" />
-            <Skeleton className="h-9 w-20 animate-none rounded-xl" />
+          <div className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto">
+            <Skeleton className="h-11 w-full animate-none rounded-xl sm:w-20" />
+            <Skeleton className="h-11 w-full animate-none rounded-xl sm:w-20" />
           </div>
         </div>
       </div>
@@ -242,24 +242,24 @@ export function PhotoChallengeAdminSkeleton() {
         ))}
       </div>
 
-      <div className="rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
-        <div className="border-b border-gray-200 px-6 py-4 dark:border-gray-700">
+      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+        <div className="border-b border-gray-200 px-4 py-4 dark:border-gray-700 sm:px-6">
           <Skeleton className="h-6 w-36 animate-none rounded-full" />
           <Skeleton className="mt-2 h-4 w-56 animate-none rounded-full" />
         </div>
         <div className="divide-y divide-gray-200 dark:divide-gray-700">
           {Array.from({ length: 4 }).map((_, index) => (
-            <div key={index} className="px-6 py-4">
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
+            <div key={index} className="px-4 py-4 sm:px-6">
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div className="flex min-w-0 items-center gap-3">
                   <Skeleton className="h-10 w-10 animate-none rounded-full" />
-                  <div className="space-y-2">
+                  <div className="min-w-0 flex-1 space-y-2">
                     <Skeleton className="h-4 w-28 animate-none rounded-full" />
                     <Skeleton className="h-3 w-24 animate-none rounded-full" />
                   </div>
                 </div>
-                <div className="flex items-center gap-4">
-                  <Skeleton className="h-2 w-32 animate-none rounded-full" />
+                <div className="flex w-full flex-col gap-3 md:w-auto md:flex-row md:items-center">
+                  <Skeleton className="h-2 w-full animate-none rounded-full md:w-32" />
                   <Skeleton className="h-6 w-16 animate-none rounded-full" />
                 </div>
               </div>

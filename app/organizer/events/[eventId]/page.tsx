@@ -375,7 +375,7 @@ export default function EventDetailPage() {
               </Link>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
               {photos.map(photo => (
                 <button
                   key={photo.id}
@@ -387,7 +387,7 @@ export default function EventDetailPage() {
                     alt={photo.caption || 'Event photo'}
                     fill
                     className="object-cover transition-transform duration-300 group-hover:scale-110"
-                    sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 20vw"
+                    sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, (max-width: 1280px) 25vw, 20vw"
                   />
                   {photo.caption && (
                     <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-2">

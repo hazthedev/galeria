@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useAuth } from '@/lib/auth';
 import { IEvent, EventStatus } from '@/lib/types';
 import { EventCard } from '@/components/events/event-card';
+import { OrganizerDashboardSkeleton } from '@/components/events/page-skeletons';
 import {
     Plus,
     Calendar,
@@ -152,11 +153,7 @@ export default function DashboardPage() {
     };
 
     if (isLoading && events.length === 0) {
-        return (
-            <div className="flex min-h-screen items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
-            </div>
-        );
+        return <OrganizerDashboardSkeleton />;
     }
 
     return (
