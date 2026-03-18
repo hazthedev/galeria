@@ -18,6 +18,7 @@ import {
     User,
     LogOut,
     Monitor,
+    FileText,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useAuth } from '@/lib/auth';
@@ -30,6 +31,7 @@ const SIDEBAR_ITEMS = [
     { href: '/admin/events', label: 'Events', icon: Calendar },
     { href: '/admin/tenants', label: 'Tenants', icon: Building2 },
     { href: '/admin/sessions', label: 'Sessions', icon: Monitor },
+    { href: '/admin/audit', label: 'Audit Logs', icon: FileText },
     { href: '/admin/settings', label: 'Settings', icon: Settings },
 ];
 

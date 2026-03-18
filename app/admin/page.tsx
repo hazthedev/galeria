@@ -13,7 +13,11 @@ import {
     TrendingUp,
     ArrowRight,
     Loader2,
-    Shield
+    Shield,
+    Building2,
+    Gift,
+    Trophy,
+    Clock,
 } from 'lucide-react';
 
 interface DashboardStats {
@@ -22,6 +26,11 @@ interface DashboardStats {
     totalPhotos: number;
     activeEvents: number;
     recentUsers: number;
+    totalTenants: number;
+    mfaEnabledUsers: number;
+    totalLuckyDraws: number;
+    totalWinners: number;
+    pendingPhotos: number;
 }
 
 interface RecentActivityItem {
@@ -51,6 +60,11 @@ export default function SupervisorDashboardPage() {
         totalPhotos: 0,
         activeEvents: 0,
         recentUsers: 0,
+        totalTenants: 0,
+        mfaEnabledUsers: 0,
+        totalLuckyDraws: 0,
+        totalWinners: 0,
+        pendingPhotos: 0,
     });
     const [isLoading, setIsLoading] = useState(true);
     const [recentActivity, setRecentActivity] = useState<RecentActivityItem[]>([]);
@@ -120,6 +134,48 @@ export default function SupervisorDashboardPage() {
             icon: ImageIcon,
             color: 'bg-pink-500',
             href: null
+        },
+        {
+            label: 'Tenants',
+            value: stats.totalTenants,
+            icon: Building2,
+            color: 'bg-emerald-500',
+            href: '/admin/tenants'
+        },
+        {
+            label: 'MFA Enabled',
+            value: stats.mfaEnabledUsers,
+            icon: Shield,
+            color: 'bg-indigo-500',
+            href: null
+        },
+        {
+            label: 'Lucky Draws',
+            value: stats.totalLuckyDraws,
+            icon: Gift,
+            color: 'bg-amber-500',
+            href: null
+        },
+        {
+            label: 'Winners',
+            value: stats.totalWinners,
+            icon: Trophy,
+            color: 'bg-yellow-500',
+            href: null
+        },
+        {
+            label: 'Pending Photos',
+            value: stats.pendingPhotos,
+            icon: Clock,
+            color: 'bg-orange-500',
+            href: '/admin/moderation'
+        },
+        {
+            label: 'Active Events',
+            value: stats.activeEvents,
+            icon: Calendar,
+            color: 'bg-green-500',
+            href: '/admin/events'
         },
     ];
 

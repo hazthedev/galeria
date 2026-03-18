@@ -4,7 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSuperAdmin } from '@/middleware/auth';
-import { getTenantDb } from '@/lib/db';
+import { getTenantDb } from '@/lib/infrastructure/database/db';
 import { SYSTEM_TENANT_ID } from '@/lib/constants/tenants';
 
 const isMissingTableError = (error: unknown) =>
@@ -40,6 +40,10 @@ export async function GET(request: NextRequest) {
             totalTenants,
             activeEvents,
             recentUsers,
+            mfaEnabledUsers,
+            totalLuckyDraws,
+            totalWinners,
+            pendingPhotos,
         ] = await Promise.all([
             safeCount('SELECT COUNT(*) as count FROM users'),
             safeCount('SELECT COUNT(*) as count FROM events'),
@@ -47,6 +51,10 @@ export async function GET(request: NextRequest) {
             safeCount('SELECT COUNT(*) as count FROM tenants'),
             safeCount("SELECT COUNT(*) as count FROM events WHERE status = 'active'"),
             safeCount("SELECT COUNT(*) as count FROM users WHERE created_at > NOW() - INTERVAL '7 days'"),
+            safeCount("SELECT COUNT(*) as count FROM users WHERE totp_enabled = true"),
+            safeCount('SELECT COUNT(*) as count FROM lucky_draw_configs'),
+            safeCount('SELECT COUNT(*) as count FROM lucky_draw_winners'),
+            safeCount("SELECT COUNT(*) as count FROM photos WHERE moderation_status = 'pending'"),
         ]);
 
         return NextResponse.json({
@@ -57,6 +65,10 @@ export async function GET(request: NextRequest) {
                 totalTenants,
                 activeEvents,
                 recentUsers,
+                mfaEnabledUsers,
+                totalLuckyDraws,
+                totalWinners,
+                pendingPhotos,
             },
         });
     } catch (error) {
@@ -70,6 +82,10 @@ export async function GET(request: NextRequest) {
                     totalTenants: 0,
                     activeEvents: 0,
                     recentUsers: 0,
+                    mfaEnabledUsers: 0,
+                    totalLuckyDraws: 0,
+                    totalWinners: 0,
+                    pendingPhotos: 0,
                 },
             });
         }
