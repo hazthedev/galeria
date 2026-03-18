@@ -40,12 +40,14 @@ export default function EventAdminPage() {
   const [activeTab, setActiveTab] = useState<'overview' | 'qr' | 'lucky_draw' | 'attendance' | 'settings' | 'moderation' | 'photo_challenge'>('overview');
   const [moderationLogs, setModerationLogs] = useState<Array<{
     id: string;
-    photoId: string;
+    photoId: string | null;
     action: string;
+    source?: string;
     reason: string | null;
     createdAt: string;
+    moderatorId?: string | null;
     moderatorName: string | null;
-    moderatorEmail: string;
+    moderatorEmail: string | null;
     photoStatus: string | null;
     imageUrl: string | null;
   }>>([]);

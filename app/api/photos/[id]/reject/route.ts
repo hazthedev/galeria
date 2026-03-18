@@ -3,17 +3,8 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getTenantDb } from '@/lib/db';
 import { requireAuthForApi, verifyPhotoModerationAccess } from '@/lib/domain/auth/auth';
-import { publishEventBroadcast } from '@/lib/realtime/server';
-
-const shouldLogModeration = async (db: ReturnType<typeof getTenantDb>) => {
-  const result = await db.query<{ name: string | null }>(
-    'SELECT to_regclass($1) AS name',
-    ['public.photo_moderation_logs']
-  );
-  return Boolean(result.rows[0]?.name);
-};
+import { rejectPhotoManually } from '@/lib/moderation/service';
 
 // ============================================
 // PATCH /api/photos/:id/reject - Reject photo
@@ -31,7 +22,7 @@ export async function PATCH(
     const { payload, userId, tenantId: authTenantId } = await requireAuthForApi(headers);
 
     // Verify access
-    const { photo, isOwner, isAdmin } = await verifyPhotoModerationAccess(
+    const { isOwner, isAdmin } = await verifyPhotoModerationAccess(
       photoId,
       authTenantId,
       userId,
@@ -45,39 +36,32 @@ export async function PATCH(
       );
     }
 
-    const db = getTenantDb(authTenantId);
-
     const body = await request.json().catch(() => ({}));
     const reason = typeof body?.reason === 'string' ? body.reason.trim() : null;
+    const result = await rejectPhotoManually({
+      tenantId: authTenantId,
+      photoId,
+      moderatorId: userId,
+      reason,
+    });
 
-    // Update photo status
-    await db.update(
-      'photos',
-      { status: 'rejected' },
-      { id: photoId }
-    );
-
-    if (await shouldLogModeration(db)) {
-      await db.insert('photo_moderation_logs', {
-        photo_id: photoId,
-        event_id: photo.event_id,
-        tenant_id: authTenantId,
-        moderator_id: userId,
-        action: 'reject',
-        reason,
-        created_at: new Date(),
-      });
+    if (result.outcome === 'missing') {
+      return NextResponse.json(
+        { error: 'Photo not found', code: 'PHOTO_NOT_FOUND' },
+        { status: 404 }
+      );
     }
 
-    await publishEventBroadcast(photo.event_id, 'photo_updated', {
-      photo_id: photoId,
-      status: 'rejected',
-      event_id: photo.event_id,
-    });
+    if (result.outcome === 'skipped') {
+      return NextResponse.json(
+        { error: result.message, code: 'INVALID_STATE', currentStatus: result.status },
+        { status: 409 }
+      );
+    }
 
     return NextResponse.json({
       data: { id: photoId, status: 'rejected' },
-      message: 'Photo rejected successfully',
+      message: result.message,
     });
   } catch (error) {
     console.error('[API] Reject error:', error);

@@ -338,57 +338,20 @@ async function processScanJob(job: { data: ScanJobData }): Promise<ScanJobResult
       throw new Error('Missing tenant context for scan job');
     }
 
-    // 3. Get database (dynamic import)
-    const { getTenantDb } = await import('@/lib/db');
-    const db = getTenantDb(effectiveTenantId);
+    // 3. Apply the moderation decision through the shared transition service
+    const { applyAutomatedModerationResult } = await import('../lib/moderation/service');
+    const transition = await applyAutomatedModerationResult({
+      tenantId: effectiveTenantId,
+      photoId,
+      moderationResult,
+    });
 
-    // 4. Check if photo exists
-    const photo = await db.findOne<{
-      id: string;
-      status: string;
-    }>('photos', { id: photoId });
-
-    if (!photo) {
+    if (transition.outcome === 'missing') {
       throw new Error(`Photo ${photoId} not found in database`);
     }
 
-    // 5. Handle moderation result
-    switch (moderationResult.action) {
-      case 'approve':
-        // Photo is safe, update status to approved
-        await db.update('photos', { status: 'approved' }, { id: photoId });
-        break;
-
-      case 'reject':
-        // Photo is inappropriate, move to quarantine (dynamic import)
-        const { quarantinePhoto } = await import('../lib/storage/quarantine');
-
-        await quarantinePhoto(
-          eventId,
-          photoId,
-          moderationResult.reason,
-          moderationResult.categories
-        );
-
-        // Update status in database
-        await db.update('photos', { status: 'rejected' }, { id: photoId });
-        break;
-
-      case 'review':
-        // Flagged for manual review
-        if (moderationResult.categories.length > 0) {
-          const { quarantinePhoto: quarantinePhoto2 } = await import('../lib/storage/quarantine');
-
-          await quarantinePhoto2(
-            eventId,
-            photoId,
-            moderationResult.reason,
-            moderationResult.categories
-          );
-        }
-
-        // Keep status as pending for manual review
-        break;
+    if (transition.outcome === 'skipped') {
+      console.log(`[SCAN_WORKER] Skipped scan result for photo ${photoId}: ${transition.message}`);
     }
 
     return {

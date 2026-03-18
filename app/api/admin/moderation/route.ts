@@ -150,8 +150,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Test AWS Rekognition connection
-    const { RekognitionClient } = await import('@aws-sdk/client-rekognition');
+    // Test AWS Rekognition connection with a tiny benign image so we verify
+    // both credentials and the actual DetectModerationLabels permission.
+    const { RekognitionClient, DetectModerationLabelsCommand } = await import('@aws-sdk/client-rekognition');
 
     const client = new RekognitionClient({
       region: aws_region,
@@ -161,22 +162,22 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Test that the client was created successfully
-    // This validates the credentials format
-    if (!client) {
-      return NextResponse.json(
-        {
-          error: 'Failed to create AWS Rekognition client',
-          code: 'AWS_CLIENT_ERROR',
-        },
-        { status: 400 }
-      );
-    }
+    const testImageBytes = Buffer.from(
+      '/9j/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAgACADASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAj/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFAEBAAAAAAAAAAAAAAAAAAAAAP/EABQRAQAAAAAAAAAAAAAAAAAAAAD/2gAMAwEAAhEDEQA/AKpAAAAAAAB//9k=',
+      'base64'
+    );
+
+    await client.send(new DetectModerationLabelsCommand({
+      Image: {
+        Bytes: testImageBytes,
+      },
+      MinConfidence: 50,
+    }));
 
     return NextResponse.json({
       data: {
         success: true,
-        message: 'AWS Rekognition client created successfully',
+        message: 'AWS Rekognition moderation check succeeded',
       },
     });
   } catch (error) {

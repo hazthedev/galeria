@@ -62,7 +62,7 @@ export interface IReactionCreate {
 }
 
 // Moderation types
-export type ModerationActionType = 'approve' | 'reject' | 'delete';
+export type ModerationActionType = 'approve' | 'reject' | 'delete' | 'review';
 
 export interface IModerationResult {
   is_safe: boolean;
@@ -83,11 +83,14 @@ export interface IModerationAction {
 
 export interface IPhotoModerationLog {
   id: string;
-  photo_id: string;
+  photo_id?: string | null;
   event_id: string;
   tenant_id: string;
-  moderator_id: string;
+  moderator_id?: string | null;
   action: ModerationActionType;
+  source?: string;
+  photo_status?: string | null;
+  image_url?: string | null;
   reason?: string;
   created_at: Date;
 }

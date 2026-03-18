@@ -21,6 +21,7 @@ import {
 } from '@aws-sdk/client-rekognition';
 import { getSystemSettings } from '../system-settings';
 import { assertTrustedStorageUrl } from '../images';
+import type { ISystemSettings } from '@/lib/types';
 
 // ============================================
 // TYPES & INTERFACES
@@ -137,13 +138,31 @@ const DEFAULT_CONFIG: ModerationConfig = {
   detectText: true,
 };
 
+export function resolveModerationConfig(
+  moderationSettings?: Pick<ISystemSettings['moderation'], 'confidence_threshold' | 'auto_reject'> | null,
+  overrides: Partial<ModerationConfig> = {}
+): ModerationConfig {
+  return {
+    ...DEFAULT_CONFIG,
+    confidenceThreshold:
+      moderationSettings?.confidence_threshold ?? DEFAULT_CONFIG.confidenceThreshold,
+    autoReject: moderationSettings?.auto_reject ?? DEFAULT_CONFIG.autoReject,
+    ...overrides,
+  };
+}
+
 /**
  * Get moderation config for a tenant
  */
-function getModerationConfig(tenantId?: string): ModerationConfig {
-  // TODO: Load tenant-specific config from database
-  // For now, use defaults
-  return DEFAULT_CONFIG;
+async function getModerationConfig(
+  overrides: Partial<ModerationConfig> = {}
+): Promise<ModerationConfig> {
+  try {
+    const systemSettings = await getSystemSettings();
+    return resolveModerationConfig(systemSettings.moderation, overrides);
+  } catch {
+    return resolveModerationConfig(undefined, overrides);
+  }
 }
 
 // ============================================
@@ -223,18 +242,19 @@ export async function scanImageForModeration(
   imageUrl: string,
   config: Partial<ModerationConfig> = {}
 ): Promise<ModerationResult> {
-  const finalConfig = { ...getModerationConfig(config.tenantId), ...config };
+  const finalConfig = await getModerationConfig(config);
   const client = await getRekognitionClient();
 
-  // If AWS not configured, return safe (manual moderation required)
+  // If AWS is unavailable, keep the photo pending for manual review.
   if (!client) {
+    updateStats('review');
     return {
-      safe: true,
+      safe: false,
       confidence: 0,
       categories: [],
       labels: [],
-      action: 'approve',
-      reason: 'AWS not configured - manual moderation required',
+      action: 'review',
+      reason: 'AWS not configured - manual review required',
       scannedAt: new Date(),
     };
   }
@@ -297,6 +317,8 @@ export async function scanImageForModeration(
       action = 'approve';
     }
 
+    updateStats(action);
+
     return {
       safe: categories.length === 0,
       confidence: maxConfidence,
@@ -308,6 +330,7 @@ export async function scanImageForModeration(
     };
   } catch (error) {
     console.error('[MODERATION] Error scanning image:', error);
+    updateStats('error');
 
     // On error, flag for review rather than auto-reject
     return {

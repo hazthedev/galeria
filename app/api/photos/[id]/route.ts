@@ -3,17 +3,8 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getTenantDb } from '@/lib/db';
 import { requireAuthForApi, verifyPhotoModerationAccess } from '@/lib/domain/auth/auth';
-import { deletePhotoAssets } from '@/lib/images';
-
-const shouldLogModeration = async (db: ReturnType<typeof getTenantDb>) => {
-  const result = await db.query<{ name: string | null }>(
-    'SELECT to_regclass($1) AS name',
-    ['public.photo_moderation_logs']
-  );
-  return Boolean(result.rows[0]?.name);
-};
+import { deletePhotoManually } from '@/lib/moderation/service';
 
 // ============================================
 // DELETE /api/photos/:id - Delete photo
@@ -31,7 +22,7 @@ export async function DELETE(
     const { payload, userId, tenantId: authTenantId } = await requireAuthForApi(headers);
 
     // Verify access
-    const { photo, isOwner, isAdmin } = await verifyPhotoModerationAccess(
+    const { isOwner, isAdmin } = await verifyPhotoModerationAccess(
       photoId,
       authTenantId,
       userId,
@@ -45,48 +36,32 @@ export async function DELETE(
       );
     }
 
-    const db = getTenantDb(authTenantId);
-    const existingPhoto = await db.findOne<{
-      id: string;
-      event_id: string;
-    }>('photos', { id: photoId });
+    const body = await request.json().catch(() => ({}));
+    const reason = typeof body?.reason === 'string' ? body.reason.trim() : null;
+    const result = await deletePhotoManually({
+      tenantId: authTenantId,
+      photoId,
+      moderatorId: userId,
+      reason,
+    });
 
-    if (!existingPhoto) {
+    if (result.outcome === 'missing') {
       return NextResponse.json(
         { error: 'Photo not found', code: 'PHOTO_NOT_FOUND' },
         { status: 404 }
       );
     }
 
-    // Best-effort delete in storage
-    try {
-      await deletePhotoAssets(existingPhoto.event_id, existingPhoto.id);
-    } catch {
-      // Storage failures should not block moderation action
+    if (result.outcome === 'skipped') {
+      return NextResponse.json(
+        { error: result.message, code: 'INVALID_STATE', currentStatus: result.status },
+        { status: 409 }
+      );
     }
-
-    // Audit log
-    const body = await request.json().catch(() => ({}));
-    const reason = typeof body?.reason === 'string' ? body.reason.trim() : null;
-
-    if (await shouldLogModeration(db)) {
-      await db.insert('photo_moderation_logs', {
-        photo_id: photoId,
-        event_id: existingPhoto.event_id,
-        tenant_id: authTenantId,
-        moderator_id: userId,
-        action: 'delete',
-        reason,
-        created_at: new Date(),
-      });
-    }
-
-    // Delete photo record
-    await db.delete('photos', { id: photoId });
 
     return NextResponse.json({
       data: { id: photoId, status: 'deleted' },
-      message: 'Photo deleted successfully',
+      message: result.message,
     });
   } catch (error) {
     console.error('[API] Delete photo error:', error);

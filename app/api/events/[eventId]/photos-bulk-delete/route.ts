@@ -5,15 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantDb } from '@/lib/db';
 import { requireAuthForApi } from '@/lib/domain/auth/auth';
-import { deletePhotoAssets } from '@/lib/images';
-
-const shouldLogModeration = async (db: ReturnType<typeof getTenantDb>) => {
-  const result = await db.query<{ name: string | null }>(
-    'SELECT to_regclass($1) AS name',
-    ['public.photo_moderation_logs']
-  );
-  return Boolean(result.rows[0]?.name);
-};
+import { deletePhotoManually } from '@/lib/moderation/service';
 
 export async function POST(
   request: NextRequest,
@@ -48,42 +40,30 @@ export async function POST(
       return NextResponse.json({ error: 'Forbidden', code: 'FORBIDDEN' }, { status: 403 });
     }
 
-    const photosResult = await db.query<{ id: string; event_id: string }>(
-      'SELECT id, event_id FROM photos WHERE event_id = $1 AND id = ANY($2)',
+    const allowedPhotosResult = await db.query<{ id: string }>(
+      'SELECT id FROM photos WHERE event_id = $1 AND id = ANY($2)',
       [eventId, photoIds]
     );
-    const photos = photosResult.rows || [];
-    const deletedIds = photos.map((photo) => photo.id);
-
-    // Best-effort delete in storage
-    await Promise.all(
-      photos.map(async (photo) => {
-        try {
-          await deletePhotoAssets(photo.event_id, photo.id);
-        } catch {
-          // Storage failures should not block moderation action
-        }
-      })
-    );
+    const allowedPhotoIds = new Set((allowedPhotosResult.rows || []).map((photo) => photo.id));
 
     const normalizedReason = typeof reason === 'string' ? reason.trim() : null;
-    if (deletedIds.length > 0 && await shouldLogModeration(db)) {
-      await db.query(
-        `INSERT INTO photo_moderation_logs
-          (photo_id, event_id, tenant_id, moderator_id, action, reason, created_at)
-         SELECT UNNEST($1::uuid[]), $2, $3, $4, 'delete', $5, NOW()`,
-        [deletedIds, eventId, tenantId, userId, normalizedReason]
-      );
-    }
+    const deletedIds: string[] = [];
+    const skippedIds: string[] = photoIds.filter((photoId: string) => !allowedPhotoIds.has(photoId));
 
-    if (deletedIds.length > 0) {
-      await db.query(
-        'DELETE FROM photos WHERE event_id = $1 AND id = ANY($2)',
-        [eventId, deletedIds]
-      );
-    }
+    for (const photoId of allowedPhotoIds) {
+      const result = await deletePhotoManually({
+        tenantId,
+        photoId,
+        moderatorId: userId,
+        reason: normalizedReason,
+      });
 
-    const skippedIds = photoIds.filter((id: string) => !deletedIds.includes(id));
+      if (result.outcome === 'applied') {
+        deletedIds.push(photoId);
+      } else {
+        skippedIds.push(photoId);
+      }
+    }
 
     return NextResponse.json({
       data: {

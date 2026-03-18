@@ -55,13 +55,14 @@ export async function GET(
 
     const result = await db.query<{
       id: string;
-      photoId: string;
+      photoId: string | null;
       action: string;
+      source: string;
       reason: string | null;
       createdAt: Date;
-      moderatorId: string;
+      moderatorId: string | null;
       moderatorName: string | null;
-      moderatorEmail: string;
+      moderatorEmail: string | null;
       photoStatus: string | null;
       imageUrl: string | null;
     }>(
@@ -70,16 +71,17 @@ export async function GET(
           l.id,
           l.photo_id AS "photoId",
           l.action,
+          l.source,
           l.reason,
           l.created_at AS "createdAt",
           l.moderator_id AS "moderatorId",
           u.name AS "moderatorName",
           u.email AS "moderatorEmail",
-          p.status AS "photoStatus",
-          (p.images ->> 'thumbnail_url') AS "imageUrl"
+          COALESCE(p.status, l.photo_status) AS "photoStatus",
+          COALESCE((p.images ->> 'thumbnail_url'), l.image_url) AS "imageUrl"
         FROM photo_moderation_logs l
-        JOIN users u ON u.id = l.moderator_id
-        JOIN photos p ON p.id = l.photo_id
+        LEFT JOIN users u ON u.id = l.moderator_id
+        LEFT JOIN photos p ON p.id = l.photo_id
         WHERE l.event_id = $1
         ORDER BY l.created_at DESC
         LIMIT $2 OFFSET $3

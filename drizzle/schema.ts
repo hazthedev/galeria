@@ -31,7 +31,7 @@ export const eventTypeEnum = pgEnum('event_type', ['birthday', 'wedding', 'corpo
 export const eventStatusEnum = pgEnum('event_status', ['draft', 'active', 'ended', 'archived']);
 export const photoStatusEnum = pgEnum('photo_status', ['pending', 'approved', 'rejected']);
 export const deviceTypeEnum = pgEnum('device_type', ['mobile', 'tablet', 'desktop']);
-export const moderationActionEnum = pgEnum('moderation_action', ['approve', 'reject', 'delete']);
+export const moderationActionEnum = pgEnum('moderation_action', ['approve', 'reject', 'delete', 'review']);
 
 // ============================================
 // MIGRATION VERSION TABLE
@@ -299,11 +299,14 @@ export const photos = pgTable('photos', {
 
 export const photoModerationLogs = pgTable('photo_moderation_logs', {
   id: uuid('id').primaryKey().defaultRandom(),
-  photoId: uuid('photo_id').notNull().references(() => photos.id, { onDelete: 'cascade' }),
+  photoId: uuid('photo_id').references(() => photos.id, { onDelete: 'set null' }),
   eventId: uuid('event_id').notNull().references(() => events.id, { onDelete: 'cascade' }),
   tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
-  moderatorId: uuid('moderator_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  moderatorId: uuid('moderator_id').references(() => users.id, { onDelete: 'set null' }),
   action: moderationActionEnum('action').notNull(),
+  source: text('source').notNull().default('manual'),
+  photoStatus: text('photo_status'),
+  imageUrl: text('image_url'),
   reason: text('reason'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (table) => ({

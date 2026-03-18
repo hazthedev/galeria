@@ -42,6 +42,19 @@ export interface QuarantineItem {
   hasPreview: boolean;
 }
 
+interface StoredQuarantineMetadata {
+  photoId: string;
+  eventId: string;
+  originalPath: string;
+  status: QuarantineStatus;
+  flaggedAt: string | Date;
+  expiresAt: string | Date;
+  reason?: string;
+  categories?: string[];
+  reviewedBy?: string;
+  reviewedAt?: string | Date;
+}
+
 // ============================================
 // CONFIGURATION
 // ============================================
@@ -397,6 +410,17 @@ async function deletePhotoAssets(prefix: string): Promise<void> {
   }));
 }
 
+async function deleteMetadataObject(photoId: string): Promise<void> {
+  const client = getR2Client();
+
+  await client.send(new DeleteObjectsCommand({
+    Bucket: R2_BUCKET_NAME,
+    Delete: {
+      Objects: [{ Key: `${QUARANTINE_PREFIX}-metadata/${photoId}.json` }],
+    },
+  }));
+}
+
 /**
  * Store quarantine metadata as JSON in S3
  */
@@ -416,7 +440,26 @@ async function storeQuarantineMetadata(photoId: string, metadata: QuarantineMeta
 /**
  * Retrieve quarantine metadata from S3
  */
-async function getQuarantineMetadata(photoId: string): Promise<QuarantineMetadata | null> {
+export function deserializeQuarantineMetadata(
+  metadata: StoredQuarantineMetadata
+): QuarantineMetadata {
+  return {
+    ...metadata,
+    flaggedAt: metadata.flaggedAt instanceof Date
+      ? metadata.flaggedAt
+      : new Date(metadata.flaggedAt),
+    expiresAt: metadata.expiresAt instanceof Date
+      ? metadata.expiresAt
+      : new Date(metadata.expiresAt),
+    reviewedAt: metadata.reviewedAt
+      ? (metadata.reviewedAt instanceof Date
+        ? metadata.reviewedAt
+        : new Date(metadata.reviewedAt))
+      : undefined,
+  };
+}
+
+export async function getQuarantineMetadata(photoId: string): Promise<QuarantineMetadata | null> {
   const client = getR2Client();
 
   try {
@@ -430,10 +473,54 @@ async function getQuarantineMetadata(photoId: string): Promise<QuarantineMetadat
     const body = await response.Body?.transformToString();
     if (!body) return null;
 
-    return JSON.parse(body) as QuarantineMetadata;
+    return deserializeQuarantineMetadata(JSON.parse(body) as StoredQuarantineMetadata);
   } catch (error) {
     return null;
   }
+}
+
+export async function hasQuarantineRecord(photoId: string): Promise<boolean> {
+  return Boolean(await getQuarantineMetadata(photoId));
+}
+
+export async function updateQuarantineStatus(
+  photoId: string,
+  updates: {
+    status: QuarantineStatus;
+    reviewedBy?: string;
+    reviewedAt?: Date;
+    reason?: string;
+    categories?: string[];
+  }
+): Promise<QuarantineMetadata | null> {
+  const metadata = await getQuarantineMetadata(photoId);
+  if (!metadata) {
+    return null;
+  }
+
+  metadata.status = updates.status;
+  if (updates.reviewedBy !== undefined) {
+    metadata.reviewedBy = updates.reviewedBy;
+  }
+  if (updates.reviewedAt !== undefined) {
+    metadata.reviewedAt = updates.reviewedAt;
+  }
+  if (updates.reason !== undefined) {
+    metadata.reason = updates.reason;
+  }
+  if (updates.categories !== undefined) {
+    metadata.categories = updates.categories;
+  }
+
+  await storeQuarantineMetadata(photoId, metadata);
+  return metadata;
+}
+
+export async function purgeQuarantinedPhoto(photoId: string): Promise<void> {
+  const quarantinePath = `${QUARANTINE_PREFIX}/${photoId}`;
+
+  await deletePhotoAssets(quarantinePath);
+  await deleteMetadataObject(photoId);
 }
 
 /**

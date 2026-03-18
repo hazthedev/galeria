@@ -136,6 +136,7 @@ export async function GET(request: NextRequest) {
         id: string;
         createdAt: Date;
         action: string;
+        source: string;
         reason: string | null;
         moderatorName: string | null;
         moderatorEmail: string | null;
@@ -150,19 +151,20 @@ export async function GET(request: NextRequest) {
             l.id,
             l.created_at AS "createdAt",
             l.action,
+            l.source,
             l.reason,
             u.name AS "moderatorName",
             u.email AS "moderatorEmail",
             e.id AS "eventId",
             e.name AS "eventName",
             t.company_name AS "tenantName",
-            (p.images ->> 'thumbnail_url') AS "imageUrl",
-            p.status AS "photoStatus"
+            COALESCE((p.images ->> 'thumbnail_url'), l.image_url) AS "imageUrl",
+            COALESCE(p.status, l.photo_status) AS "photoStatus"
           FROM photo_moderation_logs l
-          JOIN users u ON u.id = l.moderator_id
+          LEFT JOIN users u ON u.id = l.moderator_id
           JOIN events e ON e.id = l.event_id
           JOIN tenants t ON t.id = l.tenant_id
-          JOIN photos p ON p.id = l.photo_id
+          LEFT JOIN photos p ON p.id = l.photo_id
           ORDER BY l.created_at DESC
           LIMIT $1
         `,
