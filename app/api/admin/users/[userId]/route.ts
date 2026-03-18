@@ -7,6 +7,7 @@ import { requireSuperAdmin } from '@/middleware/auth';
 import { getTenantDb } from '@/lib/db';
 import type { SubscriptionTier } from '@/lib/types';
 import { getTierConfig } from '@/lib/tenant';
+import { logSimpleAdminAction } from '@/lib/audit/middleware';
 
 type UserTenantLookup = {
     id: string;
@@ -40,6 +41,15 @@ export async function PATCH(
                     { status: 400 }
                 );
             }
+
+            // Prevent self-role demotion: admin cannot demote themselves from super_admin
+            if (userId === auth.user.id && role !== 'super_admin') {
+                return NextResponse.json(
+                    { error: 'Cannot demote yourself from super_admin role', code: 'SELF_DEMOTION_FORBIDDEN' },
+                    { status: 403 }
+                );
+            }
+
             updates.push(`role = $${paramIndex++}`);
             values.push(role);
         }
@@ -71,6 +81,14 @@ export async function PATCH(
             );
         }
 
+        // Store old values for audit logging
+        const oldValues: Record<string, unknown> = {
+            role: targetUser.role,
+            subscription_tier: targetUser.role === 'super_admin'
+                ? (targetUser as any).subscription_tier
+                : undefined,
+        };
+
         // Super admin tier is account-level, organizer/guest tier is tenant-level.
         if (nextSubscriptionTier !== undefined && targetUser.role === 'super_admin') {
             updates.push(`subscription_tier = $${paramIndex++}`);
@@ -100,6 +118,32 @@ export async function PATCH(
                     JSON.stringify(tierConfig.limits),
                     targetUser.tenant_id,
                 ]
+            );
+        }
+
+        // Log audit trail for role change
+        if (role !== undefined && role !== targetUser.role) {
+            await logSimpleAdminAction(
+                request,
+                auth.user,
+                'user.role_changed',
+                {
+                    targetId: userId,
+                    targetType: 'user',
+                }
+            );
+        }
+
+        // Log audit trail for tier change
+        if (nextSubscriptionTier !== undefined) {
+            await logSimpleAdminAction(
+                request,
+                auth.user,
+                'user.tier_changed',
+                {
+                    targetId: targetUser.role === 'super_admin' ? userId : targetUser.tenant_id,
+                    targetType: targetUser.role === 'super_admin' ? 'user' : 'tenant',
+                }
             );
         }
 
@@ -134,7 +178,25 @@ export async function DELETE(
             );
         }
 
+        // Get user info for audit before deletion
+        const userToDelete = await db.findOne<{ id: string; email: string; name: string; role: string }>(
+            'users',
+            { id: userId }
+        );
+
         await db.query('DELETE FROM users WHERE id = $1', [userId]);
+
+        // Log audit trail
+        await logSimpleAdminAction(
+            request,
+            auth.user,
+            'user.deleted',
+            {
+                targetId: userId,
+                targetType: 'user',
+                reason: `Deleted user: ${userToDelete?.email || userId}`,
+            }
+        );
 
         return NextResponse.json({ success: true });
     } catch (error) {

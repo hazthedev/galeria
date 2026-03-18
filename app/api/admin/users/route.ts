@@ -34,9 +34,9 @@ export async function GET(request: NextRequest) {
         }
 
         if (search) {
-            whereClause += ` AND (u.name ILIKE $${paramIndex} OR u.email ILIKE $${paramIndex})`;
-            params.push(`%${search}%`);
-            paramIndex++;
+            whereClause += ` AND (u.name ILIKE $${paramIndex} OR u.email ILIKE $${paramIndex + 1})`;
+            params.push(`%${search}%`, `%${search}%`);
+            paramIndex += 2;
         }
 
         // Get users
