@@ -11,10 +11,13 @@ import {
     Loader2,
     Trash2,
     ChevronLeft,
-    ChevronRight
+    ChevronRight,
+    CheckSquare,
+    Square,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { toast } from 'sonner';
+import { ConfirmDialog, useConfirmDialog } from '@/components/admin/ConfirmDialog';
 
 interface User {
     id: string;
@@ -36,6 +39,9 @@ export default function SupervisorUsersPage() {
     const [roleFilter, setRoleFilter] = useState<string>('all');
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
+    const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
+    const [isProcessingBulk, setIsProcessingBulk] = useState(false);
+    const confirm = useConfirmDialog();
 
     useEffect(() => {
         fetchUsers();
@@ -117,7 +123,7 @@ export default function SupervisorUsersPage() {
     };
 
     const handleDeleteUser = async (userId: string) => {
-        if (!confirm('Are you sure you want to delete this user?')) return;
+        if (!window.confirm('Are you sure you want to delete this user?')) return;
 
         try {
             const response = await fetch(`/api/admin/users/${userId}`, {
@@ -140,6 +146,120 @@ export default function SupervisorUsersPage() {
         e.preventDefault();
         setCurrentPage(1);
         fetchUsers();
+    };
+
+    // Bulk selection handlers
+    const toggleUserSelection = (userId: string) => {
+        setSelectedUserIds(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(userId)) {
+                newSet.delete(userId);
+            } else {
+                newSet.add(userId);
+            }
+            return newSet;
+        });
+    };
+
+    const toggleAllUsers = () => {
+        if (selectedUserIds.size === users.length) {
+            setSelectedUserIds(new Set());
+        } else {
+            setSelectedUserIds(new Set(users.map(u => u.id)));
+        }
+    };
+
+    const handleBulkDelete = () => {
+        if (selectedUserIds.size === 0) return;
+
+        confirm.show({
+            title: 'Delete Selected Users',
+            description: (
+                <>
+                  Are you sure you want to delete <strong>{selectedUserIds.size} user(s)</strong>?
+                  <br />
+                  <span className="text-xs text-gray-500">
+                    This action cannot be undone.
+                  </span>
+                </>
+            ),
+            confirmLabel: 'Delete',
+            cancelLabel: 'Cancel',
+            variant: 'danger',
+            onConfirm: async () => {
+                setIsProcessingBulk(true);
+                try {
+                    const response = await fetch('/api/admin/users', {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            action: 'delete',
+                            userIds: Array.from(selectedUserIds),
+                        }),
+                    });
+
+                    if (!response.ok) {
+                        const error = await response.json();
+                        throw new Error(error.error || 'Failed to delete users');
+                    }
+
+                    const data = await response.json();
+                    toast.success(`Deleted ${data.processed} user(s)`);
+                    setSelectedUserIds(new Set());
+                    fetchUsers();
+                } catch (error) {
+                    toast.error(error instanceof Error ? error.message : 'Failed to delete users');
+                } finally {
+                    setIsProcessingBulk(false);
+                }
+            },
+        });
+    };
+
+    const handleBulkRoleChange = (newRole: string) => {
+        if (selectedUserIds.size === 0) return;
+
+        confirm.show({
+            title: 'Change Role for Selected Users',
+            description: (
+                <>
+                  Are you sure you want to change the role to <strong>{newRole}</strong> for <strong>{selectedUserIds.size} user(s)</strong>?
+                </>
+            ),
+            confirmLabel: 'Change Role',
+            cancelLabel: 'Cancel',
+            variant: 'warning',
+            onConfirm: async () => {
+                setIsProcessingBulk(true);
+                try {
+                    const response = await fetch('/api/admin/users', {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            action: 'updateRole',
+                            userIds: Array.from(selectedUserIds),
+                            role: newRole,
+                        }),
+                    });
+
+                    if (!response.ok) {
+                        const error = await response.json();
+                        throw new Error(error.error || 'Failed to update roles');
+                    }
+
+                    const data = await response.json();
+                    toast.success(`Updated ${data.processed} user(s)`);
+                    setSelectedUserIds(new Set());
+                    fetchUsers();
+                } catch (error) {
+                    toast.error(error instanceof Error ? error.message : 'Failed to update roles');
+                } finally {
+                    setIsProcessingBulk(false);
+                }
+            },
+        });
     };
 
     const getRoleBadgeColor = (role: string) => {
@@ -195,6 +315,47 @@ export default function SupervisorUsersPage() {
                     <option value="guest">Guest</option>
                 </select>
             </div>
+
+            {/* Bulk Actions Bar */}
+            {selectedUserIds.size > 0 && (
+                <div className="flex flex-wrap items-center gap-3 rounded-lg bg-violet-50 px-4 py-3 dark:bg-violet-900/20">
+                    <span className="text-sm font-medium text-violet-900 dark:text-violet-300">
+                        {selectedUserIds.size} user{selectedUserIds.size !== 1 ? 's' : ''} selected
+                    </span>
+                    <div className="flex flex-wrap gap-2">
+                        <select
+                            onChange={(e) => {
+                                if (e.target.value) {
+                                    handleBulkRoleChange(e.target.value);
+                                    e.target.value = '';
+                                }
+                            }}
+                            className="h-9 rounded-lg border border-gray-300 bg-white px-3 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800"
+                            disabled={isProcessingBulk}
+                        >
+                            <option value="">Change Role...</option>
+                            <option value="guest">Make Guest</option>
+                            <option value="organizer">Make Organizer</option>
+                            <option value="super_admin">Make Super Admin</option>
+                        </select>
+                        <button
+                            onClick={handleBulkDelete}
+                            disabled={isProcessingBulk}
+                            className="inline-flex h-9 items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 text-sm font-medium text-red-600 hover:bg-red-100 disabled:opacity-50 dark:border-red-900/30 dark:bg-red-900/20 dark:hover:bg-red-900/30"
+                        >
+                            <Trash2 className="h-4 w-4" />
+                            Delete
+                        </button>
+                        <button
+                            onClick={() => setSelectedUserIds(new Set())}
+                            disabled={isProcessingBulk}
+                            className="h-9 rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
+                        >
+                            Clear
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* Users Table */}
             <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
@@ -296,6 +457,19 @@ export default function SupervisorUsersPage() {
                             <table className="min-w-[860px] w-full">
                                 <thead className="border-b border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900">
                                     <tr>
+                                        <th className="w-12 px-4 py-3">
+                                            <button
+                                                onClick={toggleAllUsers}
+                                                className="flex h-5 w-5 items-center justify-center"
+                                                aria-label={selectedUserIds.size === users.length ? 'Deselect all' : 'Select all'}
+                                            >
+                                                {selectedUserIds.size === users.length && users.length > 0 ? (
+                                                    <CheckSquare className="h-5 w-5 text-violet-600" />
+                                                ) : (
+                                                    <Square className="h-5 w-5 text-gray-400" />
+                                                )}
+                                            </button>
+                                        </th>
                                         <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
                                             User
                                         </th>
@@ -318,7 +492,23 @@ export default function SupervisorUsersPage() {
                                 </thead>
                                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                                     {users.map((user) => (
-                                        <tr key={user.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                                        <tr key={user.id} className={clsx(
+                                            "hover:bg-gray-50 dark:hover:bg-gray-700",
+                                            selectedUserIds.has(user.id) && "bg-violet-50 dark:bg-violet-900/10"
+                                        )}>
+                                            <td className="w-12 px-4 py-3">
+                                                <button
+                                                    onClick={() => toggleUserSelection(user.id)}
+                                                    className="flex h-5 w-5 items-center justify-center"
+                                                    aria-label={selectedUserIds.has(user.id) ? 'Deselect user' : 'Select user'}
+                                                >
+                                                    {selectedUserIds.has(user.id) ? (
+                                                        <CheckSquare className="h-5 w-5 text-violet-600" />
+                                                    ) : (
+                                                        <Square className="h-5 w-5 text-gray-400" />
+                                                    )}
+                                                </button>
+                                            </td>
                                             <td className="px-4 py-3">
                                                 <div>
                                                     <p className="font-medium text-gray-900 dark:text-white">
@@ -414,6 +604,9 @@ export default function SupervisorUsersPage() {
                     </div>
                 )}
             </div>
+
+            {/* Confirmation Dialog */}
+            <ConfirmDialog {...confirm.dialog} />
         </div>
     );
 }
