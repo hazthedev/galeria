@@ -6,6 +6,8 @@ import type { IAuthResponseSession, IUser } from '../../../../lib/types';
 import { loginSchema } from '../../../../lib/validation/auth';
 import { getSupabaseServerAuthClient, isSupabaseAuthConfigured } from '@/lib/infrastructure/auth/supabase-server';
 import { resolveOrProvisionAppUser } from '@/lib/domain/auth/provision-app-user';
+import { getTenantDb } from '@/lib/infrastructure/database/db';
+import { verifyTOTP } from '@/lib/mfa/totp';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -73,6 +75,37 @@ export async function POST(request: NextRequest) {
     }
 
     const user = await resolveOrProvisionAppUser(data.user);
+
+    // Check if user has MFA enabled (for super_admin role)
+    let mfaRequired = false;
+    let mfaUserId: string | null = null;
+
+    if (user.role === 'super_admin') {
+      const db = getTenantDb(user.tenant_id);
+      const userData = await db.findOne<{
+        totp_enabled: boolean;
+        id: string;
+      }>(
+        'users',
+        { id: user.id }
+      );
+
+      if (userData?.totp_enabled) {
+        mfaRequired = true;
+        mfaUserId = user.id;
+      }
+    }
+
+    // If MFA is required, return a special response
+    if (mfaRequired) {
+      return NextResponse.json({
+        success: false,
+        error: 'MFA_REQUIRED',
+        message: 'Multi-factor authentication token required',
+        mfaRequired: true,
+        mfaUserId, // Include for MFA verification endpoint
+      }, { status: 200 }); // Return 200, not 401, as credentials were valid
+    }
 
     const cookieHeader = request.headers.get('cookie');
     const authHeader = request.headers.get('authorization');

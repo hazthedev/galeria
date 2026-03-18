@@ -33,6 +33,8 @@ export type AuditAction =
   | 'session.all_revoked'
   | 'admin.mfa_enabled'
   | 'admin.mfa_disabled'
+  | 'admin.mfa_setup_initiated'
+  | 'admin.mfa_setup_cancelled'
   | 'bulk.users_role_changed'
   | 'bulk.users_deleted'
   | 'export.users'
