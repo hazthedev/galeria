@@ -66,3 +66,7 @@ nextjs-codebase-analysis-prompt.md
 
 # business planning (sensitive strategy docs)
 business/
+
+# local-only docs
+docs/*.md
+docs/**/*.md
