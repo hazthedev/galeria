@@ -11,6 +11,7 @@ import {
     Users,
     Calendar,
     Settings,
+    Building2,
     Shield,
     Menu,
     X,
@@ -26,6 +27,7 @@ const SIDEBAR_ITEMS = [
     { href: '/admin', label: 'Overview', icon: LayoutDashboard },
     { href: '/admin/users', label: 'Users', icon: Users },
     { href: '/admin/events', label: 'Events', icon: Calendar },
+    { href: '/admin/tenants', label: 'Tenants', icon: Building2 },
     { href: '/admin/settings', label: 'Settings', icon: Settings },
 ];
 
