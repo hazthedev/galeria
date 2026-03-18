@@ -121,6 +121,28 @@ export default function EventAdminPage() {
     { id: 'moderation' as const, label: 'Moderation', icon: Shield },
   ];
 
+  const getModerationLabel = (log: (typeof moderationLogs)[number]) => {
+    const statusRaw = (log.photoStatus || log.action || '').toLowerCase();
+    if (statusRaw === 'approve') return 'Approved';
+    if (statusRaw === 'reject') return 'Rejected';
+    if (statusRaw === 'review') return 'Needs review';
+    if (statusRaw === 'delete') return 'Deleted';
+    return statusRaw
+      ? `${statusRaw.charAt(0).toUpperCase()}${statusRaw.slice(1)}`
+      : 'Updated';
+  };
+
+  const getModerationTone = (log: (typeof moderationLogs)[number]) => {
+    const statusRaw = (log.photoStatus || log.action || '').toLowerCase();
+    if (statusRaw === 'approved' || statusRaw === 'approve') {
+      return 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200';
+    }
+    if (statusRaw === 'rejected' || statusRaw === 'reject' || statusRaw === 'delete') {
+      return 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-200';
+    }
+    return 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-200';
+  };
+
   if (isLoading) {
     return <OrganizerEventAdminSkeleton />;
   }
@@ -392,16 +414,22 @@ export default function EventAdminPage() {
                                 )}
                               </div>
                               <div className="min-w-0">
-                                <div className="text-xs text-gray-500 dark:text-gray-400">
-                                  {(() => {
-                                    const statusRaw = (log.photoStatus || log.action || '').toLowerCase();
-                                    if (statusRaw === 'approve') return 'Approved';
-                                    if (statusRaw === 'reject') return 'Rejected';
-                                    return statusRaw
-                                      ? `${statusRaw.charAt(0).toUpperCase()}${statusRaw.slice(1)}`
-                                      : 'Updated';
-                                  })()}
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className={clsx('rounded-full px-2 py-0.5 text-[11px] font-medium', getModerationTone(log))}>
+                                    {getModerationLabel(log)}
+                                  </span>
+                                  <span className="rounded-full bg-gray-200 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-gray-600 dark:bg-gray-600 dark:text-gray-200">
+                                    {log.source === 'ai' ? 'AI' : 'Manual'}
+                                  </span>
                                 </div>
+                                <p className="mt-2 text-xs text-gray-600 dark:text-gray-300">
+                                  {log.moderatorName || log.moderatorEmail || (log.source === 'ai' ? 'AI moderation' : 'Moderator')}
+                                </p>
+                                {log.reason && (
+                                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                    {log.reason}
+                                  </p>
+                                )}
                               </div>
                             </div>
                             <div className="text-xs text-gray-500 dark:text-gray-400 sm:text-right">

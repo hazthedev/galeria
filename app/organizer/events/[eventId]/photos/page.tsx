@@ -68,6 +68,7 @@ export default function EventPhotosPage() {
 
   // Ref to store the fetchPhotos function
   const fetchPhotosRef = useRef<(() => Promise<void>) | null>(null);
+  const fetchModerationLogsRef = useRef<(() => Promise<void>) | null>(null);
 
   useEffect(() => {
     photosCacheRef.current = { all: [], pending: [], approved: [], rejected: [] };
@@ -166,11 +167,12 @@ export default function EventPhotosPage() {
       }
     };
 
-    fetchLogs();
+    fetchModerationLogsRef.current = fetchLogs;
+    void fetchLogs();
   }, [eventId]);
 
   // Handle photo status update (approve/reject)
-  const handlePhotoUpdate = useCallback(async (photoId: string, newStatus: 'approved' | 'rejected') => {
+  const handlePhotoUpdate = useCallback(async (photoId: string, _newStatus: 'approved' | 'rejected') => {
     // Remove the photo from current view (optimistic update)
     setPhotos((prev) => prev.filter((p) => p.id !== photoId));
 
@@ -180,11 +182,13 @@ export default function EventPhotosPage() {
 
     // Immediately refetch to ensure we have the latest data
     fetchPhotosRef.current?.();
+    fetchModerationLogsRef.current?.();
   }, []);
 
   const handlePhotoDelete = useCallback(async (photoId: string) => {
     setPhotos((prev) => prev.filter((p) => p.id !== photoId));
     fetchPhotosRef.current?.();
+    fetchModerationLogsRef.current?.();
   }, []);
 
   const handleStatusChange = (status: PhotoStatus) => {
@@ -245,13 +249,23 @@ export default function EventPhotosPage() {
     const confirmed = window.confirm(`Delete ${selectedPhotoIds.length} photo(s)? This cannot be undone.`);
     if (!confirmed) return;
 
+    const reasonInput = window.prompt(
+      'Optional bulk deletion reason. Leave blank to continue without one.\nPress Cancel to stop.',
+      ''
+    );
+    if (reasonInput === null) return;
+
     try {
       setIsDeleting(true);
+      const normalizedReason = reasonInput.trim();
       const response = await fetch(`/api/events/${eventId}/photos/bulk-delete`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ photoIds: selectedPhotoIds }),
+        body: JSON.stringify({
+          photoIds: selectedPhotoIds,
+          ...(normalizedReason ? { reason: normalizedReason } : {}),
+        }),
       });
 
       const data = await response.json().catch(() => ({}));
@@ -268,6 +282,7 @@ export default function EventPhotosPage() {
       photosCacheRef.current = { all: [], pending: [], approved: [], rejected: [] };
       photosLoadedRef.current = { all: false, pending: false, approved: false, rejected: false };
       fetchPhotosRef.current?.();
+      fetchModerationLogsRef.current?.();
     } catch (err) {
       console.error('[PHOTOS_PAGE] Bulk delete error:', err);
       setError(err instanceof Error ? err.message : 'Failed to delete photos');
@@ -290,6 +305,28 @@ export default function EventPhotosPage() {
     { id: 'approved' as const, label: 'Approved', icon: CheckCircle },
     { id: 'rejected' as const, label: 'Rejected', icon: XCircle },
   ];
+
+  const getModerationLabel = (log: (typeof moderationLogs)[number]) => {
+    const statusRaw = (log.photoStatus || log.action || '').toLowerCase();
+    if (statusRaw === 'approve') return 'Approved';
+    if (statusRaw === 'reject') return 'Rejected';
+    if (statusRaw === 'review') return 'Needs review';
+    if (statusRaw === 'delete') return 'Deleted';
+    return statusRaw
+      ? `${statusRaw.charAt(0).toUpperCase()}${statusRaw.slice(1)}`
+      : 'Updated';
+  };
+
+  const getModerationTone = (log: (typeof moderationLogs)[number]) => {
+    const statusRaw = (log.photoStatus || log.action || '').toLowerCase();
+    if (statusRaw === 'approved' || statusRaw === 'approve') {
+      return 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200';
+    }
+    if (statusRaw === 'rejected' || statusRaw === 'reject' || statusRaw === 'delete') {
+      return 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-200';
+    }
+    return 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-200';
+  };
 
   const getStatusCount = (status: PhotoStatus) => {
     const cached = photosCacheRef.current[status] || [];
@@ -375,49 +412,123 @@ export default function EventPhotosPage() {
             <p className="mt-2 text-sm font-medium text-red-800 dark:text-red-300">{error}</p>
           </div>
         ) : (
-          <div className="space-y-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                onClick={handleSelectAll}
-                className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-                disabled={!photos.length}
-              >
-                Select all
-              </button>
-              <button
-                onClick={handleClearSelection}
-                className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-                disabled={!selectedPhotoIds.length}
-              >
-                Clear selection
-              </button>
-              <button
-                onClick={handleExportSelected}
-                className="rounded-lg bg-violet-600 px-3 py-2 text-xs font-medium text-white hover:bg-violet-700 disabled:opacity-60"
-                disabled={!selectedPhotoIds.length || isExporting}
-              >
-                {isExporting ? 'Preparing ZIP...' : `Download selected (${selectedPhotoIds.length})`}
-              </button>
-              <button
-                onClick={handleDeleteSelected}
-                className="rounded-lg bg-red-600 px-3 py-2 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-60"
-                disabled={!selectedPhotoIds.length || isDeleting}
-              >
-                {isDeleting ? 'Deleting...' : `Delete selected (${selectedPhotoIds.length})`}
-              </button>
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={handleSelectAll}
+                  className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+                  disabled={!photos.length}
+                >
+                  Select all
+                </button>
+                <button
+                  onClick={handleClearSelection}
+                  className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+                  disabled={!selectedPhotoIds.length}
+                >
+                  Clear selection
+                </button>
+                <button
+                  onClick={handleExportSelected}
+                  className="rounded-lg bg-violet-600 px-3 py-2 text-xs font-medium text-white hover:bg-violet-700 disabled:opacity-60"
+                  disabled={!selectedPhotoIds.length || isExporting}
+                >
+                  {isExporting ? 'Preparing ZIP...' : `Download selected (${selectedPhotoIds.length})`}
+                </button>
+                <button
+                  onClick={handleDeleteSelected}
+                  className="rounded-lg bg-red-600 px-3 py-2 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-60"
+                  disabled={!selectedPhotoIds.length || isDeleting}
+                >
+                  {isDeleting ? 'Deleting...' : `Delete selected (${selectedPhotoIds.length})`}
+                </button>
+              </div>
+              <PhotoGallery
+                isModerator={isModerator}
+                photos={photos}
+                onReaction={handleReaction}
+                onPhotoUpdate={handlePhotoUpdate}
+                allowReactions={event?.settings?.features?.reactions_enabled !== false}
+                allowDownload
+                onPhotoDelete={handlePhotoDelete}
+                selectable
+                selectedPhotoIds={selectedPhotoIds}
+                onSelectionChange={setSelectedPhotoIds}
+              />
             </div>
-            <PhotoGallery
-              isModerator={isModerator}
-              photos={photos}
-              onReaction={handleReaction}
-              onPhotoUpdate={handlePhotoUpdate}
-              allowReactions={event?.settings?.features?.reactions_enabled !== false}
-              allowDownload
-              onPhotoDelete={handlePhotoDelete}
-              selectable
-              selectedPhotoIds={selectedPhotoIds}
-              onSelectionChange={setSelectedPhotoIds}
-            />
+
+            <aside className="h-fit rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                    Recent Activity
+                  </h2>
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    Latest manual and AI moderation decisions
+                  </p>
+                </div>
+                <button
+                  onClick={() => fetchModerationLogsRef.current?.()}
+                  className="rounded-lg border border-gray-200 px-2.5 py-1.5 text-[11px] font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-700"
+                >
+                  Refresh
+                </button>
+              </div>
+
+              <div className="mt-4 space-y-3">
+                {moderationLogs.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-gray-300 px-4 py-6 text-sm text-gray-500 dark:border-gray-600 dark:text-gray-400">
+                    No moderation actions logged yet.
+                  </div>
+                ) : (
+                  moderationLogs.slice(0, 8).map((log) => (
+                    <div
+                      key={log.id}
+                      className="rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900/40"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-gray-200 dark:bg-gray-700">
+                          {log.imageUrl ? (
+                            <img
+                              src={log.imageUrl}
+                              alt="Moderation preview"
+                              className="h-full w-full object-cover"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-gray-400">
+                              <ImageIcon className="h-4 w-4" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className={clsx('rounded-full px-2 py-0.5 text-[11px] font-medium', getModerationTone(log))}>
+                              {getModerationLabel(log)}
+                            </span>
+                            <span className="rounded-full bg-gray-200 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                              {log.source === 'ai' ? 'AI' : 'Manual'}
+                            </span>
+                          </div>
+                          <p className="mt-2 text-xs font-medium text-gray-700 dark:text-gray-200">
+                            {log.moderatorName || log.moderatorEmail || (log.source === 'ai' ? 'AI moderation' : 'Moderator')}
+                          </p>
+                          {log.reason && (
+                            <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                              {log.reason}
+                            </p>
+                          )}
+                          <p className="mt-2 text-[11px] text-gray-500 dark:text-gray-400">
+                            {new Date(log.createdAt).toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </aside>
           </div>
         )}
       </div>

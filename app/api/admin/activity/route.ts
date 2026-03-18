@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireSuperAdmin } from '@/middleware/auth';
 import { getTenantDb } from '@/lib/db';
 import { SYSTEM_TENANT_ID } from '@/lib/constants/tenants';
+import { hydrateModeratorImagePreviewUrls } from '@/lib/moderation/presentation';
 
 type ActivityType = 'user' | 'event' | 'photo' | 'moderation';
 
@@ -106,6 +107,7 @@ export async function GET(request: NextRequest) {
       ).catch((error) => (isMissingTableError(error) ? emptyResult : Promise.reject(error))),
       db.query<{
         id: string;
+        photoId: string;
         createdAt: Date;
         contributorName: string | null;
         photoStatus: string | null;
@@ -117,6 +119,7 @@ export async function GET(request: NextRequest) {
         `
           SELECT
             p.id,
+            p.id AS "photoId",
             p.created_at AS "createdAt",
             p.contributor_name AS "contributorName",
             p.status AS "photoStatus",
@@ -134,6 +137,7 @@ export async function GET(request: NextRequest) {
       ).catch((error) => (isMissingTableError(error) ? emptyResult : Promise.reject(error))),
       db.query<{
         id: string;
+        photoId: string | null;
         createdAt: Date;
         action: string;
         source: string;
@@ -149,6 +153,7 @@ export async function GET(request: NextRequest) {
         `
           SELECT
             l.id,
+            l.photo_id AS "photoId",
             l.created_at AS "createdAt",
             l.action,
             l.source,
@@ -172,6 +177,11 @@ export async function GET(request: NextRequest) {
       ).catch((error) => (isMissingTableError(error) ? emptyResult : Promise.reject(error))),
     ]);
 
+    const [hydratedPhotoRows, hydratedModerationRows] = await Promise.all([
+      hydrateModeratorImagePreviewUrls(photosResult.rows),
+      hydrateModeratorImagePreviewUrls(moderationResult.rows),
+    ]);
+
     const activityItems: ActivityItem[] = [
       ...usersResult.rows.map((row) => ({
         id: row.id,
@@ -190,7 +200,7 @@ export async function GET(request: NextRequest) {
         eventStatus: row.eventStatus,
         organizerName: row.organizerName,
       })),
-      ...photosResult.rows.map((row) => ({
+      ...hydratedPhotoRows.map((row) => ({
         id: row.id,
         type: 'photo' as const,
         createdAt: toIsoString(row.createdAt),
@@ -201,7 +211,7 @@ export async function GET(request: NextRequest) {
         photoStatus: row.photoStatus,
         imageUrl: row.imageUrl,
       })),
-      ...moderationResult.rows.map((row) => ({
+      ...hydratedModerationRows.map((row) => ({
         id: row.id,
         type: 'moderation' as const,
         createdAt: toIsoString(row.createdAt),

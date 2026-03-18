@@ -14,6 +14,7 @@ import { extractSessionId, validateSession } from '@/lib/domain/auth/session';
 import { checkUploadRateLimit } from '@/lib/api/middleware/rate-limit';
 import { validateRecaptchaForUpload, isRecaptchaRequiredForUploads } from '@/lib/api/middleware/recaptcha';
 import { isModerationEnabled } from '@/lib/moderation/auto-moderate';
+import { hydrateModeratorPhotoPreviews } from '@/lib/moderation/presentation';
 import { queuePhotoScan } from '@/jobs/scan-content';
 import type { DeviceType, IPhoto, SubscriptionTier } from '@/lib/types';
 import { getEffectiveEntitlementsForTier, resolveUserTier } from '@/lib/tenant';
@@ -1405,10 +1406,13 @@ export async function handleEventPhotoList(request: NextRequest, eventId: string
       [...filterValues, limit, offset]
     );
 
-    const photos = listResult.rows.map((row) => {
+    let photos = listResult.rows.map((row) => {
       const { total_count, ...photo } = row as unknown as IPhoto & { total_count: string | number };
       return photo;
     });
+    if (isModerator && photos.length > 0) {
+      photos = await hydrateModeratorPhotoPreviews(photos);
+    }
     let total = listResult.rows.length > 0 ? Number(listResult.rows[0].total_count || 0) : 0;
 
     if (total === 0 && offset > 0) {

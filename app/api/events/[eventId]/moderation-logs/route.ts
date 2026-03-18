@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantDb } from '@/lib/db';
 import { requireAuthForApi } from '@/lib/domain/auth/auth';
+import { hydrateModeratorImagePreviewUrls } from '@/lib/moderation/presentation';
 
 const isMissingTableError = (error: unknown) =>
   (error as { code?: string })?.code === '42P01';
@@ -93,7 +94,9 @@ export async function GET(
       return NextResponse.json({ data: [] });
     }
 
-    return NextResponse.json({ data: result.rows });
+    const hydratedLogs = await hydrateModeratorImagePreviewUrls(result.rows);
+
+    return NextResponse.json({ data: hydratedLogs });
   } catch (error) {
     console.error('[API] Moderation logs error:', error);
     return NextResponse.json(

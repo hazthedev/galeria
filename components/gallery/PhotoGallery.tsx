@@ -139,14 +139,41 @@ export function PhotoGallery({
   // MODERATION ACTIONS (if moderator)
   // ============================================
 
+  const requestModerationReason = useCallback((action: 'approve' | 'reject' | 'delete') => {
+    if (!isModerator) {
+      return '';
+    }
+
+    const promptMessage = action === 'approve'
+      ? 'Optional approval note. Leave blank to continue without one.\nPress Cancel to stop.'
+      : action === 'reject'
+        ? 'Optional rejection reason. Leave blank to continue without one.\nPress Cancel to stop.'
+        : 'Optional deletion reason. Leave blank to continue without one.\nPress Cancel to stop.';
+
+    const response = window.prompt(promptMessage, '');
+    if (response === null) {
+      return null;
+    }
+
+    return response.trim();
+  }, [isModerator]);
+
   const handleApprove = useCallback(
     async (photoId: string) => {
       if (!isModerator) return;
 
       try {
+        const reason = requestModerationReason('approve');
+        if (reason === null) {
+          return;
+        }
+
         const toastId = toast.loading('Approving photo...');
         const response = await fetch(`/api/photos/${photoId}/approve`, {
           method: 'PATCH',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(reason ? { reason } : {}),
         });
 
         if (response.ok) {
@@ -168,7 +195,7 @@ export function PhotoGallery({
         toast.error('Failed to approve photo');
       }
     },
-    [isModerator, onPhotoUpdate]
+    [isModerator, onPhotoUpdate, requestModerationReason]
   );
 
   const handleReject = useCallback(
@@ -176,9 +203,17 @@ export function PhotoGallery({
       if (!isModerator) return;
 
       try {
+        const reason = requestModerationReason('reject');
+        if (reason === null) {
+          return;
+        }
+
         const toastId = toast.loading('Rejecting photo...');
         const response = await fetch(`/api/photos/${photoId}/reject`, {
           method: 'PATCH',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(reason ? { reason } : {}),
         });
 
         if (response.ok) {
@@ -200,7 +235,7 @@ export function PhotoGallery({
         toast.error('Failed to reject photo');
       }
     },
-    [isModerator, onPhotoUpdate]
+    [isModerator, onPhotoUpdate, requestModerationReason]
   );
 
   // ============================================
@@ -261,21 +296,33 @@ export function PhotoGallery({
     if (!confirmed) return;
 
     try {
+      const reason = requestModerationReason('delete');
+      if (reason === null) {
+        return;
+      }
+
+      const toastId = toast.loading('Deleting photo...');
       const response = await fetch(`/api/photos/${photo.id}`, {
         method: 'DELETE',
         credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(reason ? { reason } : {}),
       });
 
       if (!response.ok) {
         const error = await response.json().catch(() => ({}));
-        throw new Error(error.error || 'Failed to delete photo');
+        toast.error(error.error || 'Failed to delete photo', { id: toastId });
+        return;
       }
 
+      setPhotos((prev) => prev.filter((item) => item.id !== photo.id));
       onPhotoDelete?.(photo.id);
+      toast.success('Photo deleted', { id: toastId });
     } catch (error) {
       console.error('[Gallery] Delete failed:', error);
+      toast.error('Failed to delete photo');
     }
-  }, [onPhotoDelete]);
+  }, [onPhotoDelete, requestModerationReason]);
 
   const renderPhotoCard = (photo: IPhoto, index: number) => {
     const photoReactions = photo.reactions;
