@@ -15,7 +15,7 @@
 // All tables with tenant_id have RLS enabled to enforce tenant isolation.
 // The set_tenant_id() function (created in migrations) sets the session context.
 
-import { pgTable, pgEnum, uuid, text, integer, timestamp, boolean, jsonb, index, unique } from 'drizzle-orm/pg-core';
+import { pgTable, pgEnum, uuid, text, integer, timestamp, boolean, jsonb, index, unique, doublePrecision } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
 // ============================================
@@ -32,6 +32,8 @@ export const eventStatusEnum = pgEnum('event_status', ['draft', 'active', 'ended
 export const photoStatusEnum = pgEnum('photo_status', ['pending', 'approved', 'rejected']);
 export const deviceTypeEnum = pgEnum('device_type', ['mobile', 'tablet', 'desktop']);
 export const moderationActionEnum = pgEnum('moderation_action', ['approve', 'reject', 'delete', 'review']);
+export const photoScanDecisionEnum = pgEnum('photo_scan_decision', ['approve', 'reject', 'review', 'error']);
+export const photoScanOutcomeEnum = pgEnum('photo_scan_outcome', ['queued', 'applied', 'skipped', 'failed']);
 
 // ============================================
 // MIGRATION VERSION TABLE
@@ -317,6 +319,41 @@ export const photoModerationLogs = pgTable('photo_moderation_logs', {
 }));
 
 // ============================================
+// PHOTO SCAN LOGS
+// ============================================
+
+export const photoScanLogs = pgTable('photo_scan_logs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  photoId: uuid('photo_id').references(() => photos.id, { onDelete: 'set null' }),
+  eventId: uuid('event_id').notNull().references(() => events.id, { onDelete: 'cascade' }),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  jobId: text('job_id'),
+  source: text('source').notNull().default('queue'),
+  triggerType: text('trigger_type').notNull().default('upload'),
+  isReported: boolean('is_reported').notNull().default(false),
+  decision: photoScanDecisionEnum('decision'),
+  outcome: photoScanOutcomeEnum('outcome').notNull(),
+  reason: text('reason'),
+  error: text('error'),
+  categories: jsonb('categories').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  labels: jsonb('labels').$type<Array<{
+    name: string;
+    confidence: number;
+    category: string;
+  }>>().notNull().default(sql`'[]'::jsonb`),
+  confidence: doublePrecision('confidence'),
+  imageUrl: text('image_url'),
+  scannedAt: timestamp('scanned_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => ({
+  photoScanLogEventIdx: index('photo_scan_log_event_idx').on(table.eventId),
+  photoScanLogPhotoIdx: index('photo_scan_log_photo_idx').on(table.photoId),
+  photoScanLogTenantIdx: index('photo_scan_log_tenant_idx').on(table.tenantId),
+  photoScanLogOutcomeIdx: index('photo_scan_log_outcome_idx').on(table.outcome),
+  photoScanLogCreatedAtIdx: index('photo_scan_log_created_at_idx').on(table.createdAt),
+}));
+
+// ============================================
 // LUCKY DRAW TABLES
 // ============================================
 
@@ -566,6 +603,8 @@ export type Photo = typeof photos.$inferSelect;
 export type NewPhoto = typeof photos.$inferSelect;
 export type PhotoModerationLog = typeof photoModerationLogs.$inferSelect;
 export type NewPhotoModerationLog = typeof photoModerationLogs.$inferInsert;
+export type PhotoScanLog = typeof photoScanLogs.$inferSelect;
+export type NewPhotoScanLog = typeof photoScanLogs.$inferInsert;
 export type LuckyDrawConfig = typeof luckyDrawConfigs.$inferSelect;
 export type NewLuckyDrawConfig = typeof luckyDrawConfigs.$inferInsert;
 export type LuckyDrawEntry = typeof luckyDrawEntries.$inferSelect;

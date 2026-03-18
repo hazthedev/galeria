@@ -180,9 +180,16 @@ export async function queuePhotoScan(jobData: ScanJobData): Promise<string> {
     }
   );
 
+  const jobId = job.id ? String(job.id) : null;
+
+  if (jobData.tenantId) {
+    const { buildQueuedPhotoScanLog, recordPhotoScanLogSafe } = await import('@/lib/moderation/scan-logs');
+    await recordPhotoScanLogSafe(buildQueuedPhotoScanLog(jobData, jobId));
+  }
+
   console.log(`[SCAN_QUEUE] Queued scan for photo ${jobData.photoId} (priority: ${jobData.priority || 'normal'})`);
 
-  return job.id || '';
+  return jobId || '';
 }
 
 /**
@@ -314,20 +321,13 @@ export async function clearQueue(): Promise<void> {
 /**
  * Process a single scan job
  */
-async function processScanJob(job: { data: ScanJobData }): Promise<ScanJobResult> {
+async function processScanJob(job: { data: ScanJobData; id?: string | number }): Promise<ScanJobResult> {
   const { photoId, eventId, tenantId, imageUrl, priority, isReported } = job.data;
+  const jobId = job.id ? String(job.id) : null;
 
   console.log(`[SCAN_WORKER] Processing scan for photo ${photoId} (priority: ${priority || 'normal'})`);
 
   try {
-    // 1. Scan the image (dynamic import)
-    const { scanImageForModeration } = await import('../lib/moderation/auto-moderate');
-
-    const moderationResult = await scanImageForModeration(imageUrl, {
-      autoReject: !isReported, // Don't auto-reject reported content, flag for review
-    });
-
-    // 2. Resolve tenant context for safe multi-tenant processing
     const effectiveTenantId =
       tenantId ||
       (process.env.NODE_ENV !== 'production'
@@ -338,7 +338,14 @@ async function processScanJob(job: { data: ScanJobData }): Promise<ScanJobResult
       throw new Error('Missing tenant context for scan job');
     }
 
-    // 3. Apply the moderation decision through the shared transition service
+    // 1. Scan the image (dynamic import)
+    const { scanImageForModeration } = await import('../lib/moderation/auto-moderate');
+
+    const moderationResult = await scanImageForModeration(imageUrl, {
+      autoReject: !isReported, // Don't auto-reject reported content, flag for review
+    });
+
+    // 2. Apply the moderation decision through the shared transition service
     const { applyAutomatedModerationResult } = await import('../lib/moderation/service');
     const transition = await applyAutomatedModerationResult({
       tenantId: effectiveTenantId,
@@ -354,6 +361,17 @@ async function processScanJob(job: { data: ScanJobData }): Promise<ScanJobResult
       console.log(`[SCAN_WORKER] Skipped scan result for photo ${photoId}: ${transition.message}`);
     }
 
+    const { buildProcessedPhotoScanLog, recordPhotoScanLogSafe } = await import('@/lib/moderation/scan-logs');
+    await recordPhotoScanLogSafe(buildProcessedPhotoScanLog({
+      job: {
+        ...job.data,
+        tenantId: effectiveTenantId,
+      },
+      jobId,
+      moderationResult,
+      transition,
+    }));
+
     return {
       photoId,
       eventId,
@@ -363,6 +381,24 @@ async function processScanJob(job: { data: ScanJobData }): Promise<ScanJobResult
     };
   } catch (error) {
     console.error(`[SCAN_WORKER] Error processing scan for photo ${photoId}:`, error);
+
+    const effectiveTenantId =
+      tenantId ||
+      (process.env.NODE_ENV !== 'production'
+        ? (process.env.DEFAULT_TENANT_ID || '00000000-0000-0000-0000-000000000001')
+        : null);
+
+    if (effectiveTenantId) {
+      const { buildFailedPhotoScanLog, recordPhotoScanLogSafe } = await import('@/lib/moderation/scan-logs');
+      await recordPhotoScanLogSafe(buildFailedPhotoScanLog({
+        job: {
+          ...job.data,
+          tenantId: effectiveTenantId,
+        },
+        jobId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      }));
+    }
 
     return {
       photoId,

@@ -46,6 +46,24 @@ export default function EventPhotosPage() {
     photoStatus: string | null;
     imageUrl: string | null;
   }>>([]);
+  const [scanLogs, setScanLogs] = useState<Array<{
+    id: string;
+    photoId: string | null;
+    jobId: string | null;
+    source: string;
+    triggerType: string;
+    isReported: boolean;
+    decision: string | null;
+    outcome: string;
+    reason: string | null;
+    error: string | null;
+    categories: string[];
+    confidence: number | null;
+    imageUrl: string | null;
+    photoStatus: string | null;
+    scannedAt: string | null;
+    createdAt: string;
+  }>>([]);
   const [activeStatus, setActiveStatus] = useState<PhotoStatus>(
     (searchParams.get('status') as PhotoStatus) || 'all'
   );
@@ -69,12 +87,15 @@ export default function EventPhotosPage() {
   // Ref to store the fetchPhotos function
   const fetchPhotosRef = useRef<(() => Promise<void>) | null>(null);
   const fetchModerationLogsRef = useRef<(() => Promise<void>) | null>(null);
+  const fetchScanLogsRef = useRef<(() => Promise<void>) | null>(null);
 
   useEffect(() => {
     photosCacheRef.current = { all: [], pending: [], approved: [], rejected: [] };
     photosLoadedRef.current = { all: false, pending: false, approved: false, rejected: false };
     setPhotos([]);
     setSelectedPhotoIds([]);
+    setModerationLogs([]);
+    setScanLogs([]);
     setIsLoading(true);
     setIsEventLoading(true);
   }, [eventId]);
@@ -169,6 +190,26 @@ export default function EventPhotosPage() {
 
     fetchModerationLogsRef.current = fetchLogs;
     void fetchLogs();
+  }, [eventId]);
+
+  useEffect(() => {
+    const fetchScanLogs = async () => {
+      try {
+        const response = await fetch(`/api/events/${eventId}/scan-logs?limit=8&problemOnly=true`, {
+          credentials: 'include',
+          cache: 'no-store',
+        });
+        const data = await response.json();
+        if (response.ok) {
+          setScanLogs(data.data || []);
+        }
+      } catch (err) {
+        console.error('[PHOTOS_PAGE] Failed to fetch scan logs:', err);
+      }
+    };
+
+    fetchScanLogsRef.current = fetchScanLogs;
+    void fetchScanLogs();
   }, [eventId]);
 
   // Handle photo status update (approve/reject)
@@ -333,6 +374,25 @@ export default function EventPhotosPage() {
     return cached.length;
   };
 
+  const getScanOutcomeLabel = (log: (typeof scanLogs)[number]) => {
+    if (log.outcome === 'failed') return 'Scan failed';
+    if (log.outcome === 'skipped') return 'Skipped';
+    if (log.decision === 'review') return 'Manual review';
+    return log.decision
+      ? `${log.decision.charAt(0).toUpperCase()}${log.decision.slice(1)}`
+      : 'Queued';
+  };
+
+  const getScanOutcomeTone = (log: (typeof scanLogs)[number]) => {
+    if (log.outcome === 'failed') {
+      return 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-200';
+    }
+    if (log.outcome === 'skipped') {
+      return 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200';
+    }
+    return 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-200';
+  };
+
   if (isLoading || isEventLoading) {
     return <OrganizerPhotoModerationSkeleton activeStatus={activeStatus} />;
   }
@@ -458,75 +518,153 @@ export default function EventPhotosPage() {
               />
             </div>
 
-            <aside className="h-fit rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                    Recent Activity
-                  </h2>
-                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                    Latest manual and AI moderation decisions
-                  </p>
-                </div>
-                <button
-                  onClick={() => fetchModerationLogsRef.current?.()}
-                  className="rounded-lg border border-gray-200 px-2.5 py-1.5 text-[11px] font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-700"
-                >
-                  Refresh
-                </button>
-              </div>
-
-              <div className="mt-4 space-y-3">
-                {moderationLogs.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-gray-300 px-4 py-6 text-sm text-gray-500 dark:border-gray-600 dark:text-gray-400">
-                    No moderation actions logged yet.
+            <aside className="space-y-4">
+              <div className="h-fit rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                      Recent Activity
+                    </h2>
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      Latest manual and AI moderation decisions
+                    </p>
                   </div>
-                ) : (
-                  moderationLogs.slice(0, 8).map((log) => (
-                    <div
-                      key={log.id}
-                      className="rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900/40"
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-gray-200 dark:bg-gray-700">
-                          {log.imageUrl ? (
-                            <img
-                              src={log.imageUrl}
-                              alt="Moderation preview"
-                              className="h-full w-full object-cover"
-                              loading="lazy"
-                            />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center text-gray-400">
-                              <ImageIcon className="h-4 w-4" />
-                            </div>
-                          )}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className={clsx('rounded-full px-2 py-0.5 text-[11px] font-medium', getModerationTone(log))}>
-                              {getModerationLabel(log)}
-                            </span>
-                            <span className="rounded-full bg-gray-200 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-gray-600 dark:bg-gray-700 dark:text-gray-300">
-                              {log.source === 'ai' ? 'AI' : 'Manual'}
-                            </span>
+                  <button
+                    onClick={() => fetchModerationLogsRef.current?.()}
+                    className="rounded-lg border border-gray-200 px-2.5 py-1.5 text-[11px] font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-700"
+                  >
+                    Refresh
+                  </button>
+                </div>
+
+                <div className="mt-4 space-y-3">
+                  {moderationLogs.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-gray-300 px-4 py-6 text-sm text-gray-500 dark:border-gray-600 dark:text-gray-400">
+                      No moderation actions logged yet.
+                    </div>
+                  ) : (
+                    moderationLogs.slice(0, 8).map((log) => (
+                      <div
+                        key={log.id}
+                        className="rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900/40"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-gray-200 dark:bg-gray-700">
+                            {log.imageUrl ? (
+                              <img
+                                src={log.imageUrl}
+                                alt="Moderation preview"
+                                className="h-full w-full object-cover"
+                                loading="lazy"
+                              />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center text-gray-400">
+                                <ImageIcon className="h-4 w-4" />
+                              </div>
+                            )}
                           </div>
-                          <p className="mt-2 text-xs font-medium text-gray-700 dark:text-gray-200">
-                            {log.moderatorName || log.moderatorEmail || (log.source === 'ai' ? 'AI moderation' : 'Moderator')}
-                          </p>
-                          {log.reason && (
-                            <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
-                              {log.reason}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className={clsx('rounded-full px-2 py-0.5 text-[11px] font-medium', getModerationTone(log))}>
+                                {getModerationLabel(log)}
+                              </span>
+                              <span className="rounded-full bg-gray-200 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                                {log.source === 'ai' ? 'AI' : 'Manual'}
+                              </span>
+                            </div>
+                            <p className="mt-2 text-xs font-medium text-gray-700 dark:text-gray-200">
+                              {log.moderatorName || log.moderatorEmail || (log.source === 'ai' ? 'AI moderation' : 'Moderator')}
                             </p>
-                          )}
-                          <p className="mt-2 text-[11px] text-gray-500 dark:text-gray-400">
-                            {new Date(log.createdAt).toLocaleString()}
-                          </p>
+                            {log.reason && (
+                              <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                                {log.reason}
+                              </p>
+                            )}
+                            <p className="mt-2 text-[11px] text-gray-500 dark:text-gray-400">
+                              {new Date(log.createdAt).toLocaleString()}
+                            </p>
+                          </div>
                         </div>
                       </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <div className="h-fit rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                      AI Scan Issues
+                    </h2>
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      Review-needed, skipped, and failed scans
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => fetchScanLogsRef.current?.()}
+                    className="rounded-lg border border-gray-200 px-2.5 py-1.5 text-[11px] font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-700"
+                  >
+                    Refresh
+                  </button>
+                </div>
+
+                <div className="mt-4 space-y-3">
+                  {scanLogs.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-gray-300 px-4 py-6 text-sm text-gray-500 dark:border-gray-600 dark:text-gray-400">
+                      No recent AI scan issues.
                     </div>
-                  ))
-                )}
+                  ) : (
+                    scanLogs.map((log) => (
+                      <div
+                        key={log.id}
+                        className="rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900/40"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-gray-200 dark:bg-gray-700">
+                            {log.imageUrl ? (
+                              <img
+                                src={log.imageUrl}
+                                alt="AI scan preview"
+                                className="h-full w-full object-cover"
+                                loading="lazy"
+                              />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center text-gray-400">
+                                <ImageIcon className="h-4 w-4" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className={clsx('rounded-full px-2 py-0.5 text-[11px] font-medium', getScanOutcomeTone(log))}>
+                                {getScanOutcomeLabel(log)}
+                              </span>
+                              {log.isReported && (
+                                <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-violet-700 dark:bg-violet-900/30 dark:text-violet-200">
+                                  Reported
+                                </span>
+                              )}
+                            </div>
+                            {(log.error || log.reason) && (
+                              <p className="mt-2 text-xs text-gray-600 dark:text-gray-300">
+                                {log.error || log.reason}
+                              </p>
+                            )}
+                            {log.categories.length > 0 && (
+                              <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
+                                Categories: {log.categories.join(', ')}
+                              </p>
+                            )}
+                            <p className="mt-2 text-[11px] text-gray-500 dark:text-gray-400">
+                              {new Date(log.scannedAt || log.createdAt).toLocaleString()}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
             </aside>
           </div>
