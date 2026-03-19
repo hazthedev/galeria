@@ -7,6 +7,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   ArrowLeft,
   Shield,
@@ -100,69 +101,113 @@ export default function EventPhotosPage() {
     setIsEventLoading(true);
   }, [eventId]);
 
-  useEffect(() => {
-    const fetchEvent = async () => {
-      try {
-        const eventResponse = await fetch(`/api/events/${eventId}`, {
-          credentials: 'include',
-        });
-        const eventData = await eventResponse.json();
-        if (eventResponse.ok) {
-          setEvent(eventData.data);
-        }
-      } catch (err) {
-        console.error('[PHOTOS_PAGE] Event error:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load event');
-      } finally {
-        setIsEventLoading(false);
+  // Fetch functions stored in refs for invalidation callbacks
+  const fetchPhotos = useCallback(async (status: PhotoStatus) => {
+    try {
+      const queryParams = new URLSearchParams();
+      if (status !== 'all') {
+        queryParams.append('status', status);
       }
-    };
 
-    fetchEvent();
+      const response = await fetch(
+        `/api/events/${eventId}/photos?${queryParams.toString()}`,
+        {
+          credentials: 'include',
+          cache: 'no-store',
+        }
+      );
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to load photos');
+      }
+
+      photosCacheRef.current[status] = data.data || [];
+      photosLoadedRef.current[status] = true;
+      setPhotos(data.data || []);
+
+      // For now, assume all users accessing this route are moderators
+      setIsModerator(true);
+      setError(null);
+    } catch (err) {
+      console.error('[PHOTOS_PAGE] Photos error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load photos');
+    } finally {
+      setIsLoading(false);
+    }
   }, [eventId]);
 
-  useEffect(() => {
-    const fetchPhotos = async (status: PhotoStatus) => {
-      try {
-        const queryParams = new URLSearchParams();
-        if (status !== 'all') {
-          queryParams.append('status', status);
-        }
-
-        const response = await fetch(
-          `/api/events/${eventId}/photos?${queryParams.toString()}`,
-          {
-            credentials: 'include',
-            cache: 'no-store',
-          }
-        );
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.error || 'Failed to load photos');
-        }
-
-        photosCacheRef.current[status] = data.data || [];
-        photosLoadedRef.current[status] = true;
-        setPhotos(data.data || []);
-
-        // For now, assume all users accessing this route are moderators
-        setIsModerator(true);
-        setError(null);
-      } catch (err) {
-        console.error('[PHOTOS_PAGE] Photos error:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load photos');
-      } finally {
-        setIsLoading(false);
+  const fetchModerationLogs = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/events/${eventId}/moderation-logs?limit=20`, {
+        credentials: 'include',
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setModerationLogs(data.data || []);
       }
+    } catch (err) {
+      console.error('[PHOTOS_PAGE] Failed to fetch moderation logs:', err);
+    }
+  }, [eventId]);
+
+  const fetchScanLogsFunc = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/events/${eventId}/scan-logs?limit=8&problemOnly=true`, {
+        credentials: 'include',
+        cache: 'no-store',
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setScanLogs(data.data || []);
+      }
+    } catch (err) {
+      console.error('[PHOTOS_PAGE] Failed to fetch scan logs:', err);
+    }
+  }, [eventId]);
+
+  // Store fetch functions in refs for use in handlers
+  useEffect(() => {
+    fetchPhotosRef.current = () => fetchPhotos(activeStatus);
+    fetchModerationLogsRef.current = fetchModerationLogs;
+    fetchScanLogsRef.current = fetchScanLogsFunc;
+  }, [activeStatus, fetchPhotos, fetchModerationLogs, fetchScanLogsFunc]);
+
+  // Parallelize initial data load: event + photos + moderation logs + scan logs
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      const fetchEvent = async () => {
+        try {
+          const eventResponse = await fetch(`/api/events/${eventId}`, {
+            credentials: 'include',
+          });
+          const eventData = await eventResponse.json();
+          if (eventResponse.ok) {
+            setEvent(eventData.data);
+          }
+        } catch (err) {
+          console.error('[PHOTOS_PAGE] Event error:', err);
+          setError(err instanceof Error ? err.message : 'Failed to load event');
+        } finally {
+          setIsEventLoading(false);
+        }
+      };
+
+      await Promise.all([
+        fetchEvent(),
+        fetchPhotos(activeStatus),
+        fetchModerationLogs(),
+        fetchScanLogsFunc(),
+      ]);
     };
 
-    // Store the function in ref for use in handlePhotoUpdate
-    fetchPhotosRef.current = async () => {
-      await fetchPhotos(activeStatus);
-    };
+    fetchInitialData();
+    // Only run on mount / eventId change — activeStatus changes handled separately
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventId]);
 
-    // Use cached results if available, otherwise fetch
+  // Handle subsequent tab changes using cache
+  useEffect(() => {
     const cached = photosCacheRef.current[activeStatus];
     if (photosLoadedRef.current[activeStatus]) {
       setPhotos(cached);
@@ -171,66 +216,43 @@ export default function EventPhotosPage() {
       setIsLoading(true);
       fetchPhotos(activeStatus);
     }
-  }, [eventId, activeStatus]);
-
-  useEffect(() => {
-    const fetchLogs = async () => {
-      try {
-        const response = await fetch(`/api/events/${eventId}/moderation-logs?limit=20`, {
-          credentials: 'include',
-        });
-        const data = await response.json();
-        if (response.ok) {
-          setModerationLogs(data.data || []);
-        }
-      } catch (err) {
-        console.error('[PHOTOS_PAGE] Failed to fetch moderation logs:', err);
-      }
-    };
-
-    fetchModerationLogsRef.current = fetchLogs;
-    void fetchLogs();
-  }, [eventId]);
-
-  useEffect(() => {
-    const fetchScanLogs = async () => {
-      try {
-        const response = await fetch(`/api/events/${eventId}/scan-logs?limit=8&problemOnly=true`, {
-          credentials: 'include',
-          cache: 'no-store',
-        });
-        const data = await response.json();
-        if (response.ok) {
-          setScanLogs(data.data || []);
-        }
-      } catch (err) {
-        console.error('[PHOTOS_PAGE] Failed to fetch scan logs:', err);
-      }
-    };
-
-    fetchScanLogsRef.current = fetchScanLogs;
-    void fetchScanLogs();
-  }, [eventId]);
+  }, [activeStatus, fetchPhotos]);
 
   // Handle photo status update (approve/reject)
   const handlePhotoUpdate = useCallback(async (photoId: string, _newStatus: 'approved' | 'rejected') => {
     // Remove the photo from current view (optimistic update)
     setPhotos((prev) => prev.filter((p) => p.id !== photoId));
 
-    // Invalidate caches so updated status shows in other tabs
-    photosCacheRef.current = { all: [], pending: [], approved: [], rejected: [] };
-    photosLoadedRef.current = { all: false, pending: false, approved: false, rejected: false };
+    // Only invalidate affected caches: current tab + 'all' tab
+    photosCacheRef.current[activeStatus] = [];
+    photosLoadedRef.current[activeStatus] = false;
+    if (activeStatus !== 'all') {
+      photosCacheRef.current['all'] = [];
+      photosLoadedRef.current['all'] = false;
+    }
+    // Invalidate the target status tab too
+    photosCacheRef.current[_newStatus] = [];
+    photosLoadedRef.current[_newStatus] = false;
 
-    // Immediately refetch to ensure we have the latest data
+    // Refetch only the active tab and moderation logs (not scan logs)
     fetchPhotosRef.current?.();
     fetchModerationLogsRef.current?.();
-  }, []);
+  }, [activeStatus]);
 
   const handlePhotoDelete = useCallback(async (photoId: string) => {
     setPhotos((prev) => prev.filter((p) => p.id !== photoId));
+
+    // Only invalidate current tab + 'all' tab
+    photosCacheRef.current[activeStatus] = [];
+    photosLoadedRef.current[activeStatus] = false;
+    if (activeStatus !== 'all') {
+      photosCacheRef.current['all'] = [];
+      photosLoadedRef.current['all'] = false;
+    }
+
     fetchPhotosRef.current?.();
     fetchModerationLogsRef.current?.();
-  }, []);
+  }, [activeStatus]);
 
   const handleStatusChange = (status: PhotoStatus) => {
     setActiveStatus(status);
@@ -549,13 +571,14 @@ export default function EventPhotosPage() {
                         className="rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900/40"
                       >
                         <div className="flex items-start gap-3">
-                          <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-gray-200 dark:bg-gray-700">
+                          <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-gray-200 dark:bg-gray-700">
                             {log.imageUrl ? (
-                              <img
+                              <Image
                                 src={log.imageUrl}
                                 alt="Moderation preview"
-                                className="h-full w-full object-cover"
-                                loading="lazy"
+                                fill
+                                sizes="56px"
+                                className="object-cover"
                               />
                             ) : (
                               <div className="flex h-full w-full items-center justify-center text-gray-400">
@@ -621,13 +644,14 @@ export default function EventPhotosPage() {
                         className="rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900/40"
                       >
                         <div className="flex items-start gap-3">
-                          <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-gray-200 dark:bg-gray-700">
+                          <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-gray-200 dark:bg-gray-700">
                             {log.imageUrl ? (
-                              <img
+                              <Image
                                 src={log.imageUrl}
                                 alt="AI scan preview"
-                                className="h-full w-full object-cover"
-                                loading="lazy"
+                                fill
+                                sizes="56px"
+                                className="object-cover"
                               />
                             ) : (
                               <div className="flex h-full w-full items-center justify-center text-gray-400">

@@ -7,6 +7,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   ArrowLeft,
   Settings,
@@ -18,13 +19,27 @@ import {
   Target,
 } from 'lucide-react';
 import clsx from 'clsx';
+import dynamic from 'next/dynamic';
 import { EventStats } from '@/components/events/event-stats';
 import QRCodeDisplay from '@/components/events/qr-code-display';
-import { LuckyDrawAdminTab } from '@/components/lucky-draw/admin/LuckyDrawAdminTab';
-import { AttendanceAdminTab } from '@/components/attendance/AttendanceAdminTab';
-import { PhotoChallengeAdminTab } from '@/components/photo-challenge/admin-tab';
-import { SettingsAdminTab } from '@/components/settings/SettingsAdminTab';
 import { UpgradePrompt } from '@/components/upgrade-prompt';
+
+const LuckyDrawAdminTab = dynamic(
+  () => import('@/components/lucky-draw/admin/LuckyDrawAdminTab').then(mod => ({ default: mod.LuckyDrawAdminTab })),
+  { ssr: false }
+);
+const AttendanceAdminTab = dynamic(
+  () => import('@/components/attendance/AttendanceAdminTab').then(mod => ({ default: mod.AttendanceAdminTab })),
+  { ssr: false }
+);
+const PhotoChallengeAdminTab = dynamic(
+  () => import('@/components/photo-challenge/admin-tab').then(mod => ({ default: mod.PhotoChallengeAdminTab })),
+  { ssr: false }
+);
+const SettingsAdminTab = dynamic(
+  () => import('@/components/settings/SettingsAdminTab').then(mod => ({ default: mod.SettingsAdminTab })),
+  { ssr: false }
+);
 import type { IEvent } from '@/lib/types';
 import { useOrganizerEntitlements } from '@/lib/use-organizer-entitlements';
 import { OrganizerEventAdminSkeleton } from '@/components/events/page-skeletons';
@@ -399,13 +414,14 @@ export default function EventAdminPage() {
                             className="flex flex-col gap-4 rounded-lg bg-gray-50 px-4 py-3 dark:bg-gray-700/50 sm:flex-row sm:items-center sm:justify-between"
                           >
                             <div className="flex min-w-0 items-center gap-3">
-                              <div className="h-10 w-10 overflow-hidden rounded-md bg-gray-200 dark:bg-gray-700">
+                              <div className="relative h-10 w-10 overflow-hidden rounded-md bg-gray-200 dark:bg-gray-700">
                                 {log.imageUrl ? (
-                                  <img
+                                  <Image
                                     src={log.imageUrl}
                                     alt="Moderated"
-                                    className="h-full w-full object-cover"
-                                    loading="lazy"
+                                    fill
+                                    sizes="40px"
+                                    className="object-cover"
                                   />
                                 ) : (
                                   <div className="flex h-full w-full items-center justify-center text-gray-400">

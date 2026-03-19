@@ -5,6 +5,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { Image as ImageIcon, Users, Heart, AlertCircle, TrendingUp, Sparkles, Trophy } from 'lucide-react';
 import clsx from 'clsx';
 import { UpgradePrompt } from '@/components/upgrade-prompt';
@@ -510,11 +511,12 @@ export function EventStats({
               >
                 <div className="relative aspect-square w-full bg-gray-100 dark:bg-gray-700">
                   {photo.imageUrl ? (
-                    <img
+                    <Image
                       src={photo.imageUrl}
                       alt={`Top liked ${index + 1}`}
-                      className="h-full w-full object-cover"
-                      loading="lazy"
+                      fill
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                      className="object-cover"
                     />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center text-gray-400">
