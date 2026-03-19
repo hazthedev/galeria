@@ -1,9 +1,7 @@
-import Image from 'next/image';
 import {
   Calendar,
   MapPin,
   Users,
-  Share2,
   Upload,
   Loader2,
   ImageIcon,
@@ -11,42 +9,25 @@ import {
   Trophy,
   Camera,
   Check,
-  Heart,
-  Download,
   UserCheck,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { motion, AnimatePresence } from 'motion/react';
-import { PhotoChallengeProgressBar } from '@/components/photo-challenge/progress-bar';
 import { PhotoChallengePrizeModal } from '@/components/photo-challenge/prize-modal';
-import { Recaptcha } from '@/components/auth/Recaptcha';
 import { SlotMachineAnimation } from '@/components/lucky-draw/SlotMachineAnimation';
 import { CheckInModal } from '@/components/attendance/CheckInModal';
-import type { IPhoto } from '@/lib/types';
 import { formatDrawNumber } from '../_lib/guest-utils';
 import {
-  photoCardVariants,
-  modalBackdropVariants,
-  modalContentVariants,
   luckyNumberVariants,
-  heartBurstVariants,
-  heartParticleVariants,
   floatingButtonVariants,
-  fileCardVariants,
-  createParticleBurst,
 } from '@/lib/animations';
 import { GuestNameModal } from './GuestNameModal';
 import { GuestShareModal } from './GuestShareModal';
+import { HeaderActions } from './HeaderActions';
+import { GalleryGrid } from './GalleryGrid';
+import { UploadModal } from './UploadModal';
 import { useGuestEventPageController } from '../_hooks/useGuestEventPageController';
 import { GuestEventPageSkeleton } from './GuestEventPageSkeleton';
-
-const PHOTO_CARD_STYLE_CLASSES: Record<string, string> = {
-  vacation: 'rounded-2xl bg-white shadow-[0_12px_24px_rgba(0,0,0,0.12)] ring-1 ring-black/5',
-  brutalist: 'rounded-none bg-white border-2 border-black shadow-[6px_6px_0_#000]',
-  wedding: 'rounded-3xl bg-white border border-rose-200 shadow-[0_8px_24px_rgba(244,114,182,0.25)]',
-  celebration: 'rounded-2xl bg-gradient-to-br from-yellow-50 via-white to-pink-50 border border-amber-200 shadow-[0_10px_26px_rgba(249,115,22,0.25)]',
-  futuristic: 'rounded-2xl bg-slate-950/90 border border-cyan-400/40 shadow-[0_0_24px_rgba(34,211,238,0.35)]',
-};
 
 type GuestEventPageViewProps = {
   controller: ReturnType<typeof useGuestEventPageController>;
@@ -212,78 +193,28 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
                 )}
               </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap sm:justify-end">
-              {luckyDrawEnabled && (
-                <a
-                  href="#lucky-draw"
-                  className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium"
-                  style={{
-                    backgroundColor: themeSecondary,
-                    color: secondaryText,
-                    borderColor: surfaceBorder,
-                  }}
-                >
-                  <Trophy className="h-4 w-4" />
-                  Lucky Draw
-                </a>
-              )}
-              {canDownload && (
-                <>
-                  {selectedCount > 0 && (
-                    <>
-                      <button
-                        onClick={handleDownloadSelectedIndividually}
-                        className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium"
-                        style={{
-                          backgroundColor: themeSecondary,
-                          color: secondaryText,
-                          borderColor: surfaceBorder,
-                        }}
-                      >
-                        <Download className="h-4 w-4" />
-                        Download selected ({selectedCount})
-                      </button>
-                      <button
-                        onClick={handleDownloadSelected}
-                        className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium"
-                        style={{ color: surfaceText, borderColor: surfaceBorder }}
-                      >
-                        <Download className="h-4 w-4" />
-                        Download ZIP ({selectedCount})
-                      </button>
-                    </>
-                  )}
-                  <button
-                    onClick={handleDownloadAll}
-                    className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium"
-                    style={{ color: surfaceText, borderColor: surfaceBorder }}
-                  >
-                    <Download className="h-4 w-4" />
-                    Download all
-                  </button>
-                </>
-              )}
-              <button
-                onClick={() => setShowGuestModal(true)}
-                className="inline-flex items-center rounded-lg border px-3 py-2 text-xs font-medium"
-                style={{ color: surfaceText, borderColor: themeSecondary }}
-              >
-                {isAnonymous || !guestName ? 'Add name' : 'Edit name'}
-              </button>
-              <button
-                onClick={handleShare}
-                className="flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white sm:w-auto"
-                style={{ backgroundColor: themeSecondary, color: secondaryText }}
-              >
-                <Share2 className="h-4 w-4" />
-                Share
-              </button>
-            </div>
+            <HeaderActions
+              luckyDrawEnabled={luckyDrawEnabled}
+              canDownload={canDownload}
+              selectedCount={selectedCount}
+              guestName={guestName}
+              isAnonymous={isAnonymous}
+              themeSecondary={themeSecondary}
+              secondaryText={secondaryText}
+              surfaceText={surfaceText}
+              surfaceBorder={surfaceBorder}
+              onDownloadSelectedIndividually={handleDownloadSelectedIndividually}
+              onDownloadSelected={handleDownloadSelected}
+              onDownloadAll={handleDownloadAll}
+              onEditName={() => setShowGuestModal(true)}
+              onShare={handleShare}
+            />
           </div>
         </div>
       </header>
 
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        {/* Lucky Draw Section */}
         {luckyDrawEnabled && (
           <section
             id="lucky-draw"
@@ -435,193 +366,27 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
         </div>
 
         {/* Photo Gallery */}
-        <div>
-          <h2 className="mb-4 text-xl font-semibold" style={{ color: surfaceText }}>
-            Event Photos
-          </h2>
-          {mergedPhotos.length === 0 ? (
-            <div
-              className="rounded-2xl border border-dashed p-12 text-center"
-              style={{ backgroundColor: themeSurface, borderColor: surfaceBorder }}
-            >
-              <ImageIcon className="mx-auto mb-4 h-16 w-16" style={{ color: surfaceMuted }} />
-              <p style={{ color: surfaceText }}>No photos yet</p>
-              <p className="mt-1 text-sm" style={{ color: surfaceMuted }}>
-                Be the first to share a moment!
-              </p>
-            </div>
-          ) : (
-            <>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-                {mergedPhotos.map((photo, index) => {
-                  const userLoveCount = userLoves[photo.id] || 0;
-                  const totalHeartCount = photo.reactions?.heart || 0;
-
-                  return (
-                    <motion.div
-                      key={photo.id}
-                      custom={index}
-                      variants={photoCardVariants}
-                      initial="hidden"
-                      animate="visible"
-                      whileHover="hover"
-                      whileTap="tap"
-                      onDoubleClick={() => {
-                        if (photo.status !== 'approved' || !reactionsEnabled) return;
-                        handleLoveReaction(photo.id);
-                      }}
-                      className={clsx(
-                        'group relative aspect-square overflow-hidden cursor-pointer',
-                        PHOTO_CARD_STYLE_CLASSES[photoCardStyle] || PHOTO_CARD_STYLE_CLASSES.vacation,
-                        canDownload && selectedPhotoIds.has(photo.id) && 'ring-2 ring-violet-500'
-                      )}
-                    >
-                      <Image
-                        src={photo.images.medium_url || photo.images.full_url}
-                        alt={photo.caption || 'Event photo'}
-                        fill
-                        sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, (max-width: 1280px) 25vw, 20vw"
-                        className="object-cover"
-                        priority={index < 4}
-                      />
-
-                      {/* Download button */}
-                      {canDownload && photo.status === 'approved' && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDownloadPhoto(photo);
-                          }}
-                          className="absolute top-2 left-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
-                          title="Download photo"
-                        >
-                          <Download className="h-4 w-4" />
-                        </button>
-                      )}
-
-                      {/* Select checkbox */}
-                      {canDownload && photo.status === 'approved' && (
-                        <label
-                          onClick={(e) => e.stopPropagation()}
-                          className="absolute bottom-2 left-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/50 text-white"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selectedPhotoIds.has(photo.id)}
-                            onChange={() => toggleSelectedPhoto(photo.id)}
-                            className="h-4 w-4 rounded border-white text-violet-600 focus:ring-violet-500"
-                          />
-                        </label>
-                      )}
-
-                      {(photo.status === 'pending' || photo.status === 'rejected') && (
-                        <div className={clsx(
-                          'absolute inset-0 z-10 flex items-center justify-center text-center text-xs font-semibold uppercase tracking-wide',
-                          photo.status === 'pending'
-                            ? 'bg-black/55 text-yellow-100'
-                            : 'bg-black/70 text-red-100'
-                        )}>
-                          <span className="rounded-full bg-black/40 px-3 py-1">
-                            {photo.status === 'pending' ? 'Pending approval' : 'Rejected'}
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Love Icon at Top Right (when user has loved) */}
-                      {reactionsEnabled && userLoveCount > 0 && (
-                        <div className="absolute top-2 right-2 flex items-center gap-1 rounded-full bg-pink-500 px-2 py-1 shadow-lg">
-                          <Heart className="h-4 w-4 fill-white text-white" />
-                          <span className="text-xs font-bold text-white">{userLoveCount}</span>
-                        </div>
-                      )}
-
-                      {/* Total Heart Count Badge */}
-                      {reactionsEnabled && totalHeartCount > 0 && (
-                        <div className="absolute bottom-2 right-2 flex items-center gap-1 rounded-full bg-black/50 px-2 py-1 backdrop-blur-sm">
-                          <Heart className={clsx(
-                            "h-3.5 w-3.5",
-                            userLoveCount > 0 ? "fill-pink-500 text-pink-500" : "fill-white text-white"
-                          )} />
-                          <span className="text-xs font-medium text-white">{totalHeartCount}</span>
-                        </div>
-                      )}
-
-                      {/* Overlay on hover */}
-                      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
-                        <div className="absolute bottom-0 left-0 right-0 p-2 text-white">
-                          {photo.caption && (
-                            <p className="text-xs line-clamp-2">{photo.caption}</p>
-                          )}
-                          {!photo.is_anonymous && photo.contributor_name && (
-                            <p className="text-xs opacity-75">- {photo.contributor_name}</p>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Heart Burst Animation (on double-click) */}
-                      {reactionsEnabled && animatingPhotos.has(photo.id) && (
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-                          {/* Central heart */}
-                          <motion.div
-                            variants={heartBurstVariants}
-                            initial="hidden"
-                            animate="visible"
-                            className="flex items-center justify-center"
-                          >
-                            <Heart className="h-20 w-20 fill-pink-500 text-pink-500 drop-shadow-lg" />
-                          </motion.div>
-                          {/* Particle hearts */}
-                          {createParticleBurst(8).map((angle, i) => (
-                            <motion.div
-                              key={i}
-                              className="absolute top-1/2 left-1/2"
-                              style={{ marginLeft: -12, marginTop: -12 }}
-                              {...heartParticleVariants(angle, 50)}
-                            >
-                              <Heart className="h-6 w-6 fill-pink-400 text-pink-400 drop-shadow-md" />
-                            </motion.div>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Double-click hint overlay (only on hover, hidden during animation) */}
-                      {reactionsEnabled && !animatingPhotos.has(photo.id) && (
-                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/30">
-                          <Heart className="h-12 w-12 text-white opacity-80" />
-                          {userLoveCount >= 10 && (
-                            <span className="absolute bottom-12 text-xs text-white bg-black/50 px-2 py-1 rounded">Max reached</span>
-                          )}
-                        </div>
-                      )}
-                    </motion.div>
-                  );
-                })}
-              </div>
-              <div className="mt-6 flex items-center justify-center">
-                {hasMoreApproved && (
-                  isLoadingMore ? (
-                    <div
-                      className="flex items-center gap-2 text-sm"
-                      style={{ color: 'rgb(71, 85, 105)' }}
-                    >
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Loading more photos...
-                    </div>
-                  ) : (
-                    <button
-                      onClick={loadMoreApproved}
-                      className="rounded-full border px-4 py-2 text-sm font-medium hover:opacity-80"
-                      style={{ borderColor: surfaceBorder, color: surfaceText, backgroundColor: inputBackground }}
-                    >
-                      Load more photos
-                    </button>
-                  )
-                )}
-              </div>
-              <div ref={loadMoreRef} className="h-1" />
-            </>
-          )}
-        </div>
+        <GalleryGrid
+          photos={mergedPhotos}
+          userLoves={userLoves}
+          animatingPhotos={animatingPhotos}
+          selectedPhotoIds={selectedPhotoIds}
+          canDownload={canDownload}
+          reactionsEnabled={reactionsEnabled}
+          photoCardStyle={photoCardStyle}
+          hasMoreApproved={hasMoreApproved}
+          isLoadingMore={isLoadingMore}
+          loadMoreRef={loadMoreRef}
+          surfaceText={surfaceText}
+          surfaceMuted={surfaceMuted}
+          surfaceBorder={surfaceBorder}
+          themeSurface={themeSurface}
+          inputBackground={inputBackground}
+          onLoveReaction={handleLoveReaction}
+          onDownloadPhoto={handleDownloadPhoto}
+          onToggleSelect={toggleSelectedPhoto}
+          onLoadMore={loadMoreApproved}
+        />
       </div>
 
       <GuestShareModal
@@ -637,326 +402,63 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
       />
 
       {/* Upload Modal */}
-      <AnimatePresence>
-        {showUploadModal && (
-          <>
-            <motion.div
-              variants={modalBackdropVariants}
-              initial="hidden"
-              animate="visible"
-              exit="exit"
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-            >
-              <motion.div
-                variants={modalContentVariants}
-                initial="hidden"
-                animate="visible"
-                exit="exit"
-                className="w-full max-w-md rounded-2xl p-6 shadow-xl max-h-[90vh] overflow-y-auto"
-                style={{ backgroundColor: themeSurface, color: surfaceText, borderColor: surfaceBorder }}
-              >
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold" style={{ color: surfaceText }}>
-                Upload Photo
-              </h3>
-              <button
-                onClick={() => {
-                  setShowUploadModal(false);
-                  setSelectedFiles([]);
-                  setUploadError(null);
-                  setUploadSuccess(false);
-                  setUploadSuccessMessage('Photo uploaded successfully!');
-                  setCaption('');
-                  setOptimizedCount(0);
-                  setRecaptchaToken(null);
-                  setRecaptchaError(null);
-                }}
-                className="hover:opacity-80"
-                style={{ color: surfaceMuted }}
-                disabled={isUploading || isOptimizing}
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            {/* Success Message */}
-            {uploadSuccess && (
-              <div className="mb-4 flex items-center gap-2">
-                <Check className="h-5 w-5 flex-shrink-0 text-green-600 dark:text-green-400" />
-                <p className="text-sm font-medium" style={{ color: surfaceText }}>
-                  {uploadSuccessMessage}
-                </p>
-              </div>
-            )}
-
-            {/* Error Message */}
-            {uploadError && (
-              <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/20 dark:text-red-300">
-                {uploadError}
-              </div>
-            )}
-
-            {/* Uploading State */}
-            {isUploading && (
-              <div
-                className="mb-4 flex flex-col items-center gap-3 rounded-lg p-6"
-                style={{ backgroundColor: inputBackground }}
-              >
-                <div className="w-full">
-                  <div className="mb-2 flex items-center justify-between text-sm font-medium" style={{ color: surfaceText }}>
-                    <span>Uploading photos...</span>
-                    <span>{uploadProgress}%</span>
-                  </div>
-                  <div className="h-2 w-full overflow-hidden rounded-full" style={{ backgroundColor: surfaceBorder }}>
-                    <div
-                      className="h-full rounded-full transition-all duration-300"
-                      style={{ width: `${uploadProgress}%`, backgroundColor: themeSecondary }}
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {isOptimizing && (
-              <div
-                className="mb-4 flex flex-col items-center gap-3 rounded-lg p-6"
-                style={{ backgroundColor: inputBackground }}
-              >
-                <Loader2 className="h-10 w-10 animate-spin" style={{ color: themeSecondary }} />
-                <p className="text-sm font-medium text-gray-900">
-                  Optimizing large photos...
-                </p>
-              </div>
-            )}
-
-            {!uploadSuccess && !isUploading && !isOptimizing && (
-              <div className="space-y-4">
-                {/* Selected Files Preview */}
-                {selectedFiles.length > 0 && (
-                  <div>
-                    <p className="mb-2 text-sm font-medium" style={{ color: surfaceText }}>
-                      Selected Photos ({selectedFiles.length}/5)
-                    </p>
-                    <div className="grid grid-cols-3 gap-2">
-                      <AnimatePresence>
-                        {selectedFiles.map((file, index) => (
-                          <motion.div
-                            key={`${file.name}-${file.preview}`}
-                            variants={fileCardVariants}
-                            initial="hidden"
-                            animate="visible"
-                            exit="exit"
-                            custom={index}
-                            className="relative aspect-square rounded-lg overflow-hidden"
-                            style={{ backgroundColor: inputBackground }}
-                        >
-                          <Image
-                            src={file.preview}
-                            alt={file.name}
-                            fill
-                            className="object-cover"
-                          />
-                          <button
-                            onClick={() => removeSelectedFile(index)}
-                            className="absolute top-1 right-1 flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-white hover:bg-red-600"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </motion.div>
-                      ))}
-                      </AnimatePresence>
-                    </div>
-                  </div>
-                )}
-
-                {/* File Selection Buttons */}
-                {selectedFiles.length < 5 && (
-                  <div className="grid grid-cols-2 gap-3">
-                    {/* Camera Button */}
-                    <label
-                      className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed p-4 transition-all hover:opacity-90"
-                      style={{ borderColor: themePrimary, backgroundColor: inputBackground }}
-                    >
-                      <input
-                        type="file"
-                        accept="image/*"
-                        capture="environment"
-                        onChange={(e) => handleFileSelect(e.target.files)}
-                        className="hidden"
-                      />
-                      <Camera className="h-8 w-8" style={{ color: themeSecondary }} />
-                      <span className="text-xs font-semibold" style={{ color: surfaceText }}>
-                        Camera
-                      </span>
-                    </label>
-
-                    {/* Gallery Button */}
-                    <label
-                      className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed p-4 transition-all hover:opacity-90"
-                      style={{ borderColor: themePrimary, backgroundColor: inputBackground }}
-                    >
-                      <input
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        onChange={(e) => handleFileSelect(e.target.files)}
-                        className="hidden"
-                      />
-                      <ImageIcon className="h-8 w-8" style={{ color: themeSecondary }} />
-                      <span className="text-xs font-semibold" style={{ color: surfaceText }}>
-                        Gallery
-                      </span>
-                    </label>
-                  </div>
-                )}
-
-                <p className="text-xs text-center" style={{ color: surfaceMuted }}>
-                  Large photos are optimized automatically before upload
-                </p>
-
-                {/* Caption */}
-                <div>
-                  <label className="mb-2 block text-sm font-medium" style={{ color: surfaceText }}>
-                    Caption (optional)
-                  </label>
-                  <input
-                    type="text"
-                    value={caption}
-                    onChange={(e) => setCaption(e.target.value)}
-                    placeholder="Add a caption..."
-                    className="w-full rounded-lg border px-4 py-2.5 text-sm focus:border-violet-500 focus:ring-violet-500"
-                    style={{ backgroundColor: inputBackground, borderColor: inputBorder, color: surfaceText }}
-                    maxLength={200}
-                  />
-                </div>
-
-                {/* Lucky Draw Entry */}
-                {luckyDrawEnabled && !isAnonymous && (
-                  <div
-                    className="rounded-lg border p-4"
-                    style={{ borderColor: surfaceBorder, backgroundColor: inputBackground }}
-                  >
-                    <label className="flex items-start gap-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={joinLuckyDraw}
-                        onChange={(e) => setJoinLuckyDraw(e.target.checked)}
-                        disabled={hasJoinedDraw || hasActiveLuckyDrawConfig === false}
-                        className="mt-0.5 h-4 w-4 rounded text-violet-600 focus:ring-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
-                        style={{ borderColor: inputBorder }}
-                      />
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <Trophy className="h-4 w-4 text-violet-600 dark:text-violet-400" />
-                          <span className="text-sm font-medium" style={{ color: surfaceText }}>
-                            Join Lucky Draw
-                          </span>
-                        </div>
-                        <p className="mt-1 text-xs" style={{ color: surfaceMuted }}>
-                          Enter this photo into the lucky draw for a chance to win prizes!
-                        </p>
-                        {hasActiveLuckyDrawConfig === false && (
-                          <p className="mt-1 text-xs" style={{ color: '#F59E0B' }}>
-                            Lucky draw is not configured yet.
-                          </p>
-                        )}
-                        {hasJoinedDraw && (
-                          <p className="mt-1 text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
-                            ✓ You have already joined the lucky draw
-                          </p>
-                        )}
-                      </div>
-                    </label>
-                  </div>
-                )}
-
-                {/* Photo Challenge Progress Bar */}
-                {photoChallenge?.enabled && (
-                  <PhotoChallengeProgressBar
-                    challenge={photoChallenge}
-                    progress={challengeProgress}
-                    themePrimary={themePrimary}
-                    themeSecondary={themeSecondary}
-                    surfaceText={surfaceText}
-                    surfaceMuted={surfaceMuted}
-                    surfaceBorder={surfaceBorder}
-                    inputBackground={inputBackground}
-                  />
-                )}
-
-                {allowAnonymous && isAnonymous && luckyDrawEnabled && (
-                  <div className="rounded-lg bg-amber-50 p-3 dark:bg-amber-900/20">
-                    <p className="text-xs text-amber-800 dark:text-amber-300">
-                      Anonymous users cannot participate in the lucky draw
-                    </p>
-                  </div>
-                )}
-
-                {(isAnonymous || !guestName.trim()) && (
-                  <div
-                    className="rounded-lg border p-3"
-                    style={{ borderColor: surfaceBorder, backgroundColor: inputBackground }}
-                  >
-                    <Recaptcha
-                      onVerified={(token) => {
-                        setRecaptchaToken(token);
-                        setRecaptchaError(null);
-                      }}
-                      onExpired={() => {
-                        setRecaptchaToken(null);
-                      }}
-                      onError={(err) => setRecaptchaError(err)}
-                    />
-                    {recaptchaToken && (
-                      <p className="mt-2 text-xs text-green-600 dark:text-green-400">
-                        CAPTCHA verified
-                      </p>
-                    )}
-                    {!recaptchaToken && recaptchaError && (
-                      <p className="mt-2 text-xs text-red-600 dark:text-red-400">
-                        {recaptchaError}
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {/* Submit Button */}
-                {selectedFiles.length > 0 && (
-                  <button
-                    onClick={handleUpload}
-                    disabled={isUploading || isOptimizing}
-                    className="w-full rounded-lg py-3 text-sm font-semibold text-white transition-all disabled:opacity-50"
-                    style={{ backgroundColor: themeSecondary, color: secondaryText }}
-                  >
-                    Upload {selectedFiles.length} Photo{selectedFiles.length > 1 ? 's' : ''}
-                  </button>
-                )}
-
-                {/* Photos Remaining Info */}
-                {(() => {
-                  const fallbackUserLimit = event?.settings?.limits?.max_photos_per_user;
-                  const fallbackUserPhotos = mergedPhotos.filter((photo) => photo.user_fingerprint === `guest_${fingerprint}`).length;
-
-                  const userLimit = uploadUsageUser?.limit ?? fallbackUserLimit;
-                  const userPhotos = uploadUsageUser?.used ?? fallbackUserPhotos;
-                  const remaining = uploadUsageUser?.remaining
-                    ?? (userLimit === null || userLimit === undefined ? -1 : Math.max(0, userLimit - userPhotos));
-
-                  return (
-                    <p className="text-xs text-center" style={{ color: surfaceMuted }}>
-                      {remaining === -1
-                        ? `${userPhotos} uploaded`
-                        : `${remaining} photo${remaining === 1 ? '' : 's'} remaining`}
-                    </p>
-                  );
-                })()}
-              </div>
-            )}
-            </motion.div>
-          </motion.div>
-        </>
-        )}
-      </AnimatePresence>
+      <UploadModal
+        isOpen={showUploadModal}
+        event={event}
+        mergedPhotos={mergedPhotos}
+        fingerprint={fingerprint}
+        isUploading={isUploading}
+        isOptimizing={isOptimizing}
+        uploadProgress={uploadProgress}
+        uploadError={uploadError}
+        uploadSuccess={uploadSuccess}
+        uploadSuccessMessage={uploadSuccessMessage}
+        selectedFiles={selectedFiles}
+        caption={caption}
+        luckyDrawEnabled={luckyDrawEnabled}
+        isAnonymous={isAnonymous}
+        joinLuckyDraw={joinLuckyDraw}
+        hasJoinedDraw={hasJoinedDraw}
+        hasActiveLuckyDrawConfig={hasActiveLuckyDrawConfig}
+        photoChallenge={photoChallenge}
+        challengeProgress={challengeProgress}
+        guestName={guestName}
+        recaptchaToken={recaptchaToken}
+        recaptchaError={recaptchaError}
+        allowAnonymous={allowAnonymous}
+        uploadUsageUser={uploadUsageUser}
+        themePrimary={themePrimary}
+        themeSecondary={themeSecondary}
+        themeSurface={themeSurface}
+        surfaceText={surfaceText}
+        surfaceMuted={surfaceMuted}
+        surfaceBorder={surfaceBorder}
+        inputBackground={inputBackground}
+        inputBorder={inputBorder}
+        secondaryText={secondaryText}
+        onClose={() => {
+          setShowUploadModal(false);
+          setSelectedFiles([]);
+          setUploadError(null);
+          setUploadSuccess(false);
+          setUploadSuccessMessage('Photo uploaded successfully!');
+          setCaption('');
+          setOptimizedCount(0);
+          setRecaptchaToken(null);
+          setRecaptchaError(null);
+        }}
+        onFileSelect={handleFileSelect}
+        onRemoveFile={removeSelectedFile}
+        onUpload={handleUpload}
+        onCaptionChange={setCaption}
+        onJoinLuckyDrawChange={setJoinLuckyDraw}
+        onRecaptchaVerified={(token) => {
+          setRecaptchaToken(token);
+          setRecaptchaError(null);
+        }}
+        onRecaptchaExpired={() => setRecaptchaToken(null)}
+        onRecaptchaError={(err) => setRecaptchaError(err)}
+      />
 
       {/* Floating Camera Button */}
       {event?.settings?.features?.photo_upload_enabled !== false && (
@@ -1011,9 +513,7 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
             onSuccess={() => {
               setHasCheckedIn(true);
               setShowCheckInModal(false);
-              // Mark user as non-anonymous after check-in so progress bar shows
               setIsAnonymous(false);
-              // Store the check-in status in localStorage for persistence
               if (typeof window !== 'undefined') {
                 localStorage.setItem(`event_${resolvedEventId}_checked_in`, 'true');
               }
@@ -1043,4 +543,3 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
     </div>
   );
 }
-

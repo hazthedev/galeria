@@ -22,7 +22,7 @@ export interface UploadModalProps {
   isOpen: boolean;
   event: IEvent;
   mergedPhotos: IPhoto[];
-  fingerprint: string;
+  fingerprint: string | null;
   isUploading: boolean;
   isOptimizing: boolean;
   uploadProgress: number;
