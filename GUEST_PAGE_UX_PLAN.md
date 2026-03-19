@@ -32,9 +32,9 @@ Double-tap to love works on desktop but is unreliable on mobile touch. No visual
 **Impact: Medium — first impression**
 Currently just a gray icon + "No photos yet" — no personality, no strong CTA to upload.
 
-### 7. Extract Components (Refactor)
+### 7. ~~Extract Components (Refactor)~~ ✅ DONE
 **Impact: Medium — maintainability**
-`GuestEventPageView.tsx` is 1,046 lines with upload modal, gallery, overlays, and all logic inlined. The controller hook is 1,483 lines. Extract into: PhotoCard, UploadModal, GalleryGrid, HeaderActions.
+Extracted into: PhotoCard (178 lines), UploadModal (419 lines), GalleryGrid (105 lines), HeaderActions (105 lines). Parent GuestEventPageView reduced from 1,046 to 525 lines.
 
 ### 8. Use CSS Variables at Container Level
 **Impact: Low — code quality**
