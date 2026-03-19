@@ -11,14 +11,7 @@ const DEFAULT_SYSTEM_SETTINGS: ISystemSettings = {
     max_file_mb: 10,
     allowed_types: ['image/jpeg', 'image/png', 'image/heic', 'image/webp'],
   },
-  moderation: {
-    enabled: false,
-    aws_region: 'us-east-1',
-    aws_access_key_id: undefined,
-    aws_secret_access_key: undefined,
-    confidence_threshold: 0.8,
-    auto_reject: true,
-  },
+  moderation: undefined,
   events: {
     default_settings: {
       theme: {
@@ -54,10 +47,7 @@ function mergeSettings(base: ISystemSettings, patch?: Partial<ISystemSettings>):
       ...(patch.uploads || {}),
       allowed_types: patch.uploads?.allowed_types || base.uploads.allowed_types,
     },
-    moderation: {
-      ...base.moderation,
-      ...(patch.moderation || {}),
-    },
+    moderation: patch.moderation ?? base.moderation,
     events: {
       default_settings: {
         theme: {

@@ -10,13 +10,14 @@ export interface ISystemSettings {
     max_file_mb: number;
     allowed_types: string[];
   };
-  moderation: {
-    enabled: boolean;
+  /** @deprecated AI moderation removed. Kept for schema compatibility. */
+  moderation?: {
+    enabled?: boolean;
     aws_region?: string;
     aws_access_key_id?: string;
     aws_secret_access_key?: string;
-    confidence_threshold: number;
-    auto_reject: boolean;
+    confidence_threshold?: number;
+    auto_reject?: boolean;
   };
   events: {
     default_settings: {

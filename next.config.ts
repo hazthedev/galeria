@@ -54,8 +54,6 @@ const nextConfig: NextConfig = {
       config.resolve.alias = {
         ...config.resolve.alias,
         // Block server-only files
-        '@/jobs/scan-content': false,
-        '@/lib/moderation/init': false,
         'sharp': false,
         // Block server-only packages (completely ignore, don't trace)
         'pg': false,
@@ -63,10 +61,8 @@ const nextConfig: NextConfig = {
         'pg-native': false,
         'pg-query-stream': false,
         'pgpass': false,
-        'bullmq': false,
         'ioredis': false,
         'bcrypt': false,
-        '@aws-sdk/client-rekognition': false,
         '@aws-sdk/client-s3': false,
       };
 
@@ -96,14 +92,13 @@ const nextConfig: NextConfig = {
         'pg-connection-string': false,
         'node-gyp-build': false,
         'split2': false,
-        'bullmq': false,
         'ioredis': false,
         'bcrypt': false,
       };
     } else {
       // For the server build (including instrumentation), mark Node.js-native
       // packages as externals so webpack never tries to bundle them.
-      // This prevents errors like "Can't resolve 'path'" from bullmq/ioredis
+      // This prevents errors like "Can't resolve 'path'" from ioredis
       // during the instrumentation compilation pass.
       const nodeExternals = [
         // Node.js built-ins
@@ -123,7 +118,6 @@ const nextConfig: NextConfig = {
         'events',
         'util',
         // Server-only packages
-        'bullmq',
         'ioredis',
         'bcrypt',
         'pg',
@@ -132,7 +126,6 @@ const nextConfig: NextConfig = {
         'pgpass',
         'pg-query-stream',
         'split2',
-        '@aws-sdk/client-rekognition',
         '@aws-sdk/client-s3',
         'sharp',
       ];
@@ -164,8 +157,6 @@ const nextConfig: NextConfig = {
     'split2',
     'ioredis',
     'bcrypt',
-    'bullmq',
-    '@aws-sdk/client-rekognition',
     '@aws-sdk/client-s3',
     'sharp',
   ],
