@@ -3,6 +3,8 @@
 // ============================================
 // Core lucky draw functionality including draw execution algorithm and entry management
 
+import 'server-only';
+
 import { getTenantDb } from '@/lib/db';
 import type {
   LuckyDrawConfig,

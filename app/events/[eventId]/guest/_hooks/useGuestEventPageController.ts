@@ -216,42 +216,8 @@ export function useGuestEventPageController(eventId: string) {
     loadLuckyDrawConfig();
   }, [resolvedEventId, luckyDrawEnabled]);
 
-  // Load photo challenge config and progress
-  useEffect(() => {
-    if (!resolvedEventId || !fingerprint) return;
-    const photoChallengeEnabled = event?.settings?.features?.photo_challenge_enabled;
-    if (!photoChallengeEnabled) return;
-
-    const loadPhotoChallenge = async () => {
-      try {
-        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-        if (fingerprint) headers['x-fingerprint'] = fingerprint;
-        if (event?.tenant_id) headers['x-tenant-id'] = event.tenant_id;
-
-        const [configRes, progressRes] = await Promise.all([
-          fetch(`/api/events/${resolvedEventId}/photo-challenge`, { headers }),
-          fetch(`/api/events/${resolvedEventId}/photo-challenge/progress`, { headers }),
-        ]);
-
-        if (configRes.ok) {
-          const configData = await configRes.json();
-          setPhotoChallenge(configData.data);
-        } else {
-          console.error('[GUEST_EVENT] Photo challenge config fetch failed:', configRes.status, await configRes.text());
-        }
-
-        if (progressRes.ok) {
-          const progressData = await progressRes.json();
-          setChallengeProgress(progressData.data);
-        } else {
-          console.error('[GUEST_EVENT] Photo challenge progress fetch failed:', progressRes.status, await progressRes.text());
-        }
-      } catch (err) {
-        console.error('[GUEST_EVENT] Photo challenge fetch failed:', err);
-      }
-    };
-    loadPhotoChallenge();
-  }, [resolvedEventId, fingerprint, event]);
+  // Load photo challenge config and progress (removed - now fetched with initial data)
+  // This is now combined with the main data fetch for better performance
 
   // Show prize modal when goal is reached (auto-grant only)
   useEffect(() => {
@@ -261,33 +227,8 @@ export function useGuestEventPageController(eventId: string) {
     }
   }, [photoChallenge, challengeProgress]);
 
-  // Check if user has already checked in
-  useEffect(() => {
-    if (!resolvedEventId || !fingerprint || !event || !attendanceEnabled) return;
-
-    const checkAttendanceStatus = async () => {
-      try {
-        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-        if (fingerprint) headers['x-fingerprint'] = fingerprint;
-
-        const response = await fetch(`/api/events/${resolvedEventId}/attendance/my`, { headers });
-        if (response.ok) {
-          const data = await response.json();
-          if (data.data) {
-            setHasCheckedIn(true);
-            // Mark user as non-anonymous after check-in so progress bar shows
-            setIsAnonymous(false);
-            // Store the guest name from attendance
-            if (data.data.guest_name) {
-              setGuestName(data.data.guest_name);
-            }
-          }
-        }
-      } catch (err) {
-      }
-    };
-    checkAttendanceStatus();
-  }, [resolvedEventId, fingerprint, event, attendanceEnabled]);
+  // Check if user has already checked in (removed - now fetched with initial data)
+  // This is now combined with the main data fetch for better performance
 
   useEffect(() => {
     if (hasActiveLuckyDrawConfig === false && joinLuckyDraw) {
@@ -722,7 +663,7 @@ export function useGuestEventPageController(eventId: string) {
     return uuidRegex.test(str);
   };
 
-  // Fetch event and photos
+  // Fetch event and photos (optimized with parallel requests)
   useEffect(() => {
     const fetchEventData = async () => {
       try {
@@ -745,55 +686,140 @@ export function useGuestEventPageController(eventId: string) {
           setResolvedEventId(eventId);
         }
 
-        // Fetch event details
-        const eventResponse = await fetch(`/api/events/${actualEventId}`);
-        const eventData = await eventResponse.json();
-
-        if (!eventResponse.ok) {
-          throw new Error(eventData.error || 'Event not found');
-        }
-
-        setEvent(eventData.data);
-
-        const moderationRequired = eventData.data?.settings?.features?.moderation_required || false;
+        // PARALLEL: Fetch all data at once instead of sequentially
         const headers: Record<string, string> = {};
         if (fingerprint) {
           headers['x-fingerprint'] = fingerprint;
         }
 
-        // Fetch photos (approved for everyone, plus own pending/rejected if moderation enabled)
-        const approvedResponse = await fetch(
-          `/api/events/${actualEventId}/photos?status=approved&limit=${PHOTO_PAGE_SIZE}&offset=0`,
-          { headers }
-        );
-        const approvedData = await approvedResponse.json();
+        const [
+          eventResponse,
+          approvedResponse,
+        ] = await Promise.all([
+          fetch(`/api/events/${actualEventId}`, { headers }),
+          fetch(`/api/events/${actualEventId}/photos?status=approved&limit=${PHOTO_PAGE_SIZE}&offset=0`, { headers }),
+        ]);
 
-        let pendingData: { data?: IPhoto[] } = {};
-        let rejectedData: { data?: IPhoto[] } = {};
-
-        if (moderationRequired && fingerprint) {
-          const [pendingRes, rejectedRes] = await Promise.all([
-            fetch(`/api/events/${actualEventId}/photos?status=pending`, { headers }),
-            fetch(`/api/events/${actualEventId}/photos?status=rejected`, { headers }),
-          ]);
-
-          pendingData = await pendingRes.json();
-          rejectedData = await rejectedRes.json();
+        const eventData = await eventResponse.json();
+        if (!eventResponse.ok) {
+          throw new Error(eventData.error || 'Event not found');
         }
 
-        if (approvedResponse.ok) {
-          const approvedList = approvedData.data || [];
-          const pendingList = pendingData.data || [];
-          const rejectedList = rejectedData.data || [];
-          const nextTotal = approvedData.pagination?.total ?? approvedList.length;
+        setEvent(eventData.data);
+        const moderationRequired = eventData.data?.settings?.features?.moderation_required || false;
+        const photoChallengeEnabled = eventData.data?.settings?.features?.photo_challenge_enabled;
+        const attendanceEnabled = eventData.data?.settings?.features?.attendance_enabled || false;
+        const tenantId = eventData.data?.tenant_id;
 
-          setApprovedPhotos(approvedList);
-          setPendingPhotos(pendingList);
-          setRejectedPhotos(rejectedList);
-          setApprovedTotal(nextTotal);
-          setHasMoreApproved(approvedList.length < nextTotal);
-          pendingIdsRef.current = new Set(pendingList.map((p) => p.id));
-          rejectedIdsRef.current = new Set(rejectedList.map((p) => p.id));
+        const approvedData = await approvedResponse.json();
+        let pendingData: { data?: IPhoto[] } = {};
+        let rejectedData: { data?: IPhoto[] } = {};
+        let photoChallengeData: unknown = null;
+        let challengeProgressData: unknown = null;
+
+        // Prepare additional fetches
+        const additionalFetches: Promise<unknown>[] = [];
+
+        // Add pending/rejected fetch if moderation is enabled
+        if (moderationRequired && fingerprint) {
+          additionalFetches.push(
+            (async () => {
+              const res = await fetch(`/api/events/${actualEventId}/photos?status=pending`, { headers });
+              return res.json();
+            })(),
+            (async () => {
+              const res = await fetch(`/api/events/${actualEventId}/photos?status=rejected`, { headers });
+              return res.json();
+            })()
+          );
+        }
+
+        // Add photo challenge fetch if enabled and fingerprint is available
+        if (photoChallengeEnabled && fingerprint) {
+          const challengeHeaders: Record<string, string> = {};
+          if (fingerprint) challengeHeaders['x-fingerprint'] = fingerprint;
+          if (tenantId) challengeHeaders['x-tenant-id'] = tenantId;
+
+          additionalFetches.push(
+            (async () => {
+              const res = await fetch(`/api/events/${actualEventId}/photo-challenge`, { headers: challengeHeaders });
+              if (res.ok) return res.json();
+              return null;
+            })(),
+            (async () => {
+              const res = await fetch(`/api/events/${actualEventId}/photo-challenge/progress`, { headers: challengeHeaders });
+              if (res.ok) return res.json();
+              return null;
+            })()
+          );
+        }
+
+        // Add attendance status check if enabled and fingerprint is available
+        let attendanceData: unknown = null;
+        if (attendanceEnabled && fingerprint) {
+          additionalFetches.push(
+            (async () => {
+              const attHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+              if (fingerprint) attHeaders['x-fingerprint'] = fingerprint;
+              const res = await fetch(`/api/events/${actualEventId}/attendance/my`, { headers: attHeaders });
+              if (res.ok) return res.json();
+              return null;
+            })()
+          );
+        }
+
+        // Execute all additional fetches in parallel
+        if (additionalFetches.length > 0) {
+          const results = await Promise.all(additionalFetches);
+          let resultIndex = 0;
+
+          if (moderationRequired && fingerprint) {
+            pendingData = results[resultIndex++] as { data?: IPhoto[] } | {};
+            rejectedData = results[resultIndex++] as { data?: IPhoto[] } | {};
+          }
+
+          if (photoChallengeEnabled && fingerprint) {
+            const configResult = results[resultIndex++] as { data?: unknown } | null;
+            const progressResult = results[resultIndex++] as { data?: unknown } | null;
+            if (configResult?.data) photoChallengeData = configResult.data;
+            if (progressResult?.data) challengeProgressData = progressResult.data;
+          }
+
+          if (attendanceEnabled && fingerprint) {
+            attendanceData = results[resultIndex++] as { data?: unknown } | null;
+          }
+        }
+
+        // Process all results
+        const approvedList = approvedData.data || [];
+        const pendingList = pendingData.data || [];
+        const rejectedList = rejectedData.data || [];
+        const nextTotal = approvedData.pagination?.total ?? approvedList.length;
+
+        setApprovedPhotos(approvedList);
+        setPendingPhotos(pendingList);
+        setRejectedPhotos(rejectedList);
+        setApprovedTotal(nextTotal);
+        setHasMoreApproved(approvedList.length < nextTotal);
+        pendingIdsRef.current = new Set(pendingList.map((p) => p.id));
+        rejectedIdsRef.current = new Set(rejectedList.map((p) => p.id));
+
+        // Set photo challenge data if fetched
+        if (photoChallengeData) {
+          setPhotoChallenge(photoChallengeData as IPhotoChallenge);
+        }
+        if (challengeProgressData) {
+          setChallengeProgress(challengeProgressData as IGuestPhotoProgress);
+        }
+
+        // Set attendance status if checked in
+        if (attendanceData && (attendanceData as { data?: { guest_name?: string } }).data) {
+          setHasCheckedIn(true);
+          setIsAnonymous(false);
+          const guestNameFromAttendance = (attendanceData as { data?: { guest_name?: string } }).data?.guest_name;
+          if (guestNameFromAttendance) {
+            setGuestName(guestNameFromAttendance);
+          }
         }
 
         setError(null);
@@ -1182,6 +1208,7 @@ export function useGuestEventPageController(eventId: string) {
                 isAnonymous,
                 joinLuckyDraw: luckyDrawEnabled && joinLuckyDraw && !isAnonymous,
                 recaptchaToken: recaptchaToken || undefined,
+                includeUsage: true,
               }),
             });
 

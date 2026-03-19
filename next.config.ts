@@ -56,6 +56,7 @@ const nextConfig: NextConfig = {
         // Block server-only files
         '@/jobs/scan-content': false,
         '@/lib/moderation/init': false,
+        'sharp': false,
         // Block server-only packages (completely ignore, don't trace)
         'pg': false,
         'pg-connection-string': false,
@@ -65,6 +66,7 @@ const nextConfig: NextConfig = {
         'bullmq': false,
         'ioredis': false,
         'bcrypt': false,
+        'sharp': false,
         '@aws-sdk/client-rekognition': false,
         '@aws-sdk/client-s3': false,
       };
@@ -105,6 +107,23 @@ const nextConfig: NextConfig = {
       // This prevents errors like "Can't resolve 'path'" from bullmq/ioredis
       // during the instrumentation compilation pass.
       const nodeExternals = [
+        // Node.js built-ins
+        'crypto',
+        'fs',
+        'path',
+        'os',
+        'net',
+        'tls',
+        'dns',
+        'stream',
+        'string_decoder',
+        'child_process',
+        'http',
+        'https',
+        'zlib',
+        'events',
+        'util',
+        // Server-only packages
         'bullmq',
         'ioredis',
         'bcrypt',
@@ -116,14 +135,19 @@ const nextConfig: NextConfig = {
         'split2',
         '@aws-sdk/client-rekognition',
         '@aws-sdk/client-s3',
+        'sharp',
       ];
 
       config.externals = [
         ...(Array.isArray(config.externals) ? config.externals : config.externals ? [config.externals] : []),
         ({ request }: { request?: string }, callback: (err?: Error | null, result?: string) => void) => {
-          if (request && nodeExternals.some((pkg) => request === pkg || request.startsWith(pkg + '/'))) {
-            // Treat as a CommonJS external — require() at runtime, don't bundle
-            return callback(null, `commonjs ${request}`);
+          if (request) {
+            // Handle node: prefix imports (e.g., node:crypto, node:fs)
+            const nodeName = request.startsWith('node:') ? request.slice(5) : request;
+            if (nodeExternals.some((pkg) => nodeName === pkg || nodeName.startsWith(pkg + '/'))) {
+              // Treat as a CommonJS external — require() at runtime, don't bundle
+              return callback(null, `commonjs ${request}`);
+            }
           }
           callback();
         },
@@ -144,6 +168,7 @@ const nextConfig: NextConfig = {
     'bullmq',
     '@aws-sdk/client-rekognition',
     '@aws-sdk/client-s3',
+    'sharp',
   ],
 };
 
