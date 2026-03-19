@@ -167,38 +167,38 @@ export default function DashboardPage() {
 
                 {/* Stats Grid */}
                 <div className="mb-8 grid gap-4 sm:grid-cols-3">
-                    <div className="rounded-xl border border-purple-100 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                    <div className="card-elevated rounded-xl bg-white p-6 dark:bg-gray-800" style={{ border: '1px solid var(--color-border-subtle)' }}>
                         <div className="flex items-center gap-4">
-                            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-purple-100 dark:bg-purple-900/20">
+                            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-purple-50 dark:bg-purple-900/20">
                                 <Calendar className="h-6 w-6 text-purple-600 dark:text-purple-400" />
                             </div>
                             <div>
-                                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Events</p>
-                                <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats.totalEvents}</h3>
+                                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Events</p>
+                                <h3 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">{stats.totalEvents}</h3>
                             </div>
                         </div>
                     </div>
 
-                    <div className="rounded-xl border border-pink-100 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                    <div className="card-elevated rounded-xl bg-white p-6 dark:bg-gray-800" style={{ border: '1px solid var(--color-border-subtle)' }}>
                         <div className="flex items-center gap-4">
-                            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-pink-100 dark:bg-pink-900/20">
+                            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-pink-50 dark:bg-pink-900/20">
                                 <ImageIcon className="h-6 w-6 text-pink-600 dark:text-pink-400" />
                             </div>
                             <div>
-                                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Photos (this page)</p>
-                                <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats.totalPhotos}</h3>
+                                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Photos (this page)</p>
+                                <h3 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">{stats.totalPhotos}</h3>
                             </div>
                         </div>
                     </div>
 
-                    <div className="rounded-xl border border-amber-100 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                    <div className="card-elevated rounded-xl bg-white p-6 dark:bg-gray-800" style={{ border: '1px solid var(--color-border-subtle)' }}>
                         <div className="flex items-center gap-4">
-                            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/20">
+                            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-50 dark:bg-amber-900/20">
                                 <TrendingUp className="h-6 w-6 text-amber-600 dark:text-amber-400" />
                             </div>
                             <div>
-                                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Active (this page)</p>
-                                <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats.activeEvents}</h3>
+                                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Active (this page)</p>
+                                <h3 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">{stats.activeEvents}</h3>
                             </div>
                         </div>
                     </div>
@@ -281,10 +281,12 @@ export default function DashboardPage() {
                         <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
                     </div>
                 ) : events.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 py-20 dark:border-gray-700">
-                        <Calendar className="mb-4 h-16 w-16 text-gray-400" />
-                        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">No events found</h3>
-                        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                    <div className="flex flex-col items-center justify-center rounded-2xl py-24" style={{ border: '2px dashed var(--color-border)', background: 'linear-gradient(180deg, var(--color-surface-alt) 0%, transparent 100%)' }}>
+                        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100 dark:bg-gray-700/50">
+                            <Calendar className="h-8 w-8 text-gray-400" />
+                        </div>
+                        <h3 className="mt-5 text-lg font-medium text-gray-900 dark:text-gray-100">No events found</h3>
+                        <p className="mt-1.5 max-w-xs text-center text-sm leading-relaxed text-gray-600 dark:text-gray-400">
                             {searchQuery || statusFilter !== 'all'
                                 ? 'Try adjusting your search or filters'
                                 : 'Get started by creating your first event'}
@@ -292,7 +294,7 @@ export default function DashboardPage() {
                         {!searchQuery && statusFilter === 'all' && (
                             <Link
                                 href="/organizer/events/new"
-                                className="mt-4 inline-flex items-center rounded-lg bg-gradient-to-r from-violet-600 to-pink-600 px-4 py-2 text-sm font-semibold text-white hover:from-violet-700 hover:to-pink-700"
+                                className="mt-6 inline-flex items-center rounded-lg bg-gradient-to-r from-violet-600 to-pink-600 px-4 py-2 text-sm font-semibold text-white transition-opacity duration-150 hover:opacity-90"
                             >
                                 <Plus className="mr-2 h-4 w-4" />
                                 Create Event
@@ -315,21 +317,23 @@ export default function DashboardPage() {
 
                         {/* Pagination */}
                         {pagination && pagination.total_pages > 1 && (
-                            <div className="mt-8 flex items-center justify-center gap-2">
+                            <div className="mt-8 flex items-center justify-center gap-3">
                                 <button
                                     onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                                     disabled={!pagination.has_prev}
-                                    className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                                    className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors duration-150 ease-out hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                                    style={{ border: '1px solid var(--color-border)' }}
                                 >
                                     Previous
                                 </button>
-                                <span className="text-sm text-gray-600 dark:text-gray-400">
+                                <span className="tabular-nums text-sm text-gray-500 dark:text-gray-400">
                                     Page {pagination.page} of {pagination.total_pages}
                                 </span>
                                 <button
                                     onClick={() => setCurrentPage(p => p + 1)}
                                     disabled={!pagination.has_next}
-                                    className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                                    className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors duration-150 ease-out hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                                    style={{ border: '1px solid var(--color-border)' }}
                                 >
                                     Next
                                 </button>

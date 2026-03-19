@@ -11,11 +11,11 @@ import {
 } from '@/lib/animations';
 
 const PHOTO_CARD_STYLE_CLASSES: Record<string, string> = {
-  vacation: 'rounded-2xl bg-white shadow-[0_12px_24px_rgba(0,0,0,0.12)] ring-1 ring-black/5',
+  vacation: 'rounded-2xl bg-white shadow-[0_2px_4px_rgba(0,0,0,0.04),0_8px_24px_rgba(0,0,0,0.08)] ring-1 ring-black/5',
   brutalist: 'rounded-none bg-white border-2 border-black shadow-[6px_6px_0_#000]',
-  wedding: 'rounded-3xl bg-white border border-rose-200 shadow-[0_8px_24px_rgba(244,114,182,0.25)]',
-  celebration: 'rounded-2xl bg-gradient-to-br from-yellow-50 via-white to-pink-50 border border-amber-200 shadow-[0_10px_26px_rgba(249,115,22,0.25)]',
-  futuristic: 'rounded-2xl bg-slate-950/90 border border-cyan-400/40 shadow-[0_0_24px_rgba(34,211,238,0.35)]',
+  wedding: 'rounded-3xl bg-white border border-rose-200 shadow-[0_2px_4px_rgba(244,114,182,0.08),0_8px_24px_rgba(244,114,182,0.2)]',
+  celebration: 'rounded-2xl bg-gradient-to-br from-yellow-50 via-white to-pink-50 border border-amber-200 shadow-[0_2px_4px_rgba(249,115,22,0.06),0_10px_26px_rgba(249,115,22,0.18)]',
+  futuristic: 'rounded-2xl bg-slate-950/90 border border-cyan-400/40 shadow-[0_0_8px_rgba(34,211,238,0.15),0_0_24px_rgba(34,211,238,0.25)]',
 };
 
 export interface PhotoCardProps {
@@ -87,7 +87,7 @@ export function PhotoCard({
             e.stopPropagation();
             onDownload(photo);
           }}
-          className="absolute top-2 left-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
+          className="absolute top-2 left-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-black/40 text-white opacity-0 backdrop-blur-sm transition-all duration-200 ease-out group-hover:opacity-100 hover:bg-black/60 hover:scale-110 active:scale-95"
           title="Download photo"
         >
           <Download className="h-4 w-4" />
@@ -111,7 +111,7 @@ export function PhotoCard({
 
       {(photo.status === 'pending' || photo.status === 'rejected') && (
         <div className={clsx(
-          'absolute inset-0 z-10 flex items-center justify-center text-center text-xs font-semibold uppercase tracking-wide',
+          'absolute inset-0 z-10 flex items-center justify-center text-center text-xs font-semibold uppercase tracking-wider',
           photo.status === 'pending'
             ? 'bg-black/55 text-yellow-100'
             : 'bg-black/70 text-red-100'
@@ -126,7 +126,7 @@ export function PhotoCard({
       {reactionsEnabled && userLoveCount > 0 && (
         <div className="absolute top-2 right-2 flex items-center gap-1 rounded-full bg-pink-500 px-2 py-1 shadow-lg">
           <Heart className="h-4 w-4 fill-white text-white" />
-          <span className="text-xs font-bold text-white">{userLoveCount}</span>
+          <span className="text-xs font-bold tabular-nums text-white">{userLoveCount}</span>
         </div>
       )}
 
@@ -137,18 +137,18 @@ export function PhotoCard({
             "h-3.5 w-3.5",
             userLoveCount > 0 ? "fill-pink-500 text-pink-500" : "fill-white text-white"
           )} />
-          <span className="text-xs font-medium text-white">{totalHeartCount}</span>
+          <span className="text-xs font-medium tabular-nums text-white">{totalHeartCount}</span>
         </div>
       )}
 
       {/* Overlay on hover */}
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-out">
         <div className="absolute bottom-0 left-0 right-0 p-2 text-white">
           {photo.caption && (
-            <p className="text-xs line-clamp-2">{photo.caption}</p>
+            <p className="text-xs leading-relaxed line-clamp-2">{photo.caption}</p>
           )}
           {!photo.is_anonymous && photo.contributor_name && (
-            <p className="text-xs opacity-75">- {photo.contributor_name}</p>
+            <p className="mt-0.5 text-xs font-medium opacity-75 tracking-wide">- {photo.contributor_name}</p>
           )}
         </div>
       </div>
@@ -179,7 +179,7 @@ export function PhotoCard({
 
       {/* Double-click hint overlay (only on hover, hidden during animation) */}
       {reactionsEnabled && !isAnimating && (
-        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/30">
+        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-out bg-black/20">
           <Heart className="h-12 w-12 text-white opacity-80" />
           {userLoveCount >= 10 && (
             <span className="absolute bottom-12 text-xs text-white bg-black/50 px-2 py-1 rounded">Max reached</span>

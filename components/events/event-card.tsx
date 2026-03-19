@@ -69,10 +69,13 @@ export function EventCard({
   };
 
   return (
-    <div className={clsx(
-      'group relative rounded-2xl border border-gray-200 bg-white shadow-sm transition-all hover:shadow-md dark:border-gray-700 dark:bg-gray-800',
-      className
-    )}>
+    <div
+      className={clsx(
+        'group relative rounded-2xl card-elevated bg-white dark:bg-gray-800',
+        className
+      )}
+      style={{ border: '1px solid var(--color-border-subtle)' }}
+    >
       {/* Card Header with Cover Image Placeholder */}
       <Link href={`/organizer/events/${event.id}`} className="block">
         <div className="relative h-32 overflow-hidden rounded-t-2xl bg-gradient-to-br from-violet-500 to-pink-500">
@@ -144,7 +147,7 @@ export function EventCard({
               </button>
 
               {isDropdownOpen && (
-                <div className="absolute right-0 z-10 mt-1 w-40 rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                <div className="absolute right-0 z-10 mt-1 w-40 card-raised rounded-xl bg-white py-1 dark:bg-gray-800" style={{ border: '1px solid var(--color-border)' }}>
                   <Link
                     href={`/organizer/events/${event.id}`}
                     onClick={() => setIsDropdownOpen(false)}
@@ -211,15 +214,15 @@ export function EventCard({
         </div>
 
         {/* Stats Footer */}
-        <div className="mt-4 flex items-center gap-4 border-t border-gray-100 pt-3 dark:border-gray-700">
-          <div className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-400">
-            <ImageIcon className="h-4 w-4" />
-            <span>{photoCount} photos</span>
+        <div className="mt-4 flex items-center gap-4 pt-3" style={{ borderTop: '1px solid var(--color-border-subtle)' }}>
+          <div className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
+            <ImageIcon className="h-3.5 w-3.5" />
+            <span className="tabular-nums">{photoCount} photos</span>
           </div>
           {event.expected_guests && (
-            <div className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-400">
-              <Users className="h-4 w-4" />
-              <span>{event.expected_guests} guests</span>
+            <div className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
+              <Users className="h-3.5 w-3.5" />
+              <span className="tabular-nums">{event.expected_guests} guests</span>
             </div>
           )}
         </div>

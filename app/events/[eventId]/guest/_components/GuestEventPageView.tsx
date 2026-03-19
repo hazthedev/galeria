@@ -117,7 +117,7 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
             style={{ backgroundColor: themeSurface, color: surfaceText, borderColor: surfaceBorder }}
           >
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold" style={{ color: surfaceText }}>
+              <h3 className="text-lg font-semibold leading-snug tracking-tight" style={{ color: surfaceText }}>
                 Lucky Draw
               </h3>
               <button
@@ -148,7 +148,7 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
             style={{ backgroundColor: themeSurface, color: surfaceText, borderColor: surfaceBorder }}
           >
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold" style={{ color: surfaceText }}>
+              <h3 className="text-lg font-semibold leading-snug tracking-tight" style={{ color: surfaceText }}>
                 Winner Announced
               </h3>
               <button
@@ -180,10 +180,10 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
         <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-col gap-1">
-              <h1 className="text-xl font-bold" style={{ color: surfaceText }}>
+              <h1 className="text-2xl font-bold leading-tight tracking-tight sm:text-3xl" style={{ color: surfaceText }}>
                 {event.name}
               </h1>
-              <div className="flex flex-wrap items-center gap-2 text-sm">
+              <div className="flex flex-wrap items-center gap-2 text-sm leading-normal">
                 {event.custom_hashtag && (
                   <span style={{ color: surfaceMuted }}>
                     #{event.custom_hashtag}
@@ -228,12 +228,12 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
               <div>
                 <div className="flex items-center gap-2" style={{ color: themeSecondary }}>
                   <Trophy className="h-5 w-5" />
-                  <span className="text-sm font-semibold uppercase tracking-wide">Lucky Draw</span>
+                  <span className="text-xs font-semibold uppercase tracking-wider">Lucky Draw</span>
                 </div>
-                <h2 className="mt-2 text-2xl font-bold" style={{ color: surfaceText }}>
+                <h2 className="mt-2 text-xl font-bold leading-snug tracking-tight sm:text-2xl" style={{ color: surfaceText }}>
                   Your Entry Numbers
                 </h2>
-                <p className="mt-2 text-sm" style={{ color: surfaceMuted }}>
+                <p className="mt-2 text-sm leading-relaxed" style={{ color: surfaceMuted }}>
                   Join the lucky draw when you upload a photo to get your entry number.
                 </p>
               </div>
@@ -294,7 +294,7 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
             <div className="flex items-start gap-3">
               <Calendar className="mt-1 h-5 w-5 flex-shrink-0" style={{ color: themeSecondary }} />
               <div>
-                <p className="text-xs font-medium" style={{ color: surfaceMuted }}>Date</p>
+                <p className="text-xs font-medium uppercase tracking-wider" style={{ color: surfaceMuted }}>Date</p>
                 <p className="text-sm font-semibold" style={{ color: surfaceText }}>{formattedDate}</p>
               </div>
             </div>
@@ -303,7 +303,7 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
               <div className="flex items-start gap-3">
                 <MapPin className="mt-1 h-5 w-5 flex-shrink-0" style={{ color: themeSecondary }} />
                 <div>
-                  <p className="text-xs font-medium" style={{ color: surfaceMuted }}>Location</p>
+                  <p className="text-xs font-medium uppercase tracking-wider" style={{ color: surfaceMuted }}>Location</p>
                   <p className="text-sm font-semibold" style={{ color: surfaceText }}>{event.location}</p>
                 </div>
               </div>
@@ -313,7 +313,7 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
               <div className="flex items-start gap-3">
                 <Users className="mt-1 h-5 w-5 flex-shrink-0" style={{ color: themeSecondary }} />
                 <div>
-                  <p className="text-xs font-medium" style={{ color: surfaceMuted }}>Guests</p>
+                  <p className="text-xs font-medium uppercase tracking-wider" style={{ color: surfaceMuted }}>Guests</p>
                   <p className="text-sm font-semibold" style={{ color: surfaceText }}>{event.expected_guests}</p>
                 </div>
               </div>
@@ -322,7 +322,7 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
             <div className="flex items-start gap-3">
               <ImageIcon className="mt-1 h-5 w-5 flex-shrink-0" style={{ color: themeSecondary }} />
               <div>
-                <p className="text-xs font-medium" style={{ color: surfaceMuted }}>Photos</p>
+                <p className="text-xs font-medium uppercase tracking-wider" style={{ color: surfaceMuted }}>Photos</p>
                 <p className="text-sm font-semibold" style={{ color: surfaceText }}>{mergedPhotos.length}</p>
               </div>
             </div>
@@ -330,7 +330,7 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
 
           {event.description && (
             <div className="mt-6 pt-6 border-t" style={{ borderColor: themePrimary }}>
-              <p className="text-sm" style={{ color: surfaceMuted }}>{event.description}</p>
+              <p className="max-w-prose text-sm leading-relaxed" style={{ color: surfaceMuted }}>{event.description}</p>
             </div>
           )}
         </div>
@@ -359,10 +359,10 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
             style={{ backgroundColor: themeSurface, borderColor: themePrimary, color: surfaceText }}
           >
             <Upload className="mx-auto mb-3 h-10 w-10" style={{ color: themeSecondary }} />
-            <h3 className="text-lg font-semibold" style={{ color: surfaceText }}>
+            <h3 className="text-lg font-semibold leading-snug tracking-tight" style={{ color: surfaceText }}>
               Share Your Photos
             </h3>
-            <p className="mt-1 text-sm" style={{ color: surfaceMuted }}>
+            <p className="mt-1 text-sm leading-relaxed" style={{ color: surfaceMuted }}>
               Upload your favorite moments from this event
             </p>
           </button>

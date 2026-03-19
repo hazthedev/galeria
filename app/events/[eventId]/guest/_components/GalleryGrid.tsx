@@ -50,18 +50,20 @@ export function GalleryGrid({
 }: GalleryGridProps) {
   return (
     <div>
-      <h2 className="mb-4 text-xl font-semibold" style={{ color: surfaceText }}>
+      <h2 className="mb-4 text-lg font-semibold leading-snug tracking-tight sm:text-xl" style={{ color: surfaceText }}>
         Event Photos
       </h2>
       {photos.length === 0 ? (
         <div
-          className="rounded-2xl border border-dashed p-12 text-center"
+          className="rounded-2xl border-2 border-dashed p-16 text-center"
           style={{ backgroundColor: themeSurface, borderColor: surfaceBorder }}
         >
-          <ImageIcon className="mx-auto mb-4 h-16 w-16" style={{ color: surfaceMuted }} />
-          <p style={{ color: surfaceText }}>No photos yet</p>
-          <p className="mt-1 text-sm" style={{ color: surfaceMuted }}>
-            Be the first to share a moment!
+          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl" style={{ backgroundColor: inputBackground }}>
+            <ImageIcon className="h-8 w-8" style={{ color: surfaceMuted }} />
+          </div>
+          <p className="text-lg font-semibold leading-snug tracking-tight" style={{ color: surfaceText }}>No photos yet</p>
+          <p className="mx-auto mt-2 max-w-xs text-sm leading-relaxed" style={{ color: surfaceMuted }}>
+            Be the first to capture a moment — tap the camera button to upload a photo.
           </p>
         </div>
       ) : (
@@ -90,8 +92,8 @@ export function GalleryGrid({
             {hasMoreApproved && (
               isLoadingMore ? (
                 <div
-                  className="flex items-center gap-2 text-sm"
-                  style={{ color: 'rgb(71, 85, 105)' }}
+                  className="flex items-center gap-2 text-sm font-medium"
+                  style={{ color: surfaceMuted }}
                 >
                   <Loader2 className="h-4 w-4 animate-spin" />
                   Loading more photos...
@@ -99,7 +101,7 @@ export function GalleryGrid({
               ) : (
                 <button
                   onClick={onLoadMore}
-                  className="rounded-full border px-4 py-2 text-sm font-medium hover:opacity-80"
+                  className="rounded-full border px-5 py-2.5 text-sm font-medium transition-shadow duration-150 ease-out hover:shadow-md"
                   style={{ borderColor: surfaceBorder, color: surfaceText, backgroundColor: inputBackground }}
                 >
                   Load more photos

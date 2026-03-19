@@ -47,14 +47,14 @@ export function GuestShareModal({
               style={{ backgroundColor: themeSurface, color: surfaceText, borderColor: surfaceBorder }}
             >
               <div className="mb-4 flex items-center justify-between">
-                <h3 className="text-lg font-semibold" style={{ color: surfaceText }}>
+                <h3 className="text-lg font-semibold leading-snug tracking-tight" style={{ color: surfaceText }}>
                   Share Event
                 </h3>
                 <button onClick={onClose} className="hover:opacity-80" style={{ color: surfaceMuted }}>
                   <X className="h-5 w-5" />
                 </button>
               </div>
-              <p className="mb-4 text-sm" style={{ color: surfaceMuted }}>
+              <p className="mb-4 text-sm leading-relaxed" style={{ color: surfaceMuted }}>
                 Share this link with guests to let them view and upload photos:
               </p>
               <div

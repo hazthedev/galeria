@@ -91,10 +91,10 @@ export function GuestNameModal({
             >
               <User className="h-8 w-8 text-white" />
             </div>
-            <h2 className="text-xl font-bold" style={{ color: surfaceText }}>
+            <h2 className="text-xl font-bold leading-tight tracking-tight sm:text-2xl" style={{ color: surfaceText }}>
               Welcome to {eventName}!
             </h2>
-            <p className="mt-2 text-sm" style={{ color: surfaceMuted }}>
+            <p className="mt-2 text-sm leading-relaxed" style={{ color: surfaceMuted }}>
               Please enter your name to get started
             </p>
           </div>
@@ -146,7 +146,7 @@ export function GuestNameModal({
                   <span className="text-sm font-medium" style={{ color: surfaceText }}>
                     Stay Anonymous
                   </span>
-                  <p className="text-xs" style={{ color: surfaceMuted }}>
+                  <p className="text-xs leading-relaxed" style={{ color: surfaceMuted }}>
                     Your name won&apos;t be shown on photos
                   </p>
                 </div>

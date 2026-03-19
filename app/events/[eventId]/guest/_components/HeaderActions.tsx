@@ -38,7 +38,7 @@ export function HeaderActions({
       {luckyDrawEnabled && (
         <a
           href="#lucky-draw"
-          className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium"
+          className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium leading-none"
           style={{
             backgroundColor: themeSecondary,
             color: secondaryText,
@@ -55,7 +55,7 @@ export function HeaderActions({
             <>
               <button
                 onClick={onDownloadSelectedIndividually}
-                className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium"
+                className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium leading-none transition-colors duration-150 ease-out"
                 style={{
                   backgroundColor: themeSecondary,
                   color: secondaryText,
@@ -67,7 +67,7 @@ export function HeaderActions({
               </button>
               <button
                 onClick={onDownloadSelected}
-                className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium"
+                className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium leading-none transition-colors duration-150 ease-out"
                 style={{ color: surfaceText, borderColor: surfaceBorder }}
               >
                 <Download className="h-4 w-4" />
@@ -77,7 +77,7 @@ export function HeaderActions({
           )}
           <button
             onClick={onDownloadAll}
-            className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium"
+            className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium leading-none transition-colors duration-150 ease-out"
             style={{ color: surfaceText, borderColor: surfaceBorder }}
           >
             <Download className="h-4 w-4" />
@@ -88,7 +88,7 @@ export function HeaderActions({
       <div className="flex items-center gap-2">
         <button
           onClick={onEditName}
-          className="inline-flex items-center rounded-lg border px-3 py-2 text-xs font-medium"
+          className="inline-flex items-center rounded-lg border px-3 py-2 text-sm font-medium leading-none transition-colors duration-150 ease-out"
           style={{ color: surfaceText, borderColor: themeSecondary }}
         >
           {isAnonymous || !guestName ? 'Add name' : 'Edit name'}
@@ -99,7 +99,8 @@ export function HeaderActions({
           style={{
             backgroundColor: themeSecondary,
             color: secondaryText,
-            boxShadow: `0 2px 12px ${themeSecondary}66, 0 0px 20px ${themeSecondary}33`,
+            boxShadow: `0 1px 3px ${themeSecondary}33, 0 4px 16px ${themeSecondary}44, 0 8px 24px ${themeSecondary}22`,
+            transition: 'all 0.15s ease-out',
           }}
         >
           <Share2 className="h-4 w-4" />

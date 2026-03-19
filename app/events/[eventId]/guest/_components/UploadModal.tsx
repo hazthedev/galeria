@@ -122,11 +122,11 @@ export function UploadModal({
               initial="hidden"
               animate="visible"
               exit="exit"
-              className="w-full max-w-md rounded-2xl p-6 shadow-xl max-h-[90vh] overflow-y-auto"
-              style={{ backgroundColor: themeSurface, color: surfaceText, borderColor: surfaceBorder }}
+              className="w-full max-w-md rounded-2xl p-6 max-h-[90vh] overflow-y-auto"
+              style={{ backgroundColor: themeSurface, color: surfaceText, borderColor: surfaceBorder, boxShadow: '0 4px 8px rgba(0,0,0,0.04), 0 16px 40px rgba(0,0,0,0.12), 0 24px 64px rgba(0,0,0,0.08)' }}
             >
               <div className="mb-4 flex items-center justify-between">
-                <h3 className="text-lg font-semibold" style={{ color: surfaceText }}>
+                <h3 className="text-lg font-semibold leading-snug tracking-tight" style={{ color: surfaceText }}>
                   Upload Photo
                 </h3>
                 <button
@@ -227,7 +227,7 @@ export function UploadModal({
                   {selectedFiles.length < 5 && (
                     <div className="grid grid-cols-2 gap-3">
                       <label
-                        className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed p-4 transition-all hover:opacity-90"
+                        className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed p-4 transition-colors duration-150 ease-out hover:opacity-90"
                         style={{ borderColor: themePrimary, backgroundColor: inputBackground }}
                       >
                         <input
@@ -244,7 +244,7 @@ export function UploadModal({
                       </label>
 
                       <label
-                        className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed p-4 transition-all hover:opacity-90"
+                        className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed p-4 transition-colors duration-150 ease-out hover:opacity-90"
                         style={{ borderColor: themePrimary, backgroundColor: inputBackground }}
                       >
                         <input
@@ -262,7 +262,7 @@ export function UploadModal({
                     </div>
                   )}
 
-                  <p className="text-xs text-center" style={{ color: surfaceMuted }}>
+                  <p className="text-xs leading-relaxed text-center" style={{ color: surfaceMuted }}>
                     Large photos are optimized automatically before upload
                   </p>
 
@@ -304,7 +304,7 @@ export function UploadModal({
                               Join Lucky Draw
                             </span>
                           </div>
-                          <p className="mt-1 text-xs" style={{ color: surfaceMuted }}>
+                          <p className="mt-1 text-xs leading-relaxed" style={{ color: surfaceMuted }}>
                             Enter this photo into the lucky draw for a chance to win prizes!
                           </p>
                           {hasActiveLuckyDrawConfig === false && (
@@ -394,7 +394,7 @@ export function UploadModal({
                       ?? (userLimit === null || userLimit === undefined ? -1 : Math.max(0, userLimit - userPhotos));
 
                     return (
-                      <p className="text-xs text-center" style={{ color: surfaceMuted }}>
+                      <p className="text-xs leading-relaxed text-center" style={{ color: surfaceMuted }}>
                         {remaining === -1
                           ? `${userPhotos} uploaded`
                           : `${remaining} photo${remaining === 1 ? '' : 's'} remaining`}
