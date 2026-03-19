@@ -31,6 +31,7 @@ export interface PhotoCardProps {
   onLoveReaction: (photoId: string) => void;
   onDownload: (photo: IPhoto) => void;
   onToggleSelect: (photoId: string) => void;
+  onOpenLightbox: (photoId: string) => void;
 }
 
 export function PhotoCard({
@@ -46,6 +47,7 @@ export function PhotoCard({
   onLoveReaction,
   onDownload,
   onToggleSelect,
+  onOpenLightbox,
 }: PhotoCardProps) {
   return (
     <motion.div
@@ -55,7 +57,11 @@ export function PhotoCard({
       animate="visible"
       whileHover="hover"
       whileTap="tap"
-      onDoubleClick={() => {
+      onClick={() => {
+        if (photo.status === 'approved') onOpenLightbox(photo.id);
+      }}
+      onDoubleClick={(e) => {
+        e.stopPropagation();
         if (photo.status !== 'approved' || !reactionsEnabled) return;
         onLoveReaction(photo.id);
       }}

@@ -85,25 +85,27 @@ export function HeaderActions({
           </button>
         </>
       )}
-      <button
-        onClick={onEditName}
-        className="inline-flex items-center rounded-lg border px-3 py-2 text-xs font-medium"
-        style={{ color: surfaceText, borderColor: themeSecondary }}
-      >
-        {isAnonymous || !guestName ? 'Add name' : 'Edit name'}
-      </button>
-      <button
-        onClick={onShare}
-        className="inline-flex items-center gap-2 rounded-full px-5 py-2 text-sm font-medium"
-        style={{
-          backgroundColor: themeSecondary,
-          color: secondaryText,
-          boxShadow: `0 2px 12px ${themeSecondary}66, 0 0px 20px ${themeSecondary}33`,
-        }}
-      >
-        <Share2 className="h-4 w-4" />
-        Share
-      </button>
+      <div className="flex items-center gap-2">
+        <button
+          onClick={onEditName}
+          className="inline-flex items-center rounded-lg border px-3 py-2 text-xs font-medium"
+          style={{ color: surfaceText, borderColor: themeSecondary }}
+        >
+          {isAnonymous || !guestName ? 'Add name' : 'Edit name'}
+        </button>
+        <button
+          onClick={onShare}
+          className="inline-flex items-center gap-2 rounded-full px-5 py-2 text-sm font-medium"
+          style={{
+            backgroundColor: themeSecondary,
+            color: secondaryText,
+            boxShadow: `0 2px 12px ${themeSecondary}66, 0 0px 20px ${themeSecondary}33`,
+          }}
+        >
+          <Share2 className="h-4 w-4" />
+          Share
+        </button>
+      </div>
     </div>
   );
 }
