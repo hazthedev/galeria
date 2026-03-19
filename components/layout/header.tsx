@@ -38,16 +38,15 @@ export function Header() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2">
+          <Link href="/" className="flex items-center">
             <Image
               src="/logo.svg"
               alt="Galeria Logo"
-              width={138}
-              height={32}
-              className="h-8 w-auto"
+              width={244}
+              height={56}
+              className="h-9 w-auto"
               priority
             />
-            <span className="text-xl font-bold tracking-tight text-gray-900">Galeria</span>
           </Link>
 
           {/* Navigation */}

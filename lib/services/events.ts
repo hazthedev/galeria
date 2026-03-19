@@ -121,6 +121,7 @@ export async function handleEventsList(request: NextRequest) {
     // Parse query parameters
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
+    const search = searchParams.get('search')?.trim() || null;
     const page = parseInt(searchParams.get('page') || '1', 10);
     const limit = parseInt(searchParams.get('limit') || '20', 10);
     const offset = (page - 1) * limit;
@@ -179,6 +180,14 @@ export async function handleEventsList(request: NextRequest) {
       if (status) {
         values.push(status);
         whereClauses.push(`e.status = $${values.length}`);
+      }
+
+      if (search) {
+        values.push(`%${search}%`);
+        const searchParam = `$${values.length}`;
+        whereClauses.push(
+          `(e.name ILIKE ${searchParam} OR e.description ILIKE ${searchParam} OR e.location ILIKE ${searchParam} OR e.custom_hashtag ILIKE ${searchParam})`
+        );
       }
 
       if (userRole === 'organizer') {

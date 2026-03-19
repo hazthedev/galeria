@@ -70,24 +70,15 @@ export default function DashboardPage() {
                 params.append('status', statusFilter);
             }
 
+            if (searchQuery.trim()) {
+                params.append('search', searchQuery.trim());
+            }
+
             const response = await fetch(`/api/events?${params.toString()}`);
             if (response.ok) {
                 const data = await response.json();
-                let filteredEvents = data.data || [];
 
-                // Client-side search filter
-                if (searchQuery.trim()) {
-                    const query = searchQuery.toLowerCase();
-                    filteredEvents = filteredEvents.filter(
-                        (event: IEvent) =>
-                            event.name.toLowerCase().includes(query) ||
-                            event.description?.toLowerCase().includes(query) ||
-                            event.location?.toLowerCase().includes(query) ||
-                            event.custom_hashtag?.toLowerCase().includes(query)
-                    );
-                }
-
-                setEvents(filteredEvents);
+                setEvents(data.data || []);
                 setPagination(data.pagination);
 
                 const totalPhotosCount = (data.data || []).reduce(
@@ -194,7 +185,7 @@ export default function DashboardPage() {
                                 <ImageIcon className="h-6 w-6 text-pink-600 dark:text-pink-400" />
                             </div>
                             <div>
-                                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Photos</p>
+                                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Photos (this page)</p>
                                 <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats.totalPhotos}</h3>
                             </div>
                         </div>
@@ -206,7 +197,7 @@ export default function DashboardPage() {
                                 <TrendingUp className="h-6 w-6 text-amber-600 dark:text-amber-400" />
                             </div>
                             <div>
-                                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Active Events</p>
+                                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Active (this page)</p>
                                 <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats.activeEvents}</h3>
                             </div>
                         </div>
