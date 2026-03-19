@@ -94,8 +94,12 @@ export function HeaderActions({
       </button>
       <button
         onClick={onShare}
-        className="flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white sm:w-auto"
-        style={{ backgroundColor: themeSecondary, color: secondaryText }}
+        className="flex w-full items-center justify-center gap-2 rounded-full px-5 py-2 text-sm font-medium sm:w-auto"
+        style={{
+          backgroundColor: themeSecondary,
+          color: secondaryText,
+          boxShadow: `0 2px 12px ${themeSecondary}66, 0 0px 20px ${themeSecondary}33`,
+        }}
       >
         <Share2 className="h-4 w-4" />
         Share

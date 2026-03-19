@@ -1176,7 +1176,7 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
 
       let uploadedPhotos: IPhoto[] = [];
       let limitReachedMessage: string | null = null;
-      setUploadProgress(0);
+      setUploadProgress(5);
       if (!BROWSER_DIRECT_UPLOAD_ENABLED) {
         const fallbackResult = await uploadFilesViaMultipart(processedFiles);
         uploadedPhotos = fallbackResult.uploadedPhotos;
