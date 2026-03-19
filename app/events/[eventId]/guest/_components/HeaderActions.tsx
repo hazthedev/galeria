@@ -94,7 +94,7 @@ export function HeaderActions({
       </button>
       <button
         onClick={onShare}
-        className="flex w-full items-center justify-center gap-2 rounded-full px-5 py-2 text-sm font-medium sm:w-auto"
+        className="inline-flex items-center gap-2 rounded-full px-5 py-2 text-sm font-medium"
         style={{
           backgroundColor: themeSecondary,
           color: secondaryText,
