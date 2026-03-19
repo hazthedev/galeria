@@ -13,9 +13,7 @@ import { verifyAccessToken } from '@/lib/domain/auth/auth';
 import { extractSessionId, validateSession } from '@/lib/domain/auth/session';
 import { checkUploadRateLimit } from '@/lib/api/middleware/rate-limit';
 import { validateRecaptchaForUpload, isRecaptchaRequiredForUploads } from '@/lib/api/middleware/recaptcha';
-import { isModerationEnabled } from '@/lib/moderation/auto-moderate';
 import { hydrateModeratorPhotoPreviews } from '@/lib/moderation/presentation';
-import { queuePhotoScan } from '@/jobs/scan-content';
 import type { DeviceType, IPhoto, SubscriptionTier } from '@/lib/types';
 import { getEffectiveEntitlementsForTier, resolveUserTier } from '@/lib/tenant';
 import { applyCacheHeaders, CACHE_PROFILES } from '@/lib/cache/strategy';
@@ -241,27 +239,6 @@ function scheduleDeferredDirectUploadPostProcessing(input: {
           input.userId,
           !input.moderationRequired
         );
-      },
-    });
-  }
-
-  if (input.moderationRequired) {
-    tasks.push({
-      name: 'moderation',
-      run: async () => {
-        const moderationEnabled = await isModerationEnabled();
-        if (!moderationEnabled) {
-          return;
-        }
-
-        await queuePhotoScan({
-          photoId: input.photo.id,
-          eventId: input.eventId,
-          tenantId: input.tenantId,
-          imageUrl: input.photo.images.full_url,
-          userId: input.userRole === 'guest' ? undefined : input.userId,
-          priority: 'normal',
-        });
       },
     });
   }
@@ -1072,9 +1049,7 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
     const userId = uploadUserId || `guest_${fingerprint || 'anonymous'}`;
     const userRole = uploadUserRole;
     const enforceLimits = userRole !== 'super_admin' && !isAdminUploadHeader;
-    const moderationEnabled = event.settings.features.moderation_required
-      ? await profiler.time('moderation-check', () => isModerationEnabled())
-      : false;
+    const moderationEnabled = false; // AI moderation removed; manual moderation still applies via moderation_required flag
 
     const userAgent = headers.get('user-agent') || '';
     let deviceType: DeviceType = 'desktop';
@@ -1182,28 +1157,6 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
             }
           } catch (entryError) {
             console.warn('[API] Lucky draw entry skipped:', entryError);
-          }
-        }
-      });
-
-      // ============================================
-      // AI CONTENT MODERATION
-      // ============================================
-      // Queue photo for AI scanning if moderation is enabled
-      await profiler.time('moderation', async () => {
-        if (moderationEnabled) {
-          try {
-            await queuePhotoScan({
-              photoId: photo.id,
-              eventId: eventId,
-              tenantId,
-              imageUrl: photo.images.full_url,
-              userId: userRole === 'guest' ? undefined : userId,
-              priority: 'normal',
-            });
-          } catch (scanError) {
-            console.error('[MODERATION] Failed to queue photo for scanning:', scanError);
-            // Don't fail the upload if scanning fails
           }
         }
       });

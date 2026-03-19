@@ -5,14 +5,6 @@ import { getTenantDb } from '@/lib/db';
 import { deletePhotoAssets } from '@/lib/images';
 import { updateGuestProgress } from '@/lib/lucky-draw';
 import { publishEventBroadcast } from '@/lib/realtime/server';
-import type { ModerationCategory, ModerationResult } from '@/lib/moderation/auto-moderate';
-import {
-  approveQuarantinedPhoto,
-  getQuarantineMetadata,
-  purgeQuarantinedPhoto,
-  quarantinePhoto,
-  updateQuarantineStatus,
-} from '@/lib/storage/quarantine';
 
 type PhotoStatus = 'pending' | 'approved' | 'rejected';
 type ModerationAction = 'approve' | 'reject' | 'delete' | 'review';
@@ -283,7 +275,6 @@ export async function rejectPhotoManually(input: {
   photoId: string;
   moderatorId: string;
   reason?: string | null;
-  categories?: ModerationCategory[];
 }): Promise<ModerationServiceResult> {
   const db = getTenantDb(input.tenantId);
   const normalizedReason = stripReason(input.reason);
@@ -308,26 +299,6 @@ export async function rejectPhotoManually(input: {
         status: photo.status,
         message: buildStatusConflictMessage('reject', photo.status),
       };
-    }
-
-    const quarantineMetadata = await getQuarantineMetadata(photo.id);
-    if (quarantineMetadata) {
-      await updateQuarantineStatus(photo.id, {
-        status: 'rejected',
-        reviewedBy: input.moderatorId,
-        reviewedAt: new Date(),
-        reason: normalizedReason || quarantineMetadata.reason,
-        categories: input.categories || quarantineMetadata.categories,
-      });
-    } else {
-      await quarantinePhoto(photo.event_id, photo.id, normalizedReason || undefined, input.categories);
-      await updateQuarantineStatus(photo.id, {
-        status: 'rejected',
-        reviewedBy: input.moderatorId,
-        reviewedAt: new Date(),
-        reason: normalizedReason || undefined,
-        categories: input.categories,
-      });
     }
 
     await client.query(
@@ -395,12 +366,6 @@ export async function deletePhotoManually(input: {
       console.warn('[MODERATION] Failed to delete public photo assets:', error);
     }
 
-    try {
-      await purgeQuarantinedPhoto(photo.id);
-    } catch (error) {
-      console.warn('[MODERATION] Failed to purge quarantined assets:', error);
-    }
-
     await insertModerationLog(client, {
       action: 'delete',
       eventId: photo.event_id,
@@ -428,170 +393,3 @@ export async function deletePhotoManually(input: {
   return finalizeResult(result);
 }
 
-export async function applyAutomatedModerationResult(input: {
-  tenantId: string;
-  photoId: string;
-  moderationResult: Pick<ModerationResult, 'action' | 'reason' | 'categories'>;
-}): Promise<ModerationServiceResult> {
-  const db = getTenantDb(input.tenantId);
-
-  const result = await db.transact<ServiceResultInternal>(async (client) => {
-    const photo = await getLockedPhoto(client, input.photoId);
-
-    if (!photo) {
-      return {
-        outcome: 'missing',
-        photoId: input.photoId,
-        message: 'Photo not found',
-      };
-    }
-
-    if (!shouldApplyAutomatedModeration(photo.status)) {
-      return {
-        outcome: 'skipped',
-        photoId: photo.id,
-        eventId: photo.event_id,
-        previousStatus: photo.status,
-        status: photo.status,
-        message: `Photo is already ${photo.status}; skipping queued moderation result`,
-      };
-    }
-
-    const normalizedReason = stripReason(input.moderationResult.reason);
-
-    if (input.moderationResult.action === 'approve') {
-      await client.query(
-        'UPDATE photos SET status = $1, approved_at = $2 WHERE id = $3',
-        ['approved', new Date(), photo.id]
-      );
-
-      await insertModerationLog(client, {
-        action: 'approve',
-        eventId: photo.event_id,
-        tenantId: input.tenantId,
-        photoId: photo.id,
-        photoStatus: 'approved',
-        imageUrl: getLogImageUrl(photo),
-        reason: normalizedReason,
-        source: 'ai',
-      });
-
-      return {
-        outcome: 'applied',
-        photoId: photo.id,
-        eventId: photo.event_id,
-        previousStatus: photo.status,
-        status: 'approved',
-        message: 'Photo auto-approved',
-        challengeApproved: !photo.is_anonymous,
-        challengeFingerprint: photo.user_fingerprint,
-      };
-    }
-
-    if (input.moderationResult.action === 'reject') {
-      const quarantineMetadata = await getQuarantineMetadata(photo.id);
-      if (quarantineMetadata) {
-        await updateQuarantineStatus(photo.id, {
-          status: 'rejected',
-          reviewedAt: new Date(),
-          reason: normalizedReason || quarantineMetadata.reason,
-          categories: input.moderationResult.categories || quarantineMetadata.categories,
-        });
-      } else {
-        await quarantinePhoto(
-          photo.event_id,
-          photo.id,
-          normalizedReason || undefined,
-          input.moderationResult.categories
-        );
-        await updateQuarantineStatus(photo.id, {
-          status: 'rejected',
-          reviewedAt: new Date(),
-          reason: normalizedReason || undefined,
-          categories: input.moderationResult.categories,
-        });
-      }
-
-      await client.query(
-        'UPDATE photos SET status = $1, approved_at = NULL WHERE id = $2',
-        ['rejected', photo.id]
-      );
-
-      await insertModerationLog(client, {
-        action: 'reject',
-        eventId: photo.event_id,
-        tenantId: input.tenantId,
-        photoId: photo.id,
-        photoStatus: 'rejected',
-        imageUrl: getLogImageUrl(photo),
-        reason: normalizedReason,
-        source: 'ai',
-      });
-
-      return {
-        outcome: 'applied',
-        photoId: photo.id,
-        eventId: photo.event_id,
-        previousStatus: photo.status,
-        status: 'rejected',
-        message: 'Photo auto-rejected',
-      };
-    }
-
-    if (input.moderationResult.categories.length > 0) {
-      const quarantineMetadata = await getQuarantineMetadata(photo.id);
-      if (quarantineMetadata) {
-        await updateQuarantineStatus(photo.id, {
-          status: 'pending',
-          reason: normalizedReason || quarantineMetadata.reason,
-          categories: input.moderationResult.categories || quarantineMetadata.categories,
-        });
-      } else {
-        await quarantinePhoto(
-          photo.event_id,
-          photo.id,
-          normalizedReason || undefined,
-          input.moderationResult.categories
-        );
-      }
-    }
-
-    await insertModerationLog(client, {
-      action: 'review',
-      eventId: photo.event_id,
-      tenantId: input.tenantId,
-      photoId: photo.id,
-      photoStatus: 'pending',
-      imageUrl: getLogImageUrl(photo),
-      reason: normalizedReason,
-      source: 'ai',
-    });
-
-    return {
-      outcome: 'applied',
-      photoId: photo.id,
-      eventId: photo.event_id,
-      previousStatus: photo.status,
-      status: 'pending',
-      message: 'Photo kept pending for review',
-    };
-  });
-
-  await applyChallengeApprovalSideEffect({
-    tenantId: input.tenantId,
-    eventId: result.outcome === 'applied' ? result.eventId : undefined,
-    challengeApproved: result.outcome === 'applied' ? result.challengeApproved : false,
-    challengeFingerprint: result.outcome === 'applied' ? result.challengeFingerprint : null,
-  });
-  await broadcastStatusChange({
-    eventId: result.outcome === 'applied' ? result.eventId : undefined,
-    photoId: result.photoId,
-    status:
-      result.outcome === 'applied' &&
-      (result.status === 'approved' || result.status === 'rejected')
-        ? result.status
-        : undefined,
-  });
-
-  return finalizeResult(result);
-}

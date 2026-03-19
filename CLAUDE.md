@@ -94,9 +94,7 @@ This project explicitly uses **webpack** (not turbopack) to properly externalize
 - Uses `output: 'standalone'` for production builds
 
 **Critical**: Never import server-only packages in client components. Files using `server-only` include:
-- `@/lib/moderation/init.ts`
-- `@/jobs/scan-content.ts`
-- Any file importing `pg`, `bullmq`, `ioredis`, `bcrypt`, `@aws-sdk/*`
+- Any file importing `pg`, `ioredis`, `bcrypt`, `@aws-sdk/*`
 
 **Pattern**: Files that must only run on server should import `server-only` at the top:
 ```typescript
@@ -105,12 +103,11 @@ import 'server-only';
 
 ### Content Moderation System
 
-AI moderation runs via BullMQ job queue initialized in `instrumentation.ts`:
-- Enabled via `MODERATION_QUEUE_ENABLED=true` env var
-- Uses AWS Rekognition for image scanning
-- Photos are quarantined if rejected (separate storage path in `lib/storage/quarantine.ts`)
-- Queue worker runs with concurrency of 3
-- Scan results tracked per-photo in moderation scan logs (`lib/moderation/scan-logs.ts`)
+Manual photo moderation is available per-event via the `moderation_required` feature flag:
+- When enabled, uploaded photos start with `status='pending'` and must be manually approved/rejected by organizers
+- Approve/reject actions are logged in `photo_moderation_logs` table
+- Moderation service in `lib/moderation/service.ts` handles approval/rejection logic
+- AI auto-moderation (AWS Rekognition) has been removed
 
 ### Layer Organization
 
@@ -201,8 +198,6 @@ Key variables (see `.env.example`):
 - `REDIS_URL` - Redis connection (for cache and queues)
 - `R2_PUBLIC_URL` - Cloudflare R2 for image storage
 - `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` - Auth tokens
-- `MODERATION_QUEUE_ENABLED` - Enable background moderation worker
-- `AWS_REGION` / `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` - For Rekognition
 - `NEXT_PUBLIC_SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` - Supabase fallback + realtime
 - `SYSTEM_TENANT_ID` / `MASTER_TENANT_ID` - Override special tenant UUIDs
 - `DB_RETRY_MAX_ATTEMPTS` / `DB_RETRY_BASE_DELAY_MS` - DB retry tuning

@@ -85,7 +85,7 @@ export default function HomePage() {
             {/* Badge */}
             <div className="inline-flex items-center gap-2 rounded-full border border-violet-200/80 bg-violet-50/80 px-4 py-1.5 text-sm font-medium text-violet-700 backdrop-blur-sm dark:border-violet-800/40 dark:bg-violet-950/50 dark:text-violet-300">
               <Sparkles className="h-3.5 w-3.5" />
-              <span>AI-Powered Photo Moderation</span>
+              <span>Event Photo Gallery Platform</span>
             </div>
 
             {/* Heading */}
@@ -171,10 +171,10 @@ export default function HomePage() {
                   </div>
                   <div className="text-center">
                     <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-fuchsia-100 dark:bg-fuchsia-900/30">
-                      <Shield className="h-6 w-6 text-fuchsia-600 dark:text-fuchsia-400" />
+                      <Heart className="h-6 w-6 text-fuchsia-600 dark:text-fuchsia-400" />
                     </div>
-                    <p className="mt-3 text-2xl font-bold text-gray-900 dark:text-white">AI</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Moderation</p>
+                    <p className="mt-3 text-2xl font-bold text-gray-900 dark:text-white">Photo</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Reactions</p>
                   </div>
                   <div className="text-center">
                     <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-100 dark:bg-indigo-900/30">
@@ -229,8 +229,8 @@ export default function HomePage() {
               },
               {
                 icon: Shield,
-                title: 'AI Content Moderation',
-                desc: 'Automatic content filtering keeps your gallery appropriate. Powered by AWS Rekognition with configurable sensitivity.',
+                title: 'Photo Moderation',
+                desc: 'Keep your gallery appropriate with manual photo approval. Review, approve, or reject uploads before they appear in the gallery.',
                 bg: 'bg-blue-50 dark:bg-blue-950/30',
                 iconColor: 'text-blue-600 dark:text-blue-400',
               },
@@ -406,7 +406,7 @@ export default function HomePage() {
               <div className="mt-10 grid gap-3 sm:grid-cols-2">
                 {[
                   'Unlimited events on all plans',
-                  'AI-powered content moderation',
+                  'Manual photo moderation',
                   'Custom event branding & themes',
                   'Lucky draw with multiple prize tiers',
                   'Photo challenges with prize claims',
