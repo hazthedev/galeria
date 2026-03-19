@@ -4,7 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/middleware/auth';
-import { getTenantDb } from '@/lib/db';
+import { getTenantDb } from '@/lib/infrastructure/database/db';
 import bcrypt from 'bcrypt';
 
 /**

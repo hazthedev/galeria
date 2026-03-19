@@ -4,7 +4,7 @@
 // Resolve short codes to event IDs
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getTenantDb } from '@/lib/db';
+import { getTenantDb } from '@/lib/infrastructure/database/db';
 import { resolveOptionalAuth, resolveTenantId } from '@/lib/api-request-context';
 
 // ============================================

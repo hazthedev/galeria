@@ -4,7 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSuperAdmin } from '@/middleware/auth';
-import { getTenantDb } from '@/lib/db';
+import { getTenantDb } from '@/lib/infrastructure/database/db';
 import { SYSTEM_TENANT_ID } from '@/lib/constants/tenants';
 import { hydrateModeratorImagePreviewUrls } from '@/lib/moderation/presentation';
 

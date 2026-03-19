@@ -3,7 +3,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getTenantDb } from '@/lib/db';
+import { getTenantDb } from '@/lib/infrastructure/database/db';
 import { requireAuthForApi } from '@/lib/domain/auth/auth';
 import { getEffectiveTenantEntitlements } from '@/lib/tenant';
 
