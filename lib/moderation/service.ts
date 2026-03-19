@@ -219,10 +219,6 @@ export async function approvePhotoManually(input: {
       };
     }
 
-    if (await getQuarantineMetadata(photo.id)) {
-      await approveQuarantinedPhoto(photo.id, input.moderatorId);
-    }
-
     await client.query(
       'UPDATE photos SET status = $1, approved_at = $2 WHERE id = $3',
       ['approved', new Date(), photo.id]
