@@ -221,3 +221,16 @@ Utility scripts in `scripts/` (run with `npx ts-node scripts/<name>.ts`):
 - Test files: `**/*.test.ts` or `**/*.test.tsx`
 - Use `@/` path alias for imports
 - Test environment: Node (not jsdom)
+
+## Guest Page UX Improvement Plan
+
+See [GUEST_PAGE_UX_PLAN.md](./GUEST_PAGE_UX_PLAN.md) for the prioritized list of UI/UX improvements planned for the guest event page (`app/events/[eventId]/guest/`). Key items:
+1. Add photo lightbox with swipe/zoom (critical)
+2. Add "My Photos" tab/filter
+3. Simplify header — move downloads into dropdown
+4. Add drag-and-drop to upload modal
+5. Add tap-to-love button on mobile
+6. Stronger empty state
+7. Extract components (PhotoCard, UploadModal, GalleryGrid, HeaderActions)
+8. Use CSS variables at container level instead of inline styles
+9. Add hero/banner section
