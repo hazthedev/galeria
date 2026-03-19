@@ -23,19 +23,18 @@ import {
   Play,
 } from 'lucide-react';
 
-/** Inline brand mark matching public/logo.svg — emerald→cyan gradient with "G" */
+/** Inline brand mark matching the Galeria icon set — dark navy bg with purple "G" */
 function BrandMark({ size = 36, className = '' }: { size?: number; className?: string }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 48 48" fill="none" className={className}>
+    <svg width={size} height={size} viewBox="0 0 512 512" fill="none" className={className}>
       <defs>
-        <linearGradient id="gm" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#10B981" />
-          <stop offset="1" stopColor="#06B6D4" />
+        <linearGradient id="gm-bg" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#131A2E"/>
+          <stop offset="100%" stopColor="#0C1220"/>
         </linearGradient>
       </defs>
-      <rect width="48" height="48" rx="14" fill="url(#gm)" />
-      <circle cx="24" cy="24" r="12" fill="white" fillOpacity="0.18" />
-      <path d="M31.5 20.5C30.1 16.6 26.5 14 22.2 14C16.6 14 12 18.6 12 24.2C12 29.8 16.6 34.4 22.2 34.4C26.6 34.4 30.4 31.5 31.6 27.3H25.7C24.9 28.6 23.6 29.4 22.1 29.4C19.2 29.4 16.9 27 16.9 24.2C16.9 21.3 19.3 19 22.1 19C23.8 19 25.4 19.8 26.3 21.2H21.4V25.9H36V24.1C36 22.8 35.7 21.6 35.3 20.5H31.5Z" fill="white" />
+      <rect width="512" height="512" rx="112" fill="url(#gm-bg)"/>
+      <text x="256" y="310" textAnchor="middle" fontFamily="Georgia, 'Times New Roman', serif" fontSize="280" fontWeight="700" fill="#8B5CF6">G</text>
     </svg>
   );
 }
@@ -74,9 +73,9 @@ export default function HomePage() {
       <section className="relative pt-32 pb-24 sm:pt-44 sm:pb-36">
         {/* Background gradient mesh */}
         <div className="absolute inset-0 -z-10 overflow-hidden">
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/3 h-[800px] w-[800px] rounded-full bg-gradient-to-br from-emerald-200/50 via-cyan-100/40 to-transparent blur-3xl dark:from-emerald-900/25 dark:via-cyan-900/15" />
-          <div className="absolute top-20 right-0 h-[400px] w-[400px] rounded-full bg-gradient-to-bl from-teal-100/50 to-transparent blur-3xl dark:from-teal-900/15" />
-          <div className="absolute bottom-0 left-0 h-[400px] w-[400px] rounded-full bg-gradient-to-tr from-cyan-100/40 to-transparent blur-3xl dark:from-cyan-900/15" />
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/3 h-[800px] w-[800px] rounded-full bg-gradient-to-br from-violet-200/50 via-purple-100/40 to-transparent blur-3xl dark:from-violet-900/25 dark:via-purple-900/15" />
+          <div className="absolute top-20 right-0 h-[400px] w-[400px] rounded-full bg-gradient-to-bl from-purple-100/50 to-transparent blur-3xl dark:from-purple-900/15" />
+          <div className="absolute bottom-0 left-0 h-[400px] w-[400px] rounded-full bg-gradient-to-tr from-violet-100/40 to-transparent blur-3xl dark:from-violet-900/15" />
           {/* Grid pattern overlay */}
           <div className="absolute inset-0 bg-[linear-gradient(rgba(0,0,0,.015)_1px,transparent_1px),linear-gradient(90deg,rgba(0,0,0,.015)_1px,transparent_1px)] bg-[size:72px_72px] dark:bg-[linear-gradient(rgba(255,255,255,.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.02)_1px,transparent_1px)]" />
         </div>
@@ -84,7 +83,7 @@ export default function HomePage() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-4xl text-center">
             {/* Badge */}
-            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200/80 bg-emerald-50/80 px-4 py-1.5 text-sm font-medium text-emerald-700 backdrop-blur-sm dark:border-emerald-800/40 dark:bg-emerald-950/50 dark:text-emerald-300">
+            <div className="inline-flex items-center gap-2 rounded-full border border-violet-200/80 bg-violet-50/80 px-4 py-1.5 text-sm font-medium text-violet-700 backdrop-blur-sm dark:border-violet-800/40 dark:bg-violet-950/50 dark:text-violet-300">
               <Sparkles className="h-3.5 w-3.5" />
               <span>AI-Powered Photo Moderation</span>
             </div>
@@ -93,16 +92,16 @@ export default function HomePage() {
             <h1 className="mt-8 text-5xl font-extrabold tracking-tight text-gray-900 dark:text-white sm:text-7xl sm:leading-[1.1]">
               Capture Moments,{' '}
               <span className="relative">
-                <span className="bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 bg-clip-text text-transparent">
+                <span className="bg-gradient-to-r from-violet-500 via-purple-500 to-fuchsia-500 bg-clip-text text-transparent">
                   Together
                 </span>
                 <svg className="absolute -bottom-2 left-0 w-full" viewBox="0 0 300 12" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M2 8.5C50 2.5 100 2 150 5.5C200 9 250 4 298 7" stroke="url(#paint)" strokeWidth="3" strokeLinecap="round" />
                   <defs>
                     <linearGradient id="paint" x1="2" y1="6" x2="298" y2="6">
-                      <stop stopColor="#10B981" />
-                      <stop offset="0.5" stopColor="#14B8A6" />
-                      <stop offset="1" stopColor="#06B6D4" />
+                      <stop stopColor="#8B5CF6" />
+                      <stop offset="0.5" stopColor="#7C3AED" />
+                      <stop offset="1" stopColor="#A855F7" />
                     </linearGradient>
                   </defs>
                 </svg>
@@ -119,12 +118,12 @@ export default function HomePage() {
             <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link
                 href="/auth/register"
-                className="group relative inline-flex items-center gap-2.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-cyan-500 px-8 py-4 text-base font-semibold text-white shadow-xl shadow-emerald-500/25 transition-all hover:shadow-2xl hover:shadow-emerald-500/30 hover:-translate-y-0.5"
+                className="group relative inline-flex items-center gap-2.5 rounded-2xl bg-gradient-to-r from-violet-600 to-purple-600 px-8 py-4 text-base font-semibold text-white shadow-xl shadow-violet-500/25 transition-all hover:shadow-2xl hover:shadow-violet-500/30 hover:-translate-y-0.5"
               >
                 <span>Start Free Trial</span>
                 <ArrowRight className="h-4.5 w-4.5 transition-transform group-hover:translate-x-1" />
                 {/* Shimmer effect */}
-                <div className="absolute inset-0 -z-10 rounded-2xl bg-gradient-to-r from-emerald-500 to-cyan-500 blur-xl opacity-40 transition-opacity group-hover:opacity-60" />
+                <div className="absolute inset-0 -z-10 rounded-2xl bg-gradient-to-r from-violet-600 to-purple-600 blur-xl opacity-40 transition-opacity group-hover:opacity-60" />
               </Link>
               <Link
                 href="/auth/login"
@@ -137,15 +136,15 @@ export default function HomePage() {
             {/* Trust signals */}
             <div className="mt-10 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm text-gray-400 dark:text-gray-500">
               <span className="flex items-center gap-1.5">
-                <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                <CheckCircle2 className="h-4 w-4 text-violet-500" />
                 No credit card required
               </span>
               <span className="flex items-center gap-1.5">
-                <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                <CheckCircle2 className="h-4 w-4 text-violet-500" />
                 Free tier available
               </span>
               <span className="flex items-center gap-1.5">
-                <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                <CheckCircle2 className="h-4 w-4 text-violet-500" />
                 Cancel anytime
               </span>
             </div>
@@ -157,29 +156,29 @@ export default function HomePage() {
               <div className="rounded-[20px] border border-gray-100 bg-white p-8 dark:border-gray-800 dark:bg-gray-900/50">
                 <div className="grid grid-cols-2 gap-6 sm:grid-cols-4">
                   <div className="text-center">
-                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 dark:bg-emerald-900/30">
-                      <Image className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
+                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-100 dark:bg-violet-900/30">
+                      <Image className="h-6 w-6 text-violet-600 dark:text-violet-400" />
                     </div>
                     <p className="mt-3 text-2xl font-bold text-gray-900 dark:text-white">Real-time</p>
                     <p className="text-sm text-gray-500 dark:text-gray-400">Photo Gallery</p>
                   </div>
                   <div className="text-center">
-                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-100 dark:bg-cyan-900/30">
-                      <Zap className="h-6 w-6 text-cyan-600 dark:text-cyan-400" />
+                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-100 dark:bg-purple-900/30">
+                      <Zap className="h-6 w-6 text-purple-600 dark:text-purple-400" />
                     </div>
                     <p className="mt-3 text-2xl font-bold text-gray-900 dark:text-white">Instant</p>
                     <p className="text-sm text-gray-500 dark:text-gray-400">QR Upload</p>
                   </div>
                   <div className="text-center">
-                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-teal-100 dark:bg-teal-900/30">
-                      <Shield className="h-6 w-6 text-teal-600 dark:text-teal-400" />
+                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-fuchsia-100 dark:bg-fuchsia-900/30">
+                      <Shield className="h-6 w-6 text-fuchsia-600 dark:text-fuchsia-400" />
                     </div>
                     <p className="mt-3 text-2xl font-bold text-gray-900 dark:text-white">AI</p>
                     <p className="text-sm text-gray-500 dark:text-gray-400">Moderation</p>
                   </div>
                   <div className="text-center">
-                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-green-100 dark:bg-green-900/30">
-                      <Users className="h-6 w-6 text-green-600 dark:text-green-400" />
+                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-100 dark:bg-indigo-900/30">
+                      <Users className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
                     </div>
                     <p className="mt-3 text-2xl font-bold text-gray-900 dark:text-white">Multi</p>
                     <p className="text-sm text-gray-500 dark:text-gray-400">Tenant SaaS</p>
@@ -196,7 +195,7 @@ export default function HomePage() {
         <div className="absolute inset-0 -z-10 bg-gray-50 dark:bg-gray-900/50" />
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto">
-            <p className="text-sm font-semibold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Features</p>
+            <p className="text-sm font-semibold uppercase tracking-widest text-violet-600 dark:text-violet-400">Features</p>
             <h2 className="mt-3 text-3xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-5xl">
               Everything you need to engage your guests
             </h2>
@@ -211,8 +210,8 @@ export default function HomePage() {
                 icon: Camera,
                 title: 'Instant Photo Sharing',
                 desc: 'Guests upload photos via QR code. No app download required. All photos appear in a beautiful, branded gallery in real-time.',
-                bg: 'bg-emerald-50 dark:bg-emerald-950/30',
-                iconColor: 'text-emerald-600 dark:text-emerald-400',
+                bg: 'bg-violet-50 dark:bg-violet-950/30',
+                iconColor: 'text-violet-600 dark:text-violet-400',
               },
               {
                 icon: Gift,
@@ -225,8 +224,8 @@ export default function HomePage() {
                 icon: Trophy,
                 title: 'Photo Challenges',
                 desc: 'Encourage more uploads with goal-based challenges. Guests who reach the photo goal earn prizes with QR-verified claims.',
-                bg: 'bg-cyan-50 dark:bg-cyan-950/30',
-                iconColor: 'text-cyan-600 dark:text-cyan-400',
+                bg: 'bg-purple-50 dark:bg-purple-950/30',
+                iconColor: 'text-purple-600 dark:text-purple-400',
               },
               {
                 icon: Shield,
@@ -273,7 +272,7 @@ export default function HomePage() {
       <section className="py-24 sm:py-36">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto">
-            <p className="text-sm font-semibold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">How it works</p>
+            <p className="text-sm font-semibold uppercase tracking-widest text-violet-600 dark:text-violet-400">How it works</p>
             <h2 className="mt-3 text-3xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-5xl">
               Get started in 3 simple steps
             </h2>
@@ -289,21 +288,21 @@ export default function HomePage() {
                 title: 'Create Event',
                 desc: 'Set up your event with custom branding, upload rules, and optional features like lucky draw or photo challenges.',
                 icon: Sparkles,
-                color: 'from-emerald-500 to-teal-500',
+                color: 'from-violet-500 to-purple-500',
               },
               {
                 step: '02',
                 title: 'Share QR Code',
                 desc: 'Display the unique QR code at your venue. Guests scan it to access the gallery and start uploading photos instantly.',
                 icon: QrCode,
-                color: 'from-teal-500 to-cyan-500',
+                color: 'from-purple-500 to-fuchsia-500',
               },
               {
                 step: '03',
                 title: 'Engage & Enjoy',
                 desc: 'Watch photos stream in live. Moderate content, run lucky draws, and download all photos after the event.',
                 icon: Play,
-                color: 'from-cyan-500 to-blue-500',
+                color: 'from-fuchsia-500 to-pink-500',
               },
             ].map((item, i) => (
               <div key={item.step} className="relative">
@@ -338,7 +337,7 @@ export default function HomePage() {
         <div className="absolute inset-0 -z-10 bg-gray-50 dark:bg-gray-900/50" />
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto">
-            <p className="text-sm font-semibold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Use cases</p>
+            <p className="text-sm font-semibold uppercase tracking-widest text-violet-600 dark:text-violet-400">Use cases</p>
             <h2 className="mt-3 text-3xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-5xl">
               Perfect for any event
             </h2>
@@ -360,15 +359,15 @@ export default function HomePage() {
                 icon: Heart,
                 title: 'Weddings & Receptions',
                 desc: 'Collect candid moments from every guest. Beautiful galleries for the couple.',
-                gradient: 'from-emerald-500 to-teal-500',
-                bg: 'from-emerald-50 to-teal-50 dark:from-emerald-950/20 dark:to-teal-950/20',
+                gradient: 'from-violet-500 to-purple-500',
+                bg: 'from-violet-50 to-purple-50 dark:from-violet-950/20 dark:to-purple-950/20',
               },
               {
                 icon: Building2,
                 title: 'Corporate Events',
                 desc: 'Professional branding, attendance tracking, and secure photo galleries.',
-                gradient: 'from-blue-500 to-cyan-500',
-                bg: 'from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20',
+                gradient: 'from-indigo-500 to-violet-500',
+                bg: 'from-indigo-50 to-violet-50 dark:from-indigo-950/20 dark:to-violet-950/20',
               },
             ].map((item) => (
               <div
@@ -395,7 +394,7 @@ export default function HomePage() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="grid gap-16 lg:grid-cols-2 lg:items-center">
             <div>
-              <p className="text-sm font-semibold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">All inclusive</p>
+              <p className="text-sm font-semibold uppercase tracking-widest text-violet-600 dark:text-violet-400">All inclusive</p>
               <h2 className="mt-3 text-3xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-5xl">
                 Everything included
               </h2>
@@ -418,7 +417,7 @@ export default function HomePage() {
                   'Mobile-optimized guest experience',
                 ].map((feature) => (
                   <div key={feature} className="flex items-start gap-3 rounded-xl p-2">
-                    <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500 dark:text-emerald-400" />
+                    <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-violet-500 dark:text-violet-400" />
                     <span className="text-[15px] text-gray-700 dark:text-gray-300">{feature}</span>
                   </div>
                 ))}
@@ -428,12 +427,12 @@ export default function HomePage() {
             {/* CTA Card */}
             <div className="relative">
               {/* Decorative blur behind card */}
-              <div className="absolute -inset-4 -z-10 rounded-[32px] bg-gradient-to-br from-emerald-200/50 via-teal-200/30 to-cyan-200/30 blur-2xl dark:from-emerald-900/20 dark:via-teal-900/10 dark:to-cyan-900/10" />
+              <div className="absolute -inset-4 -z-10 rounded-[32px] bg-gradient-to-br from-violet-200/50 via-purple-200/30 to-fuchsia-200/30 blur-2xl dark:from-violet-900/20 dark:via-purple-900/10 dark:to-fuchsia-900/10" />
               <div className="rounded-3xl border border-gray-200/80 bg-white p-10 shadow-xl dark:border-gray-800 dark:bg-gray-900">
                 <div className="flex items-center gap-3">
                   <div className="flex -space-x-2">
                     {[
-                      'bg-emerald-500', 'bg-teal-500', 'bg-cyan-500', 'bg-blue-500',
+                      'bg-violet-500', 'bg-purple-500', 'bg-fuchsia-500', 'bg-indigo-500',
                     ].map((color, i) => (
                       <div
                         key={i}
@@ -457,7 +456,7 @@ export default function HomePage() {
                 <div className="mt-8 space-y-3">
                   <Link
                     href="/auth/register"
-                    className="group flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-cyan-500 px-6 py-4 font-semibold text-white shadow-lg shadow-emerald-500/25 transition-all hover:shadow-xl hover:shadow-emerald-500/30 hover:-translate-y-0.5"
+                    className="group flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-violet-600 to-purple-600 px-6 py-4 font-semibold text-white shadow-lg shadow-violet-500/25 transition-all hover:shadow-xl hover:shadow-violet-500/30 hover:-translate-y-0.5"
                   >
                     Start Free Trial
                     <ArrowRight className="h-4.5 w-4.5 transition-transform group-hover:translate-x-1" />

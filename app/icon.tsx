@@ -21,7 +21,7 @@ export default function Icon() {
           width: '100%',
         }}
       >
-        <BrandMark size={384} borderRadius={110} fontSize={206} />
+        <BrandMark size={512} borderRadius={112} fontSize={280} />
       </div>
     ),
     size,

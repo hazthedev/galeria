@@ -1,5 +1,5 @@
 import { ImageResponse } from 'next/og';
-import { BrandMark } from '@/lib/brand/brand-image';
+import { BrandMarkGradient } from '@/lib/brand/brand-image';
 
 export const size = {
   width: 180,
@@ -14,14 +14,14 @@ export default function AppleIcon() {
       <div
         style={{
           alignItems: 'center',
-          background: '#F8FAFC',
+          background: 'transparent',
           display: 'flex',
           height: '100%',
           justifyContent: 'center',
           width: '100%',
         }}
       >
-        <BrandMark size={136} borderRadius={40} fontSize={72} />
+        <BrandMarkGradient size={180} borderRadius={40} fontSize={96} />
       </div>
     ),
     size,
