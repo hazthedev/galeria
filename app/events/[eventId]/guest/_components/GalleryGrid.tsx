@@ -22,6 +22,7 @@ export interface GalleryGridProps {
   onLoveReaction: (photoId: string) => void;
   onDownloadPhoto: (photo: IPhoto) => void;
   onToggleSelect: (photoId: string) => void;
+  onOpenLightbox: (photoId: string) => void;
   onLoadMore: () => void;
 }
 
@@ -44,6 +45,7 @@ export function GalleryGrid({
   onLoveReaction,
   onDownloadPhoto,
   onToggleSelect,
+  onOpenLightbox,
   onLoadMore,
 }: GalleryGridProps) {
   return (
@@ -80,6 +82,7 @@ export function GalleryGrid({
                 onLoveReaction={onLoveReaction}
                 onDownload={onDownloadPhoto}
                 onToggleSelect={onToggleSelect}
+                onOpenLightbox={onOpenLightbox}
               />
             ))}
           </div>

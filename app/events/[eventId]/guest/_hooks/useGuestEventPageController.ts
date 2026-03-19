@@ -127,6 +127,8 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
   // Track which photos are currently showing the heart animation
   const [animatingPhotos, setAnimatingPhotos] = useState<Set<string>>(new Set());
   const [selectedPhotoIds, setSelectedPhotoIds] = useState<Set<string>>(new Set());
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
   const canDownload = event?.settings?.features?.guest_download_enabled !== false;
   const selectedCount = selectedPhotoIds.size;
 
@@ -504,6 +506,17 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
       });
     }, 800); // Animation duration
 
+    // Optimistic update — show new count instantly
+    const optimisticUserCount = currentLoves + 1;
+    saveUserLoves({ ...userLoves, [photoId]: optimisticUserCount });
+    updatePhotoById(photoId, (photo) => ({
+      ...photo,
+      reactions: {
+        ...photo.reactions,
+        heart: (photo.reactions.heart || 0) + 1,
+      },
+    }));
+
     try {
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
@@ -525,24 +538,41 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
       if (response.ok) {
         const data = await response.json();
 
-        // Only update if reaction was actually added
+        // Reconcile with server truth
         if (data.data?.added) {
-          // Update user's love count from server response
-          const newUserCount = data.data.userCount ?? (currentLoves + 1);
-          saveUserLoves({ ...userLoves, [photoId]: newUserCount });
-
-          // Update photo in state
+          const serverUserCount = data.data.userCount ?? optimisticUserCount;
+          if (serverUserCount !== optimisticUserCount) {
+            saveUserLoves({ ...userLoves, [photoId]: serverUserCount });
+          }
+          if (data.data.count != null) {
+            updatePhotoById(photoId, (photo) => ({
+              ...photo,
+              reactions: { ...photo.reactions, heart: data.data.count },
+            }));
+          }
+        } else {
+          // Server rejected — roll back optimistic update
+          saveUserLoves({ ...userLoves, [photoId]: currentLoves });
           updatePhotoById(photoId, (photo) => ({
             ...photo,
             reactions: {
               ...photo.reactions,
-              heart: data.data?.count ?? (photo.reactions.heart || 0) + 1,
+              heart: Math.max((photo.reactions.heart || 1) - 1, 0),
             },
           }));
         }
       }
     } catch (err) {
       console.error('[GUEST_EVENT] Love reaction error:', err);
+      // Roll back on network error
+      saveUserLoves({ ...userLoves, [photoId]: currentLoves });
+      updatePhotoById(photoId, (photo) => ({
+        ...photo,
+        reactions: {
+          ...photo.reactions,
+          heart: Math.max((photo.reactions.heart || 1) - 1, 0),
+        },
+      }));
     }
   };
 
@@ -653,6 +683,15 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
       }, i * 1000);
     }
   };
+
+  const openLightbox = useCallback((photoId: string) => {
+    const approved = mergedPhotos.filter((p) => p.status === 'approved');
+    const idx = approved.findIndex((p) => p.id === photoId);
+    if (idx >= 0) {
+      setLightboxIndex(idx);
+      setLightboxOpen(true);
+    }
+  }, [mergedPhotos]);
 
   const toggleSelectedPhoto = (photoId: string) => {
     setSelectedPhotoIds((prev) => {
@@ -1445,6 +1484,8 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
     selectedPhotoIds,
     canDownload,
     selectedCount,
+    lightboxOpen,
+    lightboxIndex,
     loadMoreRef,
     handleGuestModalSubmit,
     setShowGuestModal,
@@ -1454,6 +1495,9 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
     handleDownloadSelected,
     handleDownloadSelectedIndividually,
     toggleSelectedPhoto,
+    openLightbox,
+    setLightboxOpen,
+    setLightboxIndex,
     loadMoreApproved,
     setShowShareModal,
     shareUrl,

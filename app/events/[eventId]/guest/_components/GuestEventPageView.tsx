@@ -25,6 +25,7 @@ import { GuestNameModal } from './GuestNameModal';
 import { GuestShareModal } from './GuestShareModal';
 import { HeaderActions } from './HeaderActions';
 import { GalleryGrid } from './GalleryGrid';
+import { PhotoLightbox } from './PhotoLightbox';
 import { UploadModal } from './UploadModal';
 import { useGuestEventPageController } from '../_hooks/useGuestEventPageController';
 import { GuestEventPageSkeleton } from './GuestEventPageSkeleton';
@@ -44,9 +45,11 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
     themeGradient, surfaceText, surfaceMuted, surfaceBorder, inputBackground, inputBorder, headerBackground,
     secondaryText, selectedFiles, caption, userLoves, animatingPhotos, selectedPhotoIds, canDownload, selectedCount,
     uploadUsageUser,
+    lightboxOpen, lightboxIndex,
     loadMoreRef, hasMoreApproved, isLoadingMore, handleGuestModalSubmit, setShowGuestModal, handleLoveReaction,
     handleDownloadPhoto, handleDownloadAll, handleDownloadSelected, handleDownloadSelectedIndividually,
-    toggleSelectedPhoto, loadMoreApproved, setShowShareModal, shareUrl, handleShare, copyToClipboard, handleFileSelect,
+    toggleSelectedPhoto, openLightbox, setLightboxOpen, setLightboxIndex,
+    loadMoreApproved, setShowShareModal, shareUrl, handleShare, copyToClipboard, handleFileSelect,
     removeSelectedFile, handleUpload, setShowUploadModal, setRecaptchaToken, setRecaptchaError, setCaption,
     setJoinLuckyDraw, setSelectedFiles, setUploadError, setUploadSuccess, setUploadSuccessMessage, setOptimizedCount,
     setShowCheckInModal, setHasCheckedIn, setIsAnonymous, setShowPrizeModal, setShowDrawOverlay, setShowWinnerOverlay,
@@ -385,9 +388,25 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
           onLoveReaction={handleLoveReaction}
           onDownloadPhoto={handleDownloadPhoto}
           onToggleSelect={toggleSelectedPhoto}
+          onOpenLightbox={openLightbox}
           onLoadMore={loadMoreApproved}
         />
       </div>
+
+      <PhotoLightbox
+        open={lightboxOpen}
+        index={lightboxIndex}
+        photos={mergedPhotos}
+        userLoves={userLoves}
+        reactionsEnabled={reactionsEnabled}
+        canDownload={canDownload}
+        themeSecondary={themeSecondary}
+        secondaryText={secondaryText}
+        onClose={() => setLightboxOpen(false)}
+        onIndexChange={setLightboxIndex}
+        onLoveReaction={handleLoveReaction}
+        onDownload={handleDownloadPhoto}
+      />
 
       <GuestShareModal
         isOpen={showShareModal}
