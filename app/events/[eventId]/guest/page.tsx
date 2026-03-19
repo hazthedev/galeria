@@ -2,16 +2,47 @@
 // Galeria - Guest Event Page (Shareable Link)
 // ============================================
 
-'use client';
+import { headers } from 'next/headers';
+import { getTenantDb } from '@/lib/infrastructure/database/db';
+import { resolveOptionalAuth, resolveTenantId } from '@/lib/api-request-context';
+import GuestEventPageClient from './_components/GuestEventPageClient';
 
-import { useParams } from 'next/navigation';
-import { useGuestEventPageController } from './_hooks/useGuestEventPageController';
-import { GuestEventPageView } from './_components/GuestEventPageView';
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export default function GuestEventPage() {
-  const params = useParams();
-  const eventId = params.eventId as string;
-  const controller = useGuestEventPageController(eventId);
+interface PageProps {
+  params: Promise<{ eventId: string }>;
+}
 
-  return <GuestEventPageView controller={controller} />;
+export default async function GuestEventPage({ params }: PageProps) {
+  const { eventId } = await params;
+  let resolvedEventId: string | undefined;
+
+  // If not a UUID, resolve short code server-side to avoid client round trip
+  if (!UUID_REGEX.test(eventId)) {
+    try {
+      const reqHeaders = await headers();
+      const auth = await resolveOptionalAuth(reqHeaders);
+      const tenantId = resolveTenantId(reqHeaders, auth);
+      const db = getTenantDb(tenantId);
+
+      let event = await db.findOne('events', { short_code: eventId });
+      if (!event) {
+        event = await db.findOne('events', { slug: eventId });
+      }
+      if (event) {
+        resolvedEventId = event.id as string;
+      }
+    } catch {
+      // Fall back to client-side resolution
+    }
+  } else {
+    resolvedEventId = eventId;
+  }
+
+  return (
+    <GuestEventPageClient
+      eventId={eventId}
+      resolvedEventId={resolvedEventId}
+    />
+  );
 }

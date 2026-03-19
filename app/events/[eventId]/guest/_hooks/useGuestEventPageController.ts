@@ -33,12 +33,12 @@ interface UploadUsageUser {
 }
 
 const GUEST_MAX_DIMENSION = 4000;
-const PHOTO_PAGE_SIZE = 5;
+const PHOTO_PAGE_SIZE = 20;
 const BROWSER_DIRECT_UPLOAD_ENABLED = process.env.NEXT_PUBLIC_R2_DIRECT_UPLOAD_ENABLED !== 'false';
 
-export function useGuestEventPageController(eventId: string) {
+export function useGuestEventPageController(eventId: string, serverResolvedEventId?: string) {
 
-  const [resolvedEventId, setResolvedEventId] = useState<string | null>(null);
+  const [resolvedEventId, setResolvedEventId] = useState<string | null>(serverResolvedEventId || null);
   const [event, setEvent] = useState<IEvent | null>(null);
   const [approvedPhotos, setApprovedPhotos] = useState<IPhoto[]>([]);
   const [pendingPhotos, setPendingPhotos] = useState<IPhoto[]>([]);
@@ -75,12 +75,15 @@ export function useGuestEventPageController(eventId: string) {
   const { winner, isDrawing } = useLuckyDraw(resolvedEventId || '');
   const [showDrawOverlay, setShowDrawOverlay] = useState(false);
   const [showWinnerOverlay, setShowWinnerOverlay] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const pendingIdsRef = useRef<Set<string>>(new Set());
   const rejectedIdsRef = useRef<Set<string>>(new Set());
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const approvedPhotosRef = useRef<IPhoto[]>([]);
   const realtimeReconcileInFlightRef = useRef(false);
   const realtimeReconcileQueuedRef = useRef(false);
+  const offsetRef = useRef(0);
+  const reconcileTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const mergedPhotos = useMemo(
     () => mergePhotos(approvedPhotos, pendingPhotos, rejectedPhotos),
@@ -422,7 +425,13 @@ export function useGuestEventPageController(eventId: string) {
       setApprovedTotal((prev) => (prev === null ? prev : prev + 1));
     },
     onPhotoUpdated: () => {
-      void runRealtimeReconcile();
+      if (reconcileTimerRef.current) {
+        clearTimeout(reconcileTimerRef.current);
+      }
+      reconcileTimerRef.current = setTimeout(() => {
+        reconcileTimerRef.current = null;
+        void runRealtimeReconcile();
+      }, 500);
     },
     onReactionAdded: ({ photo_id, count }) => {
       updatePhotoById(photo_id, (photo) => ({
@@ -669,8 +678,11 @@ export function useGuestEventPageController(eventId: string) {
       try {
         let actualEventId = eventId;
 
-        // If not a UUID, try to resolve as short code
-        if (!isUUID(eventId)) {
+        // Use server-resolved ID if available, otherwise resolve client-side
+        if (serverResolvedEventId) {
+          actualEventId = serverResolvedEventId;
+          setResolvedEventId(actualEventId);
+        } else if (!isUUID(eventId)) {
           setIsResolving(true);
           const resolveResponse = await fetch(`/api/resolve?code=${encodeURIComponent(eventId)}`);
           const resolveData = await resolveResponse.json();
@@ -801,6 +813,7 @@ export function useGuestEventPageController(eventId: string) {
         setRejectedPhotos(rejectedList);
         setApprovedTotal(nextTotal);
         setHasMoreApproved(approvedList.length < nextTotal);
+        offsetRef.current = approvedList.length;
         pendingIdsRef.current = new Set(pendingList.map((p) => p.id));
         rejectedIdsRef.current = new Set(rejectedList.map((p) => p.id));
 
@@ -842,7 +855,7 @@ export function useGuestEventPageController(eventId: string) {
       if (fingerprint) {
         headers['x-fingerprint'] = fingerprint;
       }
-      const offset = approvedPhotos.length;
+      const offset = offsetRef.current;
       const response = await fetch(
         `/api/events/${resolvedEventId}/photos?status=approved&limit=${PHOTO_PAGE_SIZE}&offset=${offset}`,
         { headers }
@@ -860,6 +873,7 @@ export function useGuestEventPageController(eventId: string) {
         const deduped = incoming.filter((photo: IPhoto) => !existingIds.has(photo.id));
         return deduped.length > 0 ? [...prev, ...deduped] : prev;
       });
+      offsetRef.current = offset + incoming.length;
       const nextCount = offset + incoming.length;
       setHasMoreApproved(nextCount < nextTotal);
     } catch (err) {
@@ -867,7 +881,7 @@ export function useGuestEventPageController(eventId: string) {
     } finally {
       setIsLoadingMore(false);
     }
-  }, [resolvedEventId, isLoadingMore, hasMoreApproved, fingerprint, approvedPhotos.length, approvedTotal]);
+  }, [resolvedEventId, isLoadingMore, hasMoreApproved, fingerprint, approvedTotal]);
 
   useEffect(() => {
     if (!loadMoreRef.current || !hasMoreApproved) return;
@@ -1031,9 +1045,21 @@ export function useGuestEventPageController(eventId: string) {
     return headers;
   };
 
-  const uploadFileToPresignedUrl = async (uploadUrl: string, file: File) => {
+  const uploadFileToPresignedUrl = async (
+    uploadUrl: string,
+    file: File,
+    onProgress?: (percent: number) => void
+  ) => {
     await new Promise<void>((resolve, reject) => {
       const xhr = new XMLHttpRequest();
+
+      if (onProgress) {
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) {
+            onProgress(Math.round((e.loaded / e.total) * 100));
+          }
+        };
+      }
 
       xhr.onload = () => {
         if (xhr.status >= 200 && xhr.status < 300) {
@@ -1150,13 +1176,15 @@ export function useGuestEventPageController(eventId: string) {
 
       let uploadedPhotos: IPhoto[] = [];
       let limitReachedMessage: string | null = null;
+      setUploadProgress(0);
       if (!BROWSER_DIRECT_UPLOAD_ENABLED) {
         const fallbackResult = await uploadFilesViaMultipart(processedFiles);
         uploadedPhotos = fallbackResult.uploadedPhotos;
         limitReachedMessage = fallbackResult.limitReachedMessage;
       } else {
         try {
-          for (const file of processedFiles) {
+          for (let fileIndex = 0; fileIndex < processedFiles.length; fileIndex++) {
+            const file = processedFiles[fileIndex];
             const presignResponse = await fetch(`/api/events/${resolvedEventId}/photos/presign`, {
               method: 'POST',
               credentials: 'omit',
@@ -1190,7 +1218,10 @@ export function useGuestEventPageController(eventId: string) {
               throw new Error('Failed to prepare photo upload');
             }
 
-            await uploadFileToPresignedUrl(uploadUrl, file);
+            const totalFiles = processedFiles.length;
+            await uploadFileToPresignedUrl(uploadUrl, file, (currentPercent) => {
+              setUploadProgress(Math.round((fileIndex * 100 + currentPercent) / totalFiles));
+            });
 
             const dimensions = await getImageDimensions(file);
             const finalizeResponse = await fetch(`/api/events/${resolvedEventId}/photos`, {
@@ -1334,10 +1365,13 @@ export function useGuestEventPageController(eventId: string) {
     }
   };
 
-  // Cleanup previews on unmount
+  // Cleanup previews and timers on unmount
   useEffect(() => {
     return () => {
       selectedFiles.forEach(f => URL.revokeObjectURL(f.preview));
+      if (reconcileTimerRef.current) {
+        clearTimeout(reconcileTimerRef.current);
+      }
     };
   }, []);
 
@@ -1359,6 +1393,7 @@ export function useGuestEventPageController(eventId: string) {
     hasCheckedIn,
     isUploading,
     isOptimizing,
+    uploadProgress,
     uploadError,
     uploadSuccess,
     uploadSuccessMessage,

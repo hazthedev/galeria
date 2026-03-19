@@ -55,7 +55,7 @@ type GuestEventPageViewProps = {
 export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
   const {
     resolvedEventId, event, isLoading, error, showShareModal, showUploadModal, showCheckInModal,
-    hasCheckedIn, isUploading, isOptimizing, uploadError, uploadSuccess, uploadSuccessMessage,
+    hasCheckedIn, isUploading, isOptimizing, uploadProgress, uploadError, uploadSuccess, uploadSuccessMessage,
     moderationNotice, moderationNoticeType, joinLuckyDraw, hasJoinedDraw, luckyDrawNumbers, hasActiveLuckyDrawConfig,
     photoChallenge, challengeProgress, showPrizeModal, fingerprint, recaptchaToken, recaptchaError, winner,
     showDrawOverlay, showWinnerOverlay, mergedPhotos, guestName, isAnonymous, showGuestModal, allowAnonymous,
@@ -482,6 +482,7 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
                         fill
                         sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, (max-width: 1280px) 25vw, 20vw"
                         className="object-cover"
+                        priority={index < 4}
                       />
 
                       {/* Download button */}
@@ -612,7 +613,7 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
                       className="rounded-full border px-4 py-2 text-sm font-medium hover:opacity-80"
                       style={{ borderColor: surfaceBorder, color: surfaceText, backgroundColor: inputBackground }}
                     >
-                      Load 5 more
+                      Load more photos
                     </button>
                   )
                 )}
@@ -701,10 +702,18 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
                 className="mb-4 flex flex-col items-center gap-3 rounded-lg p-6"
                 style={{ backgroundColor: inputBackground }}
               >
-                <Loader2 className="h-10 w-10 animate-spin" style={{ color: themeSecondary }} />
-                <p className="text-sm font-medium text-gray-900">
-                  Uploading photos...
-                </p>
+                <div className="w-full">
+                  <div className="mb-2 flex items-center justify-between text-sm font-medium" style={{ color: surfaceText }}>
+                    <span>Uploading photos...</span>
+                    <span>{uploadProgress}%</span>
+                  </div>
+                  <div className="h-2 w-full overflow-hidden rounded-full" style={{ backgroundColor: surfaceBorder }}>
+                    <div
+                      className="h-full rounded-full transition-all duration-300"
+                      style={{ width: `${uploadProgress}%`, backgroundColor: themeSecondary }}
+                    />
+                  </div>
+                </div>
               </div>
             )}
 
