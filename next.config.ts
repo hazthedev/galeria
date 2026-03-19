@@ -66,7 +66,6 @@ const nextConfig: NextConfig = {
         'bullmq': false,
         'ioredis': false,
         'bcrypt': false,
-        'sharp': false,
         '@aws-sdk/client-rekognition': false,
         '@aws-sdk/client-s3': false,
       };

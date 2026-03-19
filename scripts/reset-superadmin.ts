@@ -53,7 +53,7 @@ function generateEmail(): string {
   return `superadmin+${stamp}-${suffix}@galeria.local`;
 }
 
-async function listAllAuthUsers(supabase: ReturnType<typeof createClient>): Promise<AuthUserSummary[]> {
+async function listAllAuthUsers(supabase: any): Promise<AuthUserSummary[]> {
   const users: AuthUserSummary[] = [];
   let page = 1;
 
