@@ -2,7 +2,6 @@ import Image from 'next/image';
 import {
   X,
   Check,
-  Loader2,
   Camera,
   ImageIcon,
   Trophy,
@@ -157,36 +156,30 @@ export function UploadModal({
                 </div>
               )}
 
-              {/* Uploading State */}
-              {isUploading && (
+              {/* Uploading / Optimizing State */}
+              {(isUploading || isOptimizing) && (
                 <div
                   className="mb-4 flex flex-col items-center gap-3 rounded-lg p-6"
                   style={{ backgroundColor: inputBackground }}
                 >
                   <div className="w-full">
                     <div className="mb-2 flex items-center justify-between text-sm font-medium" style={{ color: surfaceText }}>
-                      <span>Uploading photos...</span>
-                      <span>{uploadProgress}%</span>
+                      <span>{isOptimizing ? 'Optimizing large photos...' : 'Uploading photos...'}</span>
+                      <span>{isOptimizing ? '' : `${uploadProgress}%`}</span>
                     </div>
                     <div className="h-2 w-full overflow-hidden rounded-full" style={{ backgroundColor: surfaceBorder }}>
                       <div
-                        className="h-full rounded-full transition-all duration-300"
-                        style={{ width: `${uploadProgress}%`, backgroundColor: themeSecondary }}
+                        className="h-full rounded-full"
+                        style={{
+                          width: isOptimizing ? '100%' : `${Math.max(uploadProgress, 5)}%`,
+                          backgroundColor: themeSecondary,
+                          transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                          animation: isOptimizing ? 'indeterminate-progress 1.5s ease-in-out infinite' : undefined,
+                          transformOrigin: 'left center',
+                        }}
                       />
                     </div>
                   </div>
-                </div>
-              )}
-
-              {isOptimizing && (
-                <div
-                  className="mb-4 flex flex-col items-center gap-3 rounded-lg p-6"
-                  style={{ backgroundColor: inputBackground }}
-                >
-                  <Loader2 className="h-10 w-10 animate-spin" style={{ color: themeSecondary }} />
-                  <p className="text-sm font-medium text-gray-900">
-                    Optimizing large photos...
-                  </p>
                 </div>
               )}
 
