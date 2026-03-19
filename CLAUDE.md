@@ -72,12 +72,19 @@ import { getTenantDb } from '@/lib/db';
 
 const db = getTenantDb(tenantId);
 const user = await db.findOne('users', { id: userId });
+// For multi-statement transactions:
+await db.transact(async (client) => { ... });
 ```
+
+**Special Tenant IDs** (from `lib/constants/tenants.ts`):
+- `SYSTEM_TENANT_ID` (`00000000-0000-0000-0000-000000000000`) - used for audit logs and system operations
+- `DEFAULT_TENANT_ID` (`00000000-0000-0000-0000-000000000001`) - fallback tenant in non-production
 
 **Pool Configuration**: Database pool settings differ between environments:
 - Production (Vercel/serverless): `DATABASE_POOL_MIN=0`, `DATABASE_POOL_MAX=1`
 - Local development: `DATABASE_POOL_MIN=2`, `DATABASE_POOL_MAX=20`
 - Configure via env vars to override defaults
+- Retry env vars: `DB_RETRY_MAX_ATTEMPTS`, `DB_RETRY_BASE_DELAY_MS`
 
 ### Server-Only Package Separation
 
@@ -101,8 +108,9 @@ import 'server-only';
 AI moderation runs via BullMQ job queue initialized in `instrumentation.ts`:
 - Enabled via `MODERATION_QUEUE_ENABLED=true` env var
 - Uses AWS Rekognition for image scanning
-- Photos are quarantined if rejected
+- Photos are quarantined if rejected (separate storage path in `lib/storage/quarantine.ts`)
 - Queue worker runs with concurrency of 3
+- Scan results tracked per-photo in moderation scan logs (`lib/moderation/scan-logs.ts`)
 
 ### Layer Organization
 
@@ -112,6 +120,10 @@ lib/
 ├── infrastructure/   # External services (database, cache, storage)
 ├── api/              # API middleware and context
 ├── services/         # High-level service functions
+├── audit/            # Admin action audit logging
+├── mfa/              # TOTP-based 2FA for super admins
+├── realtime/         # Supabase realtime broadcast (server-side)
+├── export/           # Event data export / zip generation
 └── shared/           # Shared utilities
 ```
 
@@ -151,13 +163,22 @@ app/
 - Session ID extracted from cookie or `x-session-id` header
 - `requireAuthForApi()` helper for API routes (supports both JWT and session)
 - Use `verifyAccessToken()` for JWT validation
-- `resolveOptionalAuth()` from `@/lib/api-request-context` for unified auth resolution
+- `resolveOptionalAuth()` from `@/lib/api/api-request-context` for unified auth resolution
+- Super admins use TOTP-based MFA (`lib/mfa/totp.ts`) with RFC 6238 compliant codes and recovery codes
+
+### API Request Context
+`lib/api/api-request-context.ts` provides tenant/auth resolution helpers used across all API routes:
+- `resolveOptionalAuth()` - resolves auth without requiring it
+- `resolveTenantId()` - resolves tenant from subdomain/header, falls back to `DEFAULT_TENANT_ID` in dev
+- `resolveRequiredTenantId()` - throws if tenant cannot be resolved
+
+### Audit Logging
+All admin actions are logged via `logAdminAction()` in `lib/audit/index.ts`. Audit logs are written to `SYSTEM_TENANT_ID`. Covers user management, tenant operations, moderation actions, MFA, and session management.
 
 ### Supabase Integration
-The app has optional Supabase integration that acts as a fallback to direct PostgreSQL:
-- Used when database connection pool is exhausted (MaxClientsInSessionMode errors)
-- Configured via `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`
-- Automatically provisions app users via Supabase Auth when needed
+The app has optional Supabase integration:
+- **Fallback DB**: Used when PostgreSQL pool is exhausted (MaxClientsInSessionMode errors). Configured via `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`
+- **Realtime**: Server-side broadcast via `lib/realtime/server.ts` — publishes events to channels like `event:${eventId}` for live gallery updates
 
 ### Event Short Codes
 Events have both a `slug` (URL-friendly, per-tenant unique) and `short_code` (memorable like "party123", globally unique). Guest pages use short codes: `/e/[shortCode]`
@@ -182,6 +203,17 @@ Key variables (see `.env.example`):
 - `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` - Auth tokens
 - `MODERATION_QUEUE_ENABLED` - Enable background moderation worker
 - `AWS_REGION` / `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` - For Rekognition
+- `NEXT_PUBLIC_SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` - Supabase fallback + realtime
+- `SYSTEM_TENANT_ID` / `MASTER_TENANT_ID` - Override special tenant UUIDs
+- `DB_RETRY_MAX_ATTEMPTS` / `DB_RETRY_BASE_DELAY_MS` - DB retry tuning
+
+## Admin Scripts
+
+Utility scripts in `scripts/` (run with `npx ts-node scripts/<name>.ts`):
+- `create-superadmin.ts` / `reset-superadmin.ts` - Manage super admin account
+- `apply-audit-migration.ts` - Apply audit log migration
+- `find-events-by-email.ts` / `list-events.ts` - Lookup utilities
+- `fix-migration-version.ts` - Repair migration version tracking
 
 ## Testing Notes
 
