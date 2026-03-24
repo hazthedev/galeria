@@ -109,7 +109,7 @@ export function HeaderActions({
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: -4 }}
               transition={{ duration: 0.15, ease: 'easeOut' }}
-              className="absolute right-0 top-full z-50 mt-2 min-w-[200px] overflow-hidden rounded-xl border shadow-lg"
+              className="absolute left-0 top-full z-50 mt-2 min-w-[200px] overflow-hidden rounded-xl border shadow-lg"
               style={{ backgroundColor: v.surface, borderColor: v.border }}
             >
               <div className="py-1">
