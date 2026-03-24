@@ -49,7 +49,7 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
     resolvedEventId, event, isLoading, error, showShareModal, showUploadModal, showCheckInModal,
     hasCheckedIn, isUploading, isOptimizing, uploadProgress, uploadError, uploadSuccess, uploadSuccessMessage,
     moderationNotice, moderationNoticeType, joinLuckyDraw, hasJoinedDraw, luckyDrawNumbers, hasActiveLuckyDrawConfig,
-    photoChallenge, challengeProgress, showPrizeModal, fingerprint, recaptchaToken, recaptchaError, winner,
+    photoChallenge, challengeProgress, showPrizeModal, fingerprint, recaptchaToken, recaptchaError, winner, wonPrize,
     showDrawOverlay, showWinnerOverlay, mergedPhotos, guestName, isAnonymous, showGuestModal, allowAnonymous,
     luckyDrawEnabled, reactionsEnabled, attendanceEnabled, photoCardStyle, themePrimary, themeSecondary, themeBackground, themeSurface,
     themeGradient, surfaceText, surfaceMuted, surfaceBorder, inputBackground, inputBorder, headerBackground,
@@ -63,7 +63,7 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
     loadMoreApproved, setShowShareModal, shareUrl, handleShare, copyToClipboard, handleFileSelect,
     removeSelectedFile, handleUpload, setShowUploadModal, setRecaptchaToken, setRecaptchaError, setCaption,
     setJoinLuckyDraw, setSelectedFiles, setUploadError, setUploadSuccess, setUploadSuccessMessage, setOptimizedCount,
-    setShowCheckInModal, setHasCheckedIn, setIsAnonymous, setShowPrizeModal, setShowDrawOverlay, setShowWinnerOverlay,
+    setShowCheckInModal, setHasCheckedIn, setIsAnonymous, setShowPrizeModal, setShowDrawOverlay, setShowWinnerOverlay, setWonPrize,
   } = controller;
 
   // Loading state
@@ -259,6 +259,41 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
           </div>
         </div>
       </header>
+
+      {/* Winner Banner — persistent until dismissed */}
+      <AnimatePresence>
+        {wonPrize && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            className="overflow-hidden"
+          >
+            <div
+              className="relative"
+              style={{
+                backgroundImage: `linear-gradient(135deg, var(--g-primary), var(--g-secondary))`,
+              }}
+            >
+              <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
+                <Trophy className="h-5 w-5 flex-shrink-0 text-white" />
+                <p className="flex-1 text-sm font-semibold text-white">
+                  Congratulations! You won Prize Tier {wonPrize.prizeTier}!
+                  Please see the event organizer to claim your prize.
+                </p>
+                <button
+                  onClick={() => setWonPrize(null)}
+                  className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-white/20 text-white/90 transition-colors hover:bg-white/30"
+                  aria-label="Dismiss"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <motion.div
         className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8"

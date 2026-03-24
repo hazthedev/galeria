@@ -11,6 +11,7 @@ import { getImageDimensions } from '@/lib/utils';
 import { useLuckyDraw, usePhotoGallery } from '@/lib/realtime/client';
 import { useGuestTheme } from './useGuestTheme';
 import {
+  formatDrawNumber,
   formatEntryNumbers,
   mergePhotos,
   resizeImageIfNeeded,
@@ -504,13 +505,28 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
     return () => clearTimeout(timeout);
   }, [showDrawOverlay]);
 
+  // Track if the current guest won a prize
+  const [wonPrize, setWonPrize] = useState<{ prizeTier: number; name: string } | null>(null);
+
   useEffect(() => {
     if (!winner) return;
     setShowDrawOverlay(false);
     setShowWinnerOverlay(true);
     const timeout = setTimeout(() => setShowWinnerOverlay(false), 12000);
+
+    // Check if this guest is the winner by matching entry ID or name
+    const winnerNumber = formatDrawNumber(winner.entry_id);
+    const isWinnerByNumber = luckyDrawNumbers.includes(winnerNumber);
+    const isWinnerByName =
+      guestName.trim().length > 0 &&
+      winner.participant_name?.toLowerCase() === guestName.trim().toLowerCase();
+
+    if (isWinnerByNumber || isWinnerByName) {
+      setWonPrize({ prizeTier: winner.prize_tier, name: winner.participant_name });
+    }
+
     return () => clearTimeout(timeout);
-  }, [winner]);
+  }, [winner, luckyDrawNumbers, guestName]);
 
   useEffect(() => {
     if (!moderationNotice) return;
@@ -1502,6 +1518,7 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
     recaptchaToken,
     recaptchaError,
     winner,
+    wonPrize,
     isDrawing,
     showDrawOverlay,
     showWinnerOverlay,
@@ -1577,5 +1594,6 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
     setShowPrizeModal,
     setShowDrawOverlay,
     setShowWinnerOverlay,
+    setWonPrize,
   };
 }
