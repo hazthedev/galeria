@@ -67,6 +67,7 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
   const [hasJoinedDraw, setHasJoinedDraw] = useState(false);
   const [luckyDrawNumbers, setLuckyDrawNumbers] = useState<string[]>([]);
   const [hasActiveLuckyDrawConfig, setHasActiveLuckyDrawConfig] = useState<boolean | null>(null);
+  const [activeConfigId, setActiveConfigId] = useState<string | null>(null);
   const [photoChallenge, setPhotoChallenge] = useState<IPhotoChallenge | null>(null);
   const [challengeProgress, setChallengeProgress] = useState<IGuestPhotoProgress | null>(null);
   const [showPrizeModal, setShowPrizeModal] = useState(false);
@@ -85,6 +86,7 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
     if (!isUploading) {
       displayProgressRef.current = 0;
       setDisplayProgress(0);
+      setUploadProgress(0);
       return;
     }
     const tick = () => {
@@ -92,7 +94,8 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
       const current = displayProgressRef.current;
       // Target is always slightly ahead of real, capped at 95 (never hit 100 until real does)
       const target = real >= 100 ? 100 : Math.min(real + 20, 95);
-      // Move quickly when far from target, slow down when close
+      // Only move forward — never decrease the displayed progress
+      if (target <= current) return;
       const gap = target - current;
       const step = Math.max(0.5, gap * 0.15);
       const next = Math.min(target, current + step);
@@ -192,39 +195,36 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
     }
   }, [resolvedEventId, allowAnonymous]);
 
+  // Restore lucky draw state from localStorage — will be validated
+  // against the active config ID once it loads (see config fetch below)
   useEffect(() => {
     if (!resolvedEventId) return;
-    const storageKey = `lucky_draw_numbers_${resolvedEventId}`;
-    const saved = localStorage.getItem(storageKey);
-    if (!saved) return;
-    try {
-      const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed)) {
-        const numbers = parsed.filter((value) => typeof value === 'string');
-        setLuckyDrawNumbers(numbers);
-        if (numbers.length > 0) {
-          setHasJoinedDraw(true);
-          setJoinLuckyDraw(false);
+    const numbersSaved = localStorage.getItem(`lucky_draw_numbers_${resolvedEventId}`);
+    if (numbersSaved) {
+      try {
+        const parsed = JSON.parse(numbersSaved);
+        if (Array.isArray(parsed)) {
+          const numbers = parsed.filter((value: unknown) => typeof value === 'string');
+          setLuckyDrawNumbers(numbers);
+          if (numbers.length > 0) {
+            setHasJoinedDraw(true);
+            setJoinLuckyDraw(false);
+          }
         }
+      } catch {
+        // ignore malformed storage
       }
-    } catch {
-      // ignore malformed storage
+    }
+    const joinedSaved = localStorage.getItem(`lucky_draw_joined_${resolvedEventId}`);
+    if (joinedSaved === 'true') {
+      setHasJoinedDraw(true);
+      setJoinLuckyDraw(false);
     }
   }, [resolvedEventId]);
 
   useEffect(() => {
     setUploadUsageUser(null);
   }, [resolvedEventId, fingerprint]);
-
-  useEffect(() => {
-    if (!resolvedEventId) return;
-    const storageKey = `lucky_draw_joined_${resolvedEventId}`;
-    const saved = localStorage.getItem(storageKey);
-    if (saved === 'true') {
-      setHasJoinedDraw(true);
-      setJoinLuckyDraw(false);
-    }
-  }, [resolvedEventId]);
 
   useEffect(() => {
     if (hasJoinedDraw && joinLuckyDraw) {
@@ -254,6 +254,21 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
         setHasActiveLuckyDrawConfig(active);
         if (!active) {
           setJoinLuckyDraw(false);
+          setActiveConfigId(null);
+        } else {
+          const configId = data.data.id as string;
+          setActiveConfigId(configId);
+          // Validate localStorage against active config — clear stale flags
+          // from a previous draw round so the guest can participate again
+          const storedConfigId = localStorage.getItem(`lucky_draw_config_${resolvedEventId}`);
+          if (storedConfigId && storedConfigId !== configId) {
+            localStorage.removeItem(`lucky_draw_joined_${resolvedEventId}`);
+            localStorage.removeItem(`lucky_draw_numbers_${resolvedEventId}`);
+            localStorage.removeItem(`lucky_draw_config_${resolvedEventId}`);
+            setHasJoinedDraw(false);
+            setLuckyDrawNumbers([]);
+            setJoinLuckyDraw(true);
+          }
         }
       } catch (err) {
         setHasActiveLuckyDrawConfig(null);
@@ -1423,8 +1438,10 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
         setHasJoinedDraw(true);
         setJoinLuckyDraw(false);
         if (resolvedEventId) {
-          const joinedKey = `lucky_draw_joined_${resolvedEventId}`;
-          localStorage.setItem(joinedKey, 'true');
+          localStorage.setItem(`lucky_draw_joined_${resolvedEventId}`, 'true');
+          if (activeConfigId) {
+            localStorage.setItem(`lucky_draw_config_${resolvedEventId}`, activeConfigId);
+          }
         }
         if (formattedEntryNumbers.length > 0) {
           const list = formattedEntryNumbers.join(', ');
