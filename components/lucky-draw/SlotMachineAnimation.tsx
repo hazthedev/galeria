@@ -5,6 +5,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { Trophy, Sparkles } from 'lucide-react';
+import clsx from 'clsx';
 
 interface SlotMachineAnimationProps {
   durationSeconds: number;
@@ -74,31 +76,105 @@ export function SlotMachineAnimation({
   }, [durationSeconds, onComplete, target]);
 
   return (
-    <div className="flex flex-col items-center gap-6">
+    <div className="flex flex-col items-center gap-5">
+      {/* Prize label */}
       {prizeName && (
-        <p className="text-sm font-medium text-amber-200">
-          Drawing for: <span className="font-semibold text-amber-300">{prizeName}</span>
-        </p>
+        <div
+          className="flex items-center gap-2 rounded-full px-4 py-1.5"
+          style={{
+            backgroundColor: 'color-mix(in srgb, var(--g-primary) 15%, transparent)',
+          }}
+        >
+          <Trophy className="h-3.5 w-3.5" style={{ color: 'var(--g-primary)' }} />
+          <p className="text-sm font-semibold" style={{ color: 'var(--g-primary)' }}>
+            {prizeName}
+          </p>
+        </div>
       )}
 
-      <div className="rounded-2xl border border-white/10 bg-slate-950 px-6 py-8 shadow-[0_0_40px_rgba(99,102,241,0.25)]">
-        <div className="flex items-center justify-center gap-3">
+      {/* Slot reels */}
+      <div
+        className="rounded-2xl px-5 py-6 sm:px-8"
+        style={{
+          backgroundColor: 'color-mix(in srgb, var(--g-primary) 8%, var(--g-surface))',
+          boxShadow: `0 0 0 1px color-mix(in srgb, var(--g-primary) 20%, transparent), 0 8px 32px color-mix(in srgb, var(--g-primary) 12%, transparent)`,
+        }}
+      >
+        <div className="flex items-center justify-center gap-2 sm:gap-3">
           {display.split('').map((char, index) => (
             <div
               key={`${char}-${index}`}
-              className="flex h-16 w-12 items-center justify-center rounded-lg border border-violet-500/30 bg-slate-900 text-3xl font-black text-violet-200 shadow-[inset_0_-10px_20px_rgba(0,0,0,0.4)]"
+              className={clsx(
+                'flex h-14 w-10 items-center justify-center rounded-xl text-2xl font-black tracking-tight sm:h-16 sm:w-12 sm:text-3xl',
+                'transition-all duration-200',
+                stopped && 'scale-105',
+              )}
+              style={{
+                backgroundColor: 'var(--g-input-bg)',
+                borderWidth: '1px',
+                borderStyle: 'solid',
+                borderColor: stopped
+                  ? 'var(--g-primary)'
+                  : 'color-mix(in srgb, var(--g-primary) 25%, transparent)',
+                color: stopped ? 'var(--g-primary)' : 'var(--g-text)',
+                boxShadow: stopped
+                  ? '0 0 16px color-mix(in srgb, var(--g-primary) 25%, transparent), inset 0 -4px 12px color-mix(in srgb, var(--g-primary) 8%, transparent)'
+                  : 'inset 0 -6px 16px rgba(0,0,0,0.08)',
+              }}
             >
               {char}
             </div>
           ))}
         </div>
-        <p className="mt-3 text-center text-xs text-slate-400">
-          {stopped ? 'Winner locked in' : 'Rolling...'}
-        </p>
+
+        {/* Status indicator */}
+        <div className="mt-3 flex items-center justify-center gap-1.5">
+          {stopped ? (
+            <Sparkles className="h-3 w-3" style={{ color: 'var(--g-primary)' }} />
+          ) : (
+            <span
+              className="inline-block h-2 w-2 animate-pulse rounded-full"
+              style={{ backgroundColor: 'var(--g-secondary)' }}
+            />
+          )}
+          <p
+            className="text-xs font-medium"
+            style={{ color: stopped ? 'var(--g-primary)' : 'var(--g-muted)' }}
+          >
+            {stopped ? 'Winner locked in' : 'Rolling...'}
+          </p>
+        </div>
       </div>
 
-      {stopped && (
-        <p className="text-sm text-amber-200/80">Winner revealed</p>
+      {/* Winner reveal */}
+      {stopped && (showSelfie || showFullName) && (
+        <div
+          className="flex flex-col items-center gap-3 rounded-xl px-6 py-4"
+          style={{
+            backgroundColor: 'color-mix(in srgb, var(--g-secondary) 10%, transparent)',
+          }}
+        >
+          {showSelfie && (
+            <div
+              className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full text-lg font-bold"
+              style={{
+                backgroundImage: photoUrl
+                  ? `url(${photoUrl})`
+                  : `linear-gradient(135deg, var(--g-primary), var(--g-secondary))`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                color: '#fff',
+              }}
+            >
+              {!photoUrl && getInitials(participantName)}
+            </div>
+          )}
+          {showFullName && participantName && (
+            <p className="text-base font-bold tracking-tight" style={{ color: 'var(--g-text)' }}>
+              {participantName}
+            </p>
+          )}
+        </div>
       )}
     </div>
   );

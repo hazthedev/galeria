@@ -1,6 +1,6 @@
 import type { ComponentType, Dispatch, SetStateAction } from 'react';
 import clsx from 'clsx';
-import { Check, Download, Eye, Hash, Heart, Loader2, Sparkles, Target, Users } from 'lucide-react';
+import { Check, Download, Eye, Hash, Heart, Loader2, Maximize2, Sparkles, Target, Users } from 'lucide-react';
 import { UpgradePrompt } from '@/components/upgrade-prompt';
 import type { SubscriptionTier } from '@/lib/types';
 
@@ -19,6 +19,8 @@ interface FeaturesTabProps {
   setAttendanceEnabled: Dispatch<SetStateAction<boolean>>;
   photoChallengeEnabled: boolean;
   setPhotoChallengeEnabled: Dispatch<SetStateAction<boolean>>;
+  lightboxEnabled: boolean;
+  setLightboxEnabled: Dispatch<SetStateAction<boolean>>;
   luckyDrawAvailable: boolean;
   luckyDrawToggleDisabled: boolean;
   reactionsAvailable: boolean;
@@ -118,6 +120,8 @@ export function FeaturesTab({
   setAttendanceEnabled,
   photoChallengeEnabled,
   setPhotoChallengeEnabled,
+  lightboxEnabled,
+  setLightboxEnabled,
   luckyDrawAvailable,
   luckyDrawToggleDisabled,
   reactionsAvailable,
@@ -228,6 +232,16 @@ export function FeaturesTab({
             onDirty();
           }}
           icon={Hash}
+        />
+        <FeatureToggleCard
+          title="Photo Lightbox"
+          description="Allow guests to tap photos for full-screen viewing with zoom"
+          enabled={lightboxEnabled}
+          onToggle={(nextValue) => {
+            setLightboxEnabled(nextValue);
+            onDirty();
+          }}
+          icon={Maximize2}
         />
       </div>
 

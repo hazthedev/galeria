@@ -108,6 +108,9 @@ export function SettingsAdminTab({
   const [photoChallengeEnabled, setPhotoChallengeEnabled] = useState(
     event.settings?.features?.photo_challenge_enabled || false
   );
+  const [lightboxEnabled, setLightboxEnabled] = useState(
+    event.settings?.features?.lightbox_enabled !== false
+  );
   const luckyDrawPlanLocked = !entitlementsLoading && tenantFeatures?.lucky_draw === false;
   const reactionsPlanLocked = !entitlementsLoading && tenantFeatures?.photo_reactions === false;
 
@@ -169,6 +172,7 @@ export function SettingsAdminTab({
               reactions_enabled: reactionsPlanLocked ? false : reactionsEnabled,
               attendance_enabled: attendanceEnabled,
               photo_challenge_enabled: photoChallengeEnabled,
+              lightbox_enabled: lightboxEnabled,
             },
             security: {
               upload_rate_limits: {
@@ -284,6 +288,8 @@ export function SettingsAdminTab({
           setAttendanceEnabled={setAttendanceEnabled}
           photoChallengeEnabled={photoChallengeEnabled}
           setPhotoChallengeEnabled={setPhotoChallengeEnabled}
+          lightboxEnabled={lightboxEnabled}
+          setLightboxEnabled={setLightboxEnabled}
           luckyDrawAvailable={!luckyDrawPlanLocked}
           luckyDrawToggleDisabled={entitlementsLoading || luckyDrawPlanLocked}
           reactionsAvailable={!reactionsPlanLocked}

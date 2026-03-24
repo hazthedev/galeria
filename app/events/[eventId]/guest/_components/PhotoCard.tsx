@@ -1,3 +1,4 @@
+import { useRef, useCallback } from 'react';
 import Image from 'next/image';
 import { Heart, Download } from 'lucide-react';
 import clsx from 'clsx';
@@ -49,6 +50,24 @@ export function PhotoCard({
   onToggleSelect,
   onOpenLightbox,
 }: PhotoCardProps) {
+  const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleClick = useCallback(() => {
+    if (photo.status !== 'approved') return;
+    if (clickTimerRef.current) {
+      // Double-click detected — cancel the pending single-click (lightbox)
+      clearTimeout(clickTimerRef.current);
+      clickTimerRef.current = null;
+      if (reactionsEnabled) onLoveReaction(photo.id);
+    } else {
+      // Wait to see if a second click follows
+      clickTimerRef.current = setTimeout(() => {
+        clickTimerRef.current = null;
+        onOpenLightbox(photo.id);
+      }, 250);
+    }
+  }, [photo.id, photo.status, reactionsEnabled, onLoveReaction, onOpenLightbox]);
+
   return (
     <motion.div
       custom={index}
@@ -57,14 +76,7 @@ export function PhotoCard({
       animate="visible"
       whileHover="hover"
       whileTap="tap"
-      onClick={() => {
-        if (photo.status === 'approved') onOpenLightbox(photo.id);
-      }}
-      onDoubleClick={(e) => {
-        e.stopPropagation();
-        if (photo.status !== 'approved' || !reactionsEnabled) return;
-        onLoveReaction(photo.id);
-      }}
+      onClick={handleClick}
       className={clsx(
         'group relative aspect-square overflow-hidden cursor-pointer',
         PHOTO_CARD_STYLE_CLASSES[photoCardStyle] || PHOTO_CARD_STYLE_CLASSES.vacation,

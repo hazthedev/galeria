@@ -137,64 +137,88 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
 
       {/* Lucky Draw Overlays */}
       {showDrawOverlay && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-          <div
-            className="w-full max-w-sm rounded-2xl p-6 text-center shadow-2xl"
-            style={{ backgroundColor: v.surface, color: v.text, borderColor: v.border }}
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0, y: 12 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            transition={{ type: 'spring', damping: 28, stiffness: 380 }}
+            className="w-full max-w-sm overflow-hidden rounded-2xl shadow-2xl"
+            style={{ backgroundColor: v.surface }}
           >
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold leading-snug tracking-tight" style={{ color: v.text }}>
-                Lucky Draw
-              </h3>
+            <div
+              className="relative px-6 pb-4 pt-5"
+              style={{ backgroundImage: `linear-gradient(135deg, var(--g-primary), var(--g-secondary))` }}
+            >
               <button
                 onClick={() => setShowDrawOverlay(false)}
-                className="hover:opacity-80"
-                style={{ color: v.muted }}
+                className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-white/90 backdrop-blur-sm transition-colors hover:bg-white/30"
               >
-                <X className="h-5 w-5" />
+                <X className="h-4 w-4" />
               </button>
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
+                  <Trophy className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white tracking-tight">Lucky Draw</h3>
+                  <p className="text-xs text-white/70">Get ready...</p>
+                </div>
+              </div>
             </div>
-            <div className="flex flex-col items-center gap-3">
-              <Loader2 className="h-10 w-10 animate-spin text-violet-600" />
-              <p className="text-sm font-medium" style={{ color: v.text }}>
+            <div className="flex flex-col items-center gap-3 px-6 py-8">
+              <Loader2 className="h-10 w-10 animate-spin" style={{ color: 'var(--g-primary)' }} />
+              <p className="text-sm font-semibold" style={{ color: v.text }}>
                 The lucky draw is starting...
               </p>
               <p className="text-xs" style={{ color: v.muted }}>
                 Stay tuned for the winner announcement.
               </p>
             </div>
-          </div>
+          </motion.div>
         </div>
       )}
 
       {showWinnerOverlay && winner && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-          <div
-            className="w-full max-w-2xl rounded-2xl p-6 text-center shadow-2xl"
-            style={{ backgroundColor: v.surface, color: v.text, borderColor: v.border }}
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0, y: 12 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            transition={{ type: 'spring', damping: 28, stiffness: 380 }}
+            className="w-full max-w-md overflow-hidden rounded-2xl shadow-2xl"
+            style={{ backgroundColor: v.surface }}
           >
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold leading-snug tracking-tight" style={{ color: v.text }}>
-                Winner Announced
-              </h3>
+            <div
+              className="relative px-6 pb-4 pt-5"
+              style={{ backgroundImage: `linear-gradient(135deg, var(--g-primary), var(--g-secondary))` }}
+            >
               <button
                 onClick={() => setShowWinnerOverlay(false)}
-                className="hover:opacity-80"
-                style={{ color: v.muted }}
+                className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-white/90 backdrop-blur-sm transition-colors hover:bg-white/30"
               >
-                <X className="h-5 w-5" />
+                <X className="h-4 w-4" />
               </button>
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
+                  <Trophy className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white tracking-tight">Winner Announced</h3>
+                  <p className="text-xs text-white/70">Congratulations!</p>
+                </div>
+              </div>
             </div>
-            <SlotMachineAnimation
-              durationSeconds={5}
-              numberString={formatDrawNumber(winner.entry_id)}
-              participantName={winner.participant_name || 'Anonymous'}
-              photoUrl={winner.selfie_url}
-              prizeName={`Prize Tier ${winner.prize_tier}`}
-              showSelfie
-              showFullName
-            />
-          </div>
+            <div className="px-6 py-6">
+              <SlotMachineAnimation
+                durationSeconds={5}
+                numberString={formatDrawNumber(winner.entry_id)}
+                participantName={winner.participant_name || 'Anonymous'}
+                photoUrl={winner.selfie_url}
+                prizeName={`Prize Tier ${winner.prize_tier}`}
+                showSelfie
+                showFullName
+              />
+            </div>
+          </motion.div>
         </div>
       )}
 
