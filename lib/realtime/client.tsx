@@ -324,6 +324,18 @@ export function useLuckyDraw(eventId: string) {
             }
         });
 
+        // Listen for draw cancelled (organizer closed modal early)
+        channel.on('broadcast', { event: 'draw_cancelled' }, () => {
+            winnerQueueRef.current = [];
+            if (winnerQueueTimerRef.current) {
+                clearTimeout(winnerQueueTimerRef.current);
+                winnerQueueTimerRef.current = null;
+            }
+            isProcessingQueueRef.current = false;
+            setIsDrawing(false);
+            setWinner(null);
+        });
+
         // Listen for winner announcement
         channel.on('broadcast', { event: 'draw_winner' }, ({ payload }) => {
             const normalizedWinner = normalizeWinnerPayload(payload);

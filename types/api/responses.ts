@@ -53,6 +53,7 @@ export type SocketEvent =
   | 'stats_update'
   | 'draw_started'
   | 'draw_winner'
+  | 'draw_cancelled'
   | 'reaction_added'
   | 'user_joined'
   | 'user_left';

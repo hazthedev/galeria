@@ -463,8 +463,19 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
     if (isDrawing) {
       setShowDrawOverlay(true);
       setShowWinnerOverlay(false);
+    } else {
+      // draw_cancelled or draw finished — dismiss "starting..." overlay
+      setShowDrawOverlay(false);
     }
   }, [isDrawing]);
+
+  // Safety timeout: auto-dismiss "starting..." overlay after 60s
+  // in case organizer never reveals or disconnects
+  useEffect(() => {
+    if (!showDrawOverlay) return;
+    const timeout = setTimeout(() => setShowDrawOverlay(false), 60_000);
+    return () => clearTimeout(timeout);
+  }, [showDrawOverlay]);
 
   useEffect(() => {
     if (!winner) return;

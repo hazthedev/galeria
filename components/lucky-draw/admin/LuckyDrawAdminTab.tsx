@@ -851,6 +851,7 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
       {/* Winner Modal */}
         {showWinnerModal && (
           <WinnerModal
+            eventId={eventId}
             winners={winners}
             animationStyle={config?.animationStyle || 'slot'}
             animationDuration={config?.animationDuration || 8}
