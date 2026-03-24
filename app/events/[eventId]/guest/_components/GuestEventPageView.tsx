@@ -260,9 +260,22 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
         </div>
       </header>
 
-      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+      <motion.div
+        className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8"
+        initial="hidden"
+        animate="visible"
+        variants={{
+          hidden: {},
+          visible: { transition: { staggerChildren: 0.08 } },
+        }}
+      >
         {/* Event Details — Compact Pills */}
-        <div className="mb-6 flex flex-wrap items-center gap-2" style={{ color: v.text }}>
+        <motion.div
+          className="mb-6 flex flex-wrap items-center gap-2"
+          style={{ color: v.text }}
+          variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }}
+          transition={{ duration: 0.3, ease: 'easeOut' }}
+        >
           {[
             { icon: <Calendar className="h-3 w-3" style={{ color: v.secondary }} />, text: formattedDate },
             event.location ? { icon: <MapPin className="h-3 w-3" style={{ color: v.secondary }} />, text: event.location } : null,
@@ -278,17 +291,27 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
               {item!.text}
             </div>
           ))}
-        </div>
+        </motion.div>
 
         {event.description && (
-          <p className="mb-6 max-w-prose text-sm leading-relaxed" style={{ color: v.muted }}>
+          <motion.p
+            className="mb-6 max-w-prose text-sm leading-relaxed"
+            style={{ color: v.muted }}
+            variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+          >
             {event.description}
-          </p>
+          </motion.p>
         )}
 
         {/* Lucky Draw Section — compact when empty, expanded when has numbers */}
         {luckyDrawEnabled && (
-          <section id="lucky-draw" className="mb-6 scroll-mt-24">
+          <motion.section
+            id="lucky-draw"
+            className="mb-6 scroll-mt-24"
+            variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+          >
             {luckyDrawNumbers.length > 0 ? (
               <div
                 className="rounded-2xl border p-5 shadow-sm sm:p-6"
@@ -337,7 +360,7 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
                 </p>
               </div>
             )}
-          </section>
+          </motion.section>
         )}
 
         {/* Upload CTA */}
@@ -353,7 +376,11 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
             {moderationNotice}
           </div>
         )}
-        <div className="mb-8">
+        <motion.div
+          className="mb-8"
+          variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }}
+          transition={{ duration: 0.3, ease: 'easeOut' }}
+        >
           <button
             type="button"
             onClick={() => {
@@ -384,7 +411,7 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
               </div>
             </div>
           </button>
-        </div>
+        </motion.div>
 
         {/* Gallery Filter Pills */}
         {mergedPhotos.length > 0 && (
@@ -434,7 +461,7 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
           lightboxEnabled={lightboxEnabled}
           onLoadMore={loadMoreApproved}
         />
-      </div>
+      </motion.div>
 
       {lightboxEnabled && (
         <PhotoLightbox

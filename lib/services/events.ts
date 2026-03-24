@@ -381,14 +381,14 @@ export async function handleEventCreate(request: NextRequest) {
       },
       features: {
         photo_upload_enabled: true,
-        lucky_draw_enabled: tenantEntitlements.features.lucky_draw,
+        lucky_draw_enabled: false,
         reactions_enabled: tenantEntitlements.features.photo_reactions,
         moderation_required: false,
-        anonymous_allowed: true,
-        guest_download_enabled: true,
+        anonymous_allowed: false,
+        guest_download_enabled: false,
         photo_challenge_enabled: false,
         attendance_enabled: false,
-        lightbox_enabled: true,
+        lightbox_enabled: false,
       },
       limits: {
         max_photos_per_user: 5,

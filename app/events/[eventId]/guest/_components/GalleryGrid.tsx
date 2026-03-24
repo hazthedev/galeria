@@ -1,4 +1,5 @@
 import { Camera, ImageIcon, Loader2 } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
 import type { IPhoto } from '@/lib/types';
 import { PhotoCard } from './PhotoCard';
 import type { RefObject } from 'react';
@@ -89,26 +90,39 @@ export function GalleryGrid({
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-            {photos.map((photo, index) => (
-              <PhotoCard
-                key={photo.id}
-                photo={photo}
-                index={index}
-                userLoveCount={userLoves[photo.id] || 0}
-                totalHeartCount={photo.reactions?.heart || 0}
-                isAnimating={animatingPhotos.has(photo.id)}
-                isSelected={selectedPhotoIds.has(photo.id)}
-                canDownload={canDownload}
-                reactionsEnabled={reactionsEnabled}
-                photoCardStyle={photoCardStyle}
-                onLoveReaction={onLoveReaction}
-                onDownload={onDownloadPhoto}
-                onToggleSelect={onToggleSelect}
-                onOpenLightbox={lightboxEnabled ? onOpenLightbox : () => {}}
-              />
-            ))}
-          </div>
+          <motion.div
+            layout
+            className="grid grid-cols-2 gap-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
+          >
+            <AnimatePresence mode="popLayout">
+              {photos.map((photo, index) => (
+                <motion.div
+                  key={photo.id}
+                  layout
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                >
+                  <PhotoCard
+                    photo={photo}
+                    index={index}
+                    userLoveCount={userLoves[photo.id] || 0}
+                    totalHeartCount={photo.reactions?.heart || 0}
+                    isAnimating={animatingPhotos.has(photo.id)}
+                    isSelected={selectedPhotoIds.has(photo.id)}
+                    canDownload={canDownload}
+                    reactionsEnabled={reactionsEnabled}
+                    photoCardStyle={photoCardStyle}
+                    onLoveReaction={onLoveReaction}
+                    onDownload={onDownloadPhoto}
+                    onToggleSelect={onToggleSelect}
+                    onOpenLightbox={lightboxEnabled ? onOpenLightbox : () => {}}
+                  />
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </motion.div>
           <div className="mt-6 flex items-center justify-center">
             {hasMoreApproved && (
               isLoadingMore ? (
