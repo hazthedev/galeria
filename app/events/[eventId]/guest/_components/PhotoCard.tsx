@@ -99,6 +99,7 @@ export function PhotoCard({
         <label
           onClick={(e) => e.stopPropagation()}
           className="absolute bottom-2 left-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/50 text-white"
+          aria-label="Select photo for download"
         >
           <input
             type="checkbox"
@@ -109,15 +110,17 @@ export function PhotoCard({
         </label>
       )}
 
-      {(photo.status === 'pending' || photo.status === 'rejected') && (
-        <div className={clsx(
-          'absolute inset-0 z-10 flex items-center justify-center text-center text-xs font-semibold uppercase tracking-wider',
-          photo.status === 'pending'
-            ? 'bg-black/55 text-yellow-100'
-            : 'bg-black/70 text-red-100'
-        )}>
-          <span className="rounded-full bg-black/40 px-3 py-1">
-            {photo.status === 'pending' ? 'Pending approval' : 'Rejected'}
+      {photo.status === 'pending' && (
+        <div className="absolute inset-0 z-10 flex items-end justify-center pb-3 backdrop-blur-[2px] bg-white/30">
+          <span className="rounded-full bg-white/80 px-3 py-1 text-[10px] font-semibold tracking-wide text-gray-600 shadow-sm backdrop-blur-sm">
+            Awaiting review
+          </span>
+        </div>
+      )}
+      {photo.status === 'rejected' && (
+        <div className="absolute inset-0 z-10 flex items-end justify-center pb-3 bg-black/40 backdrop-blur-[3px]">
+          <span className="rounded-full bg-red-900/70 px-3 py-1 text-[10px] font-semibold tracking-wide text-red-100 shadow-sm backdrop-blur-sm">
+            Not approved
           </span>
         </div>
       )}
@@ -130,19 +133,36 @@ export function PhotoCard({
         </div>
       )}
 
-      {/* Total Heart Count Badge */}
-      {reactionsEnabled && totalHeartCount > 0 && (
-        <div className="absolute bottom-2 right-2 flex items-center gap-1 rounded-full bg-black/50 px-2 py-1 backdrop-blur-sm">
+      {/* Tap-to-love button — always visible on touch, hover-visible on desktop */}
+      {reactionsEnabled && photo.status === 'approved' && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            if (userLoveCount < 10) onLoveReaction(photo.id);
+          }}
+          disabled={userLoveCount >= 10}
+          className={clsx(
+            'absolute bottom-2 right-2 z-10 flex items-center gap-1 rounded-full px-2 py-1 shadow-lg backdrop-blur-sm transition-all duration-200 ease-out',
+            'opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100',
+            userLoveCount >= 10
+              ? 'bg-pink-500/60 text-white/80 cursor-default'
+              : userLoveCount > 0
+                ? 'bg-pink-500/90 text-white'
+                : 'bg-black/50 text-white hover:bg-pink-500/80'
+          )}
+        >
           <Heart className={clsx(
-            "h-3.5 w-3.5",
-            userLoveCount > 0 ? "fill-pink-500 text-pink-500" : "fill-white text-white"
+            'h-3.5 w-3.5 transition-transform duration-150',
+            userLoveCount > 0 ? 'fill-white scale-110' : ''
           )} />
-          <span className="text-xs font-medium tabular-nums text-white">{totalHeartCount}</span>
-        </div>
+          {totalHeartCount > 0 && (
+            <span className="text-xs font-semibold tabular-nums">{totalHeartCount}</span>
+          )}
+        </button>
       )}
 
-      {/* Overlay on hover */}
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-out">
+      {/* Overlay on hover — caption & contributor */}
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-out">
         <div className="absolute bottom-0 left-0 right-0 p-2 text-white">
           {photo.caption && (
             <p className="text-xs leading-relaxed line-clamp-2">{photo.caption}</p>
@@ -162,7 +182,7 @@ export function PhotoCard({
             animate="visible"
             className="flex items-center justify-center"
           >
-            <Heart className="h-20 w-20 fill-pink-500 text-pink-500 drop-shadow-lg" />
+            <Heart className="h-16 w-16 fill-pink-500 text-pink-500 drop-shadow-lg sm:h-20 sm:w-20" />
           </motion.div>
           {createParticleBurst(8).map((angle, i) => (
             <motion.div
@@ -171,19 +191,9 @@ export function PhotoCard({
               style={{ marginLeft: -12, marginTop: -12 }}
               {...heartParticleVariants(angle, 50)}
             >
-              <Heart className="h-6 w-6 fill-pink-400 text-pink-400 drop-shadow-md" />
+              <Heart className="h-5 w-5 fill-pink-400 text-pink-400 drop-shadow-md sm:h-6 sm:w-6" />
             </motion.div>
           ))}
-        </div>
-      )}
-
-      {/* Double-click hint overlay (only on hover, hidden during animation) */}
-      {reactionsEnabled && !isAnimating && (
-        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-out bg-black/20">
-          <Heart className="h-12 w-12 text-white opacity-80" />
-          {userLoveCount >= 10 && (
-            <span className="absolute bottom-12 text-xs text-white bg-black/50 px-2 py-1 rounded">Max reached</span>
-          )}
         </div>
       )}
     </motion.div>

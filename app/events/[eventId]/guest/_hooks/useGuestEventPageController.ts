@@ -99,6 +99,7 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
   const luckyDrawEnabled = event?.settings?.features?.lucky_draw_enabled !== false;
   const reactionsEnabled = event?.settings?.features?.reactions_enabled !== false;
   const attendanceEnabled = event?.settings?.features?.attendance_enabled !== false;
+  const lightboxEnabled = event?.settings?.features?.lightbox_enabled !== false;
   const derivedTheme = useGuestTheme(event);
   const {
     photoCardStyle,
@@ -131,6 +132,18 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const canDownload = event?.settings?.features?.guest_download_enabled !== false;
   const selectedCount = selectedPhotoIds.size;
+  const [galleryFilter, setGalleryFilter] = useState<'all' | 'mine' | 'most_loved'>('all');
+  const guestFingerprintId = fingerprint ? `guest_${fingerprint}` : null;
+
+  const filteredPhotos = useMemo(() => {
+    if (galleryFilter === 'mine') {
+      return mergedPhotos.filter((p) => p.user_fingerprint === guestFingerprintId);
+    }
+    if (galleryFilter === 'most_loved') {
+      return [...mergedPhotos].sort((a, b) => (b.reactions?.heart || 0) - (a.reactions?.heart || 0));
+    }
+    return mergedPhotos;
+  }, [mergedPhotos, galleryFilter, guestFingerprintId]);
 
   // Load guest name from localStorage on mount
   useEffect(() => {
@@ -1483,7 +1496,11 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
     animatingPhotos,
     selectedPhotoIds,
     canDownload,
+    lightboxEnabled,
     selectedCount,
+    galleryFilter,
+    setGalleryFilter,
+    filteredPhotos,
     lightboxOpen,
     lightboxIndex,
     loadMoreRef,

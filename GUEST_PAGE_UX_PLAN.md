@@ -4,42 +4,49 @@
 - Solid theming system with CSS variables and 5 photo card presets (light/dark support)
 - Polished animations — heart bursts, stagger entrances, floating buttons with Motion
 - Deep feature set — lucky draw, photo challenges, attendance, reactions all integrated
-- Mobile responsive grid (1→5 cols), sticky header, floating FABs
+- Mobile responsive grid (2→5 cols), sticky header, floating FABs
+- Gallery filter pills (All / My Photos / Most Loved)
+- Drag-and-drop upload with visual feedback
 
 ## Issues & Improvements (Priority Order)
 
-### 1. Add Photo Lightbox (Critical)
+### 1. ~~Add Photo Lightbox~~ ✅ DONE
 **Impact: High — core gallery UX**
-Photos are only viewable as grid thumbnails. No full-screen view, no swipe navigation, no zoom. Double-click is consumed by the heart reaction, so users can't open a photo. This is the single biggest UX gap for a photo gallery app.
+Added full-screen lightbox with zoom, swipe, counter. Configurable via `lightbox_enabled` feature toggle in event settings.
 
-### 2. Add "My Photos" Tab/Filter
+### 2. ~~Add "My Photos" Tab/Filter~~ ✅ DONE
 **Impact: High — personal relevance**
-No way to filter by "my photos", "most loved", or "newest". For events with hundreds of photos, finding your own uploads is tedious.
+Added filter pills above gallery: All | My Photos | Most Loved. Filters by `user_fingerprint` match for "mine", sorts by heart count for "most loved".
 
-### 3. Simplify Header — Move Downloads Into Dropdown
+### 3. ~~Simplify Header — Move Downloads Into Dropdown~~ ✅ DONE
 **Impact: Medium — mobile usability**
-The header crams up to 6+ buttons on mobile (Lucky Draw, Download Selected, Download ZIP, Download All, Add Name, Share). On small screens this wraps awkwardly.
+Collapsed 6+ buttons into Share (always visible) + overflow dropdown menu with Edit name, Lucky Draw, Download all, Download ZIP.
 
-### 4. Add Drag-and-Drop to Upload Modal
+### 4. ~~Add Drag-and-Drop to Upload Modal~~ ✅ DONE
 **Impact: Medium — modern UX expectation**
-No drag-and-drop support. Camera/Gallery buttons look identical — just different icons in dashed boxes. No file size/type validation feedback before upload. CAPTCHA block inside the modal is jarring.
+Added drag-and-drop zone wrapping Camera/Gallery buttons. Visual feedback on drag-over (scale, color change, "Drop photos here" text). Gracefully falls back to buttons on mobile.
 
-### 5. Add Tap-to-Love Button on Mobile
+### 5. ~~Add Tap-to-Love Button on Mobile~~ ✅ DONE
 **Impact: Medium — mobile engagement**
-Double-tap to love works on desktop but is unreliable on mobile touch. No visual affordance tells users this is possible. The hover hint (white heart overlay) is invisible on touch devices.
+Added always-visible heart button on touch devices (uses `@media(hover:hover)` to hide on desktop hover-capable devices). Shows love count, disabled state at max (10). Double-tap still works as bonus gesture.
 
-### 6. Stronger Empty State
+### 6. ~~Stronger Empty State~~ ✅ DONE
 **Impact: Medium — first impression**
-Currently just a gray icon + "No photos yet" — no personality, no strong CTA to upload.
+Redesigned with camera + image icon composition, better copy, themed background.
 
 ### 7. ~~Extract Components (Refactor)~~ ✅ DONE
 **Impact: Medium — maintainability**
-Extracted into: PhotoCard (178 lines), UploadModal (419 lines), GalleryGrid (105 lines), HeaderActions (105 lines). Parent GuestEventPageView reduced from 1,046 to 525 lines.
+Extracted into: PhotoCard, UploadModal, GalleryGrid, HeaderActions.
 
-### 8. Use CSS Variables at Container Level
+### 8. ~~Use CSS Variables at Container Level~~ ✅ DONE
 **Impact: Low — code quality**
-Nearly every element uses `style={{ color: surfaceText }}` instead of CSS variables at the container level. Bloats the DOM and makes the component harder to read.
+Set `--g-*` CSS custom properties on the root container in GuestEventPageView. Converted GalleryGrid and HeaderActions to read from CSS vars (removed 9 theme props from GalleryGrid, 4 from HeaderActions). Converted all inline styles in GuestEventPageView to use `v.*` CSS var references. Modals still receive theme props directly (complex computed styles).
 
-### 9. Add Hero/Banner Section
-**Impact: Low — visual polish**
-Add a cover image/banner section if available to improve visual hierarchy. Currently lucky draw, event details, upload CTA, and gallery all have the same card styling — the page reads as a flat list.
+### 9. ~~Flatten Visual Hierarchy~~ ✅ DONE (replaces "Add Hero/Banner")
+**Impact: Medium — visual polish**
+- Event details: Converted from full card to compact inline pills (date, location, guests, photos)
+- Lucky draw: Compact inline banner when empty, expanded card when has numbers
+- Upload CTA: Redesigned from dashed border box to gradient card with camera icon
+- Pending/rejected overlays: Softened from harsh dark overlays to frosted glass + small pill badges
+- Gallery title: Added photo count badge
+- Mobile grid: Changed from 1-column to 2-column with tighter gap

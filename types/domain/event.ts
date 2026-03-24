@@ -25,6 +25,7 @@ export interface IEventFeatures {
   guest_download_enabled: boolean;
   photo_challenge_enabled: boolean;
   attendance_enabled: boolean;
+  lightbox_enabled: boolean;
 }
 
 export interface IEventLimits {

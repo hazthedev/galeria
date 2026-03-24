@@ -6,7 +6,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Loader2, Download, Eye, Heart, Sparkles, Palette, Users, Target } from 'lucide-react';
+import { Loader2, Download, Eye, Heart, Sparkles, Palette, Users, Target, Maximize2 } from 'lucide-react';
 import { toast } from 'sonner';
 import clsx from 'clsx';
 import type { IEvent, IEventTheme, IEventFeatures } from '@/lib/types';
@@ -134,6 +134,9 @@ export function EventSettingsForm({
     const [photoChallengeEnabled, setPhotoChallengeEnabled] = useState(
         event.settings?.features?.photo_challenge_enabled || false
     );
+    const [lightboxEnabled, setLightboxEnabled] = useState(
+        event.settings?.features?.lightbox_enabled !== false
+    );
     const [uploadRateLimits, setUploadRateLimits] = useState({
         ...DEFAULT_UPLOAD_RATE_LIMITS,
         ...(event.settings?.security?.upload_rate_limits || {}),
@@ -165,7 +168,8 @@ export function EventSettingsForm({
             effectiveLuckyDrawEnabled !== originalLuckyDrawEnabled ||
             effectiveReactionsEnabled !== originalReactionsEnabled ||
             attendanceEnabled !== (originalFeatures.attendance_enabled !== false) ||
-            photoChallengeEnabled !== (originalFeatures.photo_challenge_enabled || false);
+            photoChallengeEnabled !== (originalFeatures.photo_challenge_enabled || false) ||
+            lightboxEnabled !== (originalFeatures.lightbox_enabled !== false);
 
         const themeChanged =
             photoCardStyle !== (originalTheme.photo_card_style || 'vacation') ||
@@ -192,6 +196,7 @@ export function EventSettingsForm({
         effectiveReactionsEnabled,
         attendanceEnabled,
         photoChallengeEnabled,
+        lightboxEnabled,
         photoCardStyle,
         primaryColor,
         secondaryColor,
@@ -231,6 +236,7 @@ export function EventSettingsForm({
                             reactions_enabled: effectiveReactionsEnabled,
                             attendance_enabled: attendanceEnabled,
                             photo_challenge_enabled: photoChallengeEnabled,
+                            lightbox_enabled: lightboxEnabled,
                         },
                         security: {
                             upload_rate_limits: {
@@ -609,6 +615,35 @@ export function EventSettingsForm({
                                 className={clsx(
                                     'absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-md transition-transform',
                                     guestDownloadEnabled ? 'left-[22px]' : 'left-0.5'
+                                )}
+                            />
+                        </div>
+                    </label>
+
+                    {/* Photo Lightbox Toggle */}
+                    <label className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-4 cursor-pointer hover:border-violet-300 dark:border-gray-600 dark:bg-gray-800 dark:hover:border-violet-500 transition-colors">
+                        <div className="flex items-center gap-3">
+                            <Maximize2 className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                            <div>
+                                <p className="font-medium text-gray-900 dark:text-gray-100">
+                                    Enable Photo Lightbox
+                                </p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                    Allow guests to tap photos for full-screen viewing with zoom
+                                </p>
+                            </div>
+                        </div>
+                        <div
+                            onClick={() => setLightboxEnabled(!lightboxEnabled)}
+                            className={clsx(
+                                'relative h-6 w-11 rounded-full transition-colors cursor-pointer',
+                                lightboxEnabled ? 'bg-violet-600' : 'bg-gray-300 dark:bg-gray-600'
+                            )}
+                        >
+                            <div
+                                className={clsx(
+                                    'absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-md transition-transform',
+                                    lightboxEnabled ? 'left-[22px]' : 'left-0.5'
                                 )}
                             />
                         </div>

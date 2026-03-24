@@ -2,7 +2,6 @@ import {
   Calendar,
   MapPin,
   Users,
-  Upload,
   Loader2,
   ImageIcon,
   X,
@@ -34,6 +33,17 @@ type GuestEventPageViewProps = {
   controller: ReturnType<typeof useGuestEventPageController>;
 };
 
+// Theme colors via CSS variables (--g-*) — set on the root container
+const v = {
+  text: 'var(--g-text)',
+  muted: 'var(--g-muted)',
+  border: 'var(--g-border)',
+  surface: 'var(--g-surface)',
+  inputBg: 'var(--g-input-bg)',
+  headerBg: 'var(--g-header-bg)',
+  secondary: 'var(--g-secondary)',
+} as const;
+
 export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
   const {
     resolvedEventId, event, isLoading, error, showShareModal, showUploadModal, showCheckInModal,
@@ -43,7 +53,8 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
     showDrawOverlay, showWinnerOverlay, mergedPhotos, guestName, isAnonymous, showGuestModal, allowAnonymous,
     luckyDrawEnabled, reactionsEnabled, attendanceEnabled, photoCardStyle, themePrimary, themeSecondary, themeBackground, themeSurface,
     themeGradient, surfaceText, surfaceMuted, surfaceBorder, inputBackground, inputBorder, headerBackground,
-    secondaryText, selectedFiles, caption, userLoves, animatingPhotos, selectedPhotoIds, canDownload, selectedCount,
+    secondaryText, selectedFiles, caption, userLoves, animatingPhotos, selectedPhotoIds, canDownload, lightboxEnabled, selectedCount,
+    galleryFilter, setGalleryFilter, filteredPhotos,
     uploadUsageUser,
     lightboxOpen, lightboxIndex,
     loadMoreRef, hasMoreApproved, isLoadingMore, handleGuestModalSubmit, setShowGuestModal, handleLoveReaction,
@@ -88,7 +99,22 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
   });
 
   return (
-    <div className="min-h-screen" style={{ background: themeBackground }}>
+    <div
+      className="min-h-screen"
+      style={{
+        background: themeBackground,
+        '--g-primary': themePrimary,
+        '--g-secondary': themeSecondary,
+        '--g-surface': themeSurface,
+        '--g-text': surfaceText,
+        '--g-muted': surfaceMuted,
+        '--g-border': surfaceBorder,
+        '--g-input-bg': inputBackground,
+        '--g-input-border': inputBorder,
+        '--g-header-bg': headerBackground,
+        '--g-secondary-text': secondaryText,
+      } as React.CSSProperties}
+    >
       {/* Guest Name Modal */}
       <GuestNameModal
         isOpen={showGuestModal}
@@ -114,26 +140,26 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
           <div
             className="w-full max-w-sm rounded-2xl p-6 text-center shadow-2xl"
-            style={{ backgroundColor: themeSurface, color: surfaceText, borderColor: surfaceBorder }}
+            style={{ backgroundColor: v.surface, color: v.text, borderColor: v.border }}
           >
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold leading-snug tracking-tight" style={{ color: surfaceText }}>
+              <h3 className="text-lg font-semibold leading-snug tracking-tight" style={{ color: v.text }}>
                 Lucky Draw
               </h3>
               <button
                 onClick={() => setShowDrawOverlay(false)}
                 className="hover:opacity-80"
-                style={{ color: surfaceMuted }}
+                style={{ color: v.muted }}
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
             <div className="flex flex-col items-center gap-3">
               <Loader2 className="h-10 w-10 animate-spin text-violet-600" />
-              <p className="text-sm font-medium" style={{ color: surfaceText }}>
+              <p className="text-sm font-medium" style={{ color: v.text }}>
                 The lucky draw is starting...
               </p>
-              <p className="text-xs" style={{ color: surfaceMuted }}>
+              <p className="text-xs" style={{ color: v.muted }}>
                 Stay tuned for the winner announcement.
               </p>
             </div>
@@ -145,16 +171,16 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
           <div
             className="w-full max-w-2xl rounded-2xl p-6 text-center shadow-2xl"
-            style={{ backgroundColor: themeSurface, color: surfaceText, borderColor: surfaceBorder }}
+            style={{ backgroundColor: v.surface, color: v.text, borderColor: v.border }}
           >
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold leading-snug tracking-tight" style={{ color: surfaceText }}>
+              <h3 className="text-lg font-semibold leading-snug tracking-tight" style={{ color: v.text }}>
                 Winner Announced
               </h3>
               <button
                 onClick={() => setShowWinnerOverlay(false)}
                 className="hover:opacity-80"
-                style={{ color: surfaceMuted }}
+                style={{ color: v.muted }}
               >
                 <X className="h-5 w-5" />
               </button>
@@ -175,24 +201,20 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
       {/* Header */}
       <header
         className="sticky top-0 z-50 border-b backdrop-blur-sm"
-        style={{ backgroundColor: headerBackground, borderColor: surfaceBorder }}
+        style={{ backgroundColor: v.headerBg, borderColor: v.border }}
       >
         <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-col gap-1">
-              <h1 className="text-2xl font-bold leading-tight tracking-tight sm:text-3xl" style={{ color: surfaceText }}>
+              <h1 className="text-2xl font-bold leading-tight tracking-tight sm:text-3xl" style={{ color: v.text }}>
                 {event.name}
               </h1>
-              <div className="flex flex-wrap items-center gap-2 text-sm leading-normal">
+              <div className="flex flex-wrap items-center gap-2 text-sm leading-normal" style={{ color: v.muted }}>
                 {event.custom_hashtag && (
-                  <span style={{ color: surfaceMuted }}>
-                    #{event.custom_hashtag}
-                  </span>
+                  <span>#{event.custom_hashtag}</span>
                 )}
                 {(guestName || isAnonymous) && (
-                  <span style={{ color: surfaceMuted }}>
-                    Hi, {isAnonymous ? 'Anonymous' : guestName}!
-                  </span>
+                  <span>Hi, {isAnonymous ? 'Anonymous' : guestName}!</span>
                 )}
               </div>
             </div>
@@ -204,8 +226,6 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
               isAnonymous={isAnonymous}
               themeSecondary={themeSecondary}
               secondaryText={secondaryText}
-              surfaceText={surfaceText}
-              surfaceBorder={surfaceBorder}
               onDownloadSelectedIndividually={handleDownloadSelectedIndividually}
               onDownloadSelected={handleDownloadSelected}
               onDownloadAll={handleDownloadAll}
@@ -216,37 +236,46 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
         </div>
       </header>
 
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        {/* Lucky Draw Section */}
-        {luckyDrawEnabled && (
-          <section
-            id="lucky-draw"
-            className="mb-8 rounded-2xl border p-6 shadow-sm sm:p-8 scroll-mt-24"
-            style={{ backgroundColor: themeSurface, borderColor: themePrimary, color: surfaceText }}
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2" style={{ color: themeSecondary }}>
-                  <Trophy className="h-5 w-5" />
-                  <span className="text-xs font-semibold uppercase tracking-wider">Lucky Draw</span>
-                </div>
-                <h2 className="mt-2 text-xl font-bold leading-snug tracking-tight sm:text-2xl" style={{ color: surfaceText }}>
-                  Your Entry Numbers
-                </h2>
-                <p className="mt-2 text-sm leading-relaxed" style={{ color: surfaceMuted }}>
-                  Join the lucky draw when you upload a photo to get your entry number.
-                </p>
-              </div>
-              <div
-                className="hidden sm:flex h-12 w-12 items-center justify-center rounded-full"
-                style={{ backgroundColor: themeSecondary, color: secondaryText }}
-              >
-                <Trophy className="h-6 w-6" />
-              </div>
+      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+        {/* Event Details — Compact Pills */}
+        <div className="mb-6 flex flex-wrap items-center gap-2" style={{ color: v.text }}>
+          {[
+            { icon: <Calendar className="h-3 w-3" style={{ color: v.secondary }} />, text: formattedDate },
+            event.location ? { icon: <MapPin className="h-3 w-3" style={{ color: v.secondary }} />, text: event.location } : null,
+            event.expected_guests ? { icon: <Users className="h-3 w-3" style={{ color: v.secondary }} />, text: `${event.expected_guests} guests` } : null,
+            { icon: <ImageIcon className="h-3 w-3" style={{ color: v.secondary }} />, text: `${mergedPhotos.length} photos` },
+          ].filter(Boolean).map((item, i) => (
+            <div
+              key={i}
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium"
+              style={{ backgroundColor: v.inputBg }}
+            >
+              {item!.icon}
+              {item!.text}
             </div>
+          ))}
+        </div>
 
-            <div className="mt-6">
-              {luckyDrawNumbers.length > 0 ? (
+        {event.description && (
+          <p className="mb-6 max-w-prose text-sm leading-relaxed" style={{ color: v.muted }}>
+            {event.description}
+          </p>
+        )}
+
+        {/* Lucky Draw Section — compact when empty, expanded when has numbers */}
+        {luckyDrawEnabled && (
+          <section id="lucky-draw" className="mb-6 scroll-mt-24">
+            {luckyDrawNumbers.length > 0 ? (
+              <div
+                className="rounded-2xl border p-5 shadow-sm sm:p-6"
+                style={{ backgroundColor: v.surface, borderColor: v.border }}
+              >
+                <div className="mb-4 flex items-center gap-2">
+                  <Trophy className="h-4 w-4" style={{ color: v.secondary }} />
+                  <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: v.secondary }}>
+                    Your Lucky Draw Numbers
+                  </span>
+                </div>
                 <div className="flex flex-wrap gap-2">
                   {luckyDrawNumbers.map((number, index) => (
                     <motion.span
@@ -255,91 +284,43 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
                       variants={luckyNumberVariants}
                       initial="hidden"
                       animate="visible"
-                      className="rounded-full px-4 py-2 text-sm font-semibold shadow-sm ring-1"
+                      className="rounded-full px-4 py-2 text-sm font-bold shadow-sm"
                       style={{
                         backgroundColor: themeSecondary,
                         color: secondaryText,
-                        borderColor: surfaceBorder,
                       }}
                     >
                       #{number}
                     </motion.span>
                   ))}
                 </div>
-              ) : hasJoinedDraw ? (
+              </div>
+            ) : (
+              <div
+                className="flex items-center gap-3 rounded-xl border px-4 py-3"
+                style={{ backgroundColor: v.inputBg, borderColor: v.border }}
+              >
                 <div
-                  className="rounded-lg border p-4 text-sm"
-                  style={{ backgroundColor: themeSurface, borderColor: surfaceBorder, color: surfaceMuted }}
+                  className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full"
+                  style={{ backgroundColor: themeSecondary, color: secondaryText }}
                 >
-                  You are in the draw. Your lucky draw number will appear shortly.
+                  <Trophy className="h-4 w-4" />
                 </div>
-              ) : (
-                <div
-                  className="rounded-lg border p-4 text-sm"
-                  style={{ backgroundColor: themeSurface, borderColor: surfaceBorder, color: surfaceMuted }}
-                >
-                  Join the lucky draw when you upload your photo to get your entry number.
-                </div>
-              )}
-            </div>
+                <p className="text-sm" style={{ color: v.muted }}>
+                  {hasJoinedDraw
+                    ? 'You\'re in the draw! Your number will appear shortly.'
+                    : 'Upload a photo to enter the lucky draw and win prizes.'}
+                </p>
+              </div>
+            )}
           </section>
         )}
-
-        {/* Event Details Card */}
-        <div
-          className="mb-8 rounded-2xl border p-6 shadow-sm sm:p-8"
-          style={{ backgroundColor: themeSurface, borderColor: themePrimary, color: surfaceText }}
-        >
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="flex items-start gap-3">
-              <Calendar className="mt-1 h-5 w-5 flex-shrink-0" style={{ color: themeSecondary }} />
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wider" style={{ color: surfaceMuted }}>Date</p>
-                <p className="text-sm font-semibold" style={{ color: surfaceText }}>{formattedDate}</p>
-              </div>
-            </div>
-
-            {event.location && (
-              <div className="flex items-start gap-3">
-                <MapPin className="mt-1 h-5 w-5 flex-shrink-0" style={{ color: themeSecondary }} />
-                <div>
-                  <p className="text-xs font-medium uppercase tracking-wider" style={{ color: surfaceMuted }}>Location</p>
-                  <p className="text-sm font-semibold" style={{ color: surfaceText }}>{event.location}</p>
-                </div>
-              </div>
-            )}
-
-            {event.expected_guests && (
-              <div className="flex items-start gap-3">
-                <Users className="mt-1 h-5 w-5 flex-shrink-0" style={{ color: themeSecondary }} />
-                <div>
-                  <p className="text-xs font-medium uppercase tracking-wider" style={{ color: surfaceMuted }}>Guests</p>
-                  <p className="text-sm font-semibold" style={{ color: surfaceText }}>{event.expected_guests}</p>
-                </div>
-              </div>
-            )}
-
-            <div className="flex items-start gap-3">
-              <ImageIcon className="mt-1 h-5 w-5 flex-shrink-0" style={{ color: themeSecondary }} />
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wider" style={{ color: surfaceMuted }}>Photos</p>
-                <p className="text-sm font-semibold" style={{ color: surfaceText }}>{mergedPhotos.length}</p>
-              </div>
-            </div>
-          </div>
-
-          {event.description && (
-            <div className="mt-6 pt-6 border-t" style={{ borderColor: themePrimary }}>
-              <p className="max-w-prose text-sm leading-relaxed" style={{ color: surfaceMuted }}>{event.description}</p>
-            </div>
-          )}
-        </div>
 
         {/* Upload CTA */}
         {moderationNotice && (
           <div
             className={clsx(
-              'mb-6 rounded-lg px-4 py-3 text-sm font-medium',
+              'mb-4 rounded-lg px-4 py-3 text-sm font-medium',
               moderationNoticeType === 'approved'
                 ? 'bg-green-50 text-green-800 dark:bg-green-900/20 dark:text-green-300'
                 : 'bg-red-50 text-red-800 dark:bg-red-900/20 dark:text-red-300'
@@ -350,27 +331,69 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
         )}
         <div className="mb-8">
           <button
+            type="button"
             onClick={() => {
               setShowUploadModal(true);
               setRecaptchaToken(null);
               setRecaptchaError(null);
             }}
-            className="w-full rounded-2xl border-2 border-dashed p-8 text-center transition-colors"
-            style={{ backgroundColor: themeSurface, borderColor: themePrimary, color: surfaceText }}
+            className="group w-full overflow-hidden rounded-2xl p-6 text-left transition-all duration-200 ease-out hover:shadow-lg sm:p-8"
+            style={{
+              backgroundImage: `linear-gradient(135deg, ${themePrimary}18, ${themeSecondary}18)`,
+              borderColor: v.border,
+            }}
           >
-            <Upload className="mx-auto mb-3 h-10 w-10" style={{ color: themeSecondary }} />
-            <h3 className="text-lg font-semibold leading-snug tracking-tight" style={{ color: surfaceText }}>
-              Share Your Photos
-            </h3>
-            <p className="mt-1 text-sm leading-relaxed" style={{ color: surfaceMuted }}>
-              Upload your favorite moments from this event
-            </p>
+            <div className="flex items-center gap-4">
+              <div
+                className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl transition-transform duration-200 ease-out group-hover:scale-110"
+                style={{ backgroundImage: `linear-gradient(135deg, ${themePrimary}, ${themeSecondary})` }}
+              >
+                <Camera className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <h3 className="text-base font-semibold leading-snug tracking-tight sm:text-lg" style={{ color: v.text }}>
+                  Add your photos
+                </h3>
+                <p className="mt-0.5 text-sm leading-relaxed" style={{ color: v.muted }}>
+                  Capture and share your favorite moments
+                </p>
+              </div>
+            </div>
           </button>
         </div>
 
+        {/* Gallery Filter Pills */}
+        {mergedPhotos.length > 0 && (
+          <div className="mb-4 flex items-center gap-2">
+            {([
+              { key: 'all' as const, label: 'All' },
+              { key: 'mine' as const, label: 'My Photos' },
+              { key: 'most_loved' as const, label: 'Most Loved' },
+            ]).map(({ key, label }) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setGalleryFilter(key)}
+                className={clsx(
+                  'rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all duration-150 ease-out',
+                  galleryFilter === key
+                    ? 'shadow-sm'
+                    : 'opacity-70 hover:opacity-100'
+                )}
+                style={galleryFilter === key
+                  ? { backgroundColor: themeSecondary, color: secondaryText }
+                  : { backgroundColor: v.inputBg, color: v.text }
+                }
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Photo Gallery */}
         <GalleryGrid
-          photos={mergedPhotos}
+          photos={filteredPhotos}
           userLoves={userLoves}
           animatingPhotos={animatingPhotos}
           selectedPhotoIds={selectedPhotoIds}
@@ -380,33 +403,31 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
           hasMoreApproved={hasMoreApproved}
           isLoadingMore={isLoadingMore}
           loadMoreRef={loadMoreRef}
-          surfaceText={surfaceText}
-          surfaceMuted={surfaceMuted}
-          surfaceBorder={surfaceBorder}
-          themeSurface={themeSurface}
-          inputBackground={inputBackground}
           onLoveReaction={handleLoveReaction}
           onDownloadPhoto={handleDownloadPhoto}
           onToggleSelect={toggleSelectedPhoto}
           onOpenLightbox={openLightbox}
+          lightboxEnabled={lightboxEnabled}
           onLoadMore={loadMoreApproved}
         />
       </div>
 
-      <PhotoLightbox
-        open={lightboxOpen}
-        index={lightboxIndex}
-        photos={mergedPhotos}
-        userLoves={userLoves}
-        reactionsEnabled={reactionsEnabled}
-        canDownload={canDownload}
-        themeSecondary={themeSecondary}
-        secondaryText={secondaryText}
-        onClose={() => setLightboxOpen(false)}
-        onIndexChange={setLightboxIndex}
-        onLoveReaction={handleLoveReaction}
-        onDownload={handleDownloadPhoto}
-      />
+      {lightboxEnabled && (
+        <PhotoLightbox
+          open={lightboxOpen}
+          index={lightboxIndex}
+          photos={mergedPhotos}
+          userLoves={userLoves}
+          reactionsEnabled={reactionsEnabled}
+          canDownload={canDownload}
+          themeSecondary={themeSecondary}
+          secondaryText={secondaryText}
+          onClose={() => setLightboxOpen(false)}
+          onIndexChange={setLightboxIndex}
+          onLoveReaction={handleLoveReaction}
+          onDownload={handleDownloadPhoto}
+        />
+      )}
 
       <GuestShareModal
         isOpen={showShareModal}

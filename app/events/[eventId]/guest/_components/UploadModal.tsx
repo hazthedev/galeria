@@ -1,3 +1,6 @@
+'use client';
+
+import { useState, useCallback } from 'react';
 import Image from 'next/image';
 import {
   X,
@@ -5,7 +8,9 @@ import {
   Camera,
   ImageIcon,
   Trophy,
+  Upload,
 } from 'lucide-react';
+import clsx from 'clsx';
 import { motion, AnimatePresence } from 'motion/react';
 import { PhotoChallengeProgressBar } from '@/components/photo-challenge/progress-bar';
 import { Recaptcha } from '@/components/auth/Recaptcha';
@@ -106,6 +111,42 @@ export function UploadModal({
   onRecaptchaExpired,
   onRecaptchaError,
 }: UploadModalProps) {
+  const [isDragOver, setIsDragOver] = useState(false);
+  const dragCounter = useCallback(() => {
+    let count = 0;
+    return {
+      inc: () => ++count,
+      dec: () => --count,
+      reset: () => { count = 0; },
+    };
+  }, [])();
+
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (dragCounter.inc() === 1) setIsDragOver(true);
+  }, [dragCounter]);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (dragCounter.dec() === 0) setIsDragOver(false);
+  }, [dragCounter]);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+    dragCounter.reset();
+    const files = e.dataTransfer.files;
+    if (files?.length) onFileSelect(files);
+  }, [onFileSelect, dragCounter]);
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -223,47 +264,65 @@ export function UploadModal({
                     </div>
                   )}
 
-                  {/* File Selection Buttons */}
+                  {/* File Selection — drag-and-drop + buttons */}
                   {selectedFiles.length < 5 && (
-                    <div className="grid grid-cols-2 gap-3">
-                      <label
-                        className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed p-4 transition-colors duration-150 ease-out hover:opacity-90"
-                        style={{ borderColor: themePrimary, backgroundColor: inputBackground }}
-                      >
-                        <input
-                          type="file"
-                          accept="image/*"
-                          capture="environment"
-                          onChange={(e) => onFileSelect(e.target.files)}
-                          className="hidden"
-                        />
-                        <Camera className="h-8 w-8" style={{ color: themeSecondary }} />
-                        <span className="text-xs font-semibold" style={{ color: surfaceText }}>
-                          Camera
-                        </span>
-                      </label>
+                    <div
+                      onDragEnter={handleDragEnter}
+                      onDragLeave={handleDragLeave}
+                      onDragOver={handleDragOver}
+                      onDrop={handleDrop}
+                      className={clsx(
+                        'relative rounded-xl border-2 border-dashed p-4 transition-all duration-200 ease-out',
+                        isDragOver ? 'scale-[1.02]' : ''
+                      )}
+                      style={{
+                        borderColor: isDragOver ? themeSecondary : themePrimary,
+                        backgroundColor: isDragOver ? `${themeSecondary}10` : inputBackground,
+                      }}
+                    >
+                      {isDragOver ? (
+                        <div className="flex flex-col items-center gap-2 py-4">
+                          <Upload className="h-8 w-8" style={{ color: themeSecondary }} />
+                          <span className="text-sm font-semibold" style={{ color: themeSecondary }}>
+                            Drop photos here
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 gap-3">
+                          <label className="flex cursor-pointer flex-col items-center gap-2 rounded-lg p-3 transition-colors duration-150 ease-out hover:opacity-80">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              capture="environment"
+                              onChange={(e) => onFileSelect(e.target.files)}
+                              className="hidden"
+                            />
+                            <Camera className="h-7 w-7" style={{ color: themeSecondary }} />
+                            <span className="text-xs font-semibold" style={{ color: surfaceText }}>
+                              Camera
+                            </span>
+                          </label>
 
-                      <label
-                        className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed p-4 transition-colors duration-150 ease-out hover:opacity-90"
-                        style={{ borderColor: themePrimary, backgroundColor: inputBackground }}
-                      >
-                        <input
-                          type="file"
-                          accept="image/*"
-                          multiple
-                          onChange={(e) => onFileSelect(e.target.files)}
-                          className="hidden"
-                        />
-                        <ImageIcon className="h-8 w-8" style={{ color: themeSecondary }} />
-                        <span className="text-xs font-semibold" style={{ color: surfaceText }}>
-                          Gallery
-                        </span>
-                      </label>
+                          <label className="flex cursor-pointer flex-col items-center gap-2 rounded-lg p-3 transition-colors duration-150 ease-out hover:opacity-80">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              multiple
+                              onChange={(e) => onFileSelect(e.target.files)}
+                              className="hidden"
+                            />
+                            <ImageIcon className="h-7 w-7" style={{ color: themeSecondary }} />
+                            <span className="text-xs font-semibold" style={{ color: surfaceText }}>
+                              Gallery
+                            </span>
+                          </label>
+                        </div>
+                      )}
                     </div>
                   )}
 
                   <p className="text-xs leading-relaxed text-center" style={{ color: surfaceMuted }}>
-                    Large photos are optimized automatically before upload
+                    {selectedFiles.length < 5 ? 'Drag & drop or tap to select — ' : ''}large photos are optimized automatically
                   </p>
 
                   {/* Caption */}

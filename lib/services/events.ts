@@ -388,6 +388,7 @@ export async function handleEventCreate(request: NextRequest) {
         guest_download_enabled: true,
         photo_challenge_enabled: false,
         attendance_enabled: false,
+        lightbox_enabled: true,
       },
       limits: {
         max_photos_per_user: 5,
