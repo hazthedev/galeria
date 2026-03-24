@@ -125,14 +125,6 @@ export function PhotoCard({
         </div>
       )}
 
-      {/* Love Icon at Top Right (when user has loved) */}
-      {reactionsEnabled && userLoveCount > 0 && (
-        <div className="absolute top-2 right-2 flex items-center gap-1 rounded-full bg-pink-500 px-2 py-1 shadow-lg">
-          <Heart className="h-4 w-4 fill-white text-white" />
-          <span className="text-xs font-bold tabular-nums text-white">{userLoveCount}</span>
-        </div>
-      )}
-
       {/* Tap-to-love button — always visible on touch, hover-visible on desktop */}
       {reactionsEnabled && photo.status === 'approved' && (
         <button
