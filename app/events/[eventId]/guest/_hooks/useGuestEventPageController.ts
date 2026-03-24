@@ -76,6 +76,33 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
   const [showDrawOverlay, setShowDrawOverlay] = useState(false);
   const [showWinnerOverlay, setShowWinnerOverlay] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [displayProgress, setDisplayProgress] = useState(0);
+  const displayProgressRef = useRef(0);
+  // Perceived-speed progress: races ahead quickly, decelerates as it approaches
+  // the real progress, and snaps to 100% when upload completes.
+  useEffect(() => {
+    if (!isUploading) {
+      displayProgressRef.current = 0;
+      setDisplayProgress(0);
+      return;
+    }
+    const tick = () => {
+      const real = uploadProgress;
+      const current = displayProgressRef.current;
+      // Target is always slightly ahead of real, capped at 95 (never hit 100 until real does)
+      const target = real >= 100 ? 100 : Math.min(real + 20, 95);
+      // Move quickly when far from target, slow down when close
+      const gap = target - current;
+      const step = Math.max(0.5, gap * 0.15);
+      const next = Math.min(target, current + step);
+      displayProgressRef.current = next;
+      setDisplayProgress(Math.round(next));
+    };
+    tick(); // Immediate first tick
+    const interval = setInterval(tick, 80);
+    return () => clearInterval(interval);
+  }, [isUploading, uploadProgress]);
+
   const pendingIdsRef = useRef<Set<string>>(new Set());
   const rejectedIdsRef = useRef<Set<string>>(new Set());
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
@@ -1456,7 +1483,7 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
     hasCheckedIn,
     isUploading,
     isOptimizing,
-    uploadProgress,
+    uploadProgress: displayProgress,
     uploadError,
     uploadSuccess,
     uploadSuccessMessage,
