@@ -69,8 +69,9 @@ export function WinnerModal({
   };
 
   const handleClose = () => {
-    // If we started revealing but haven't shown all winners, cancel on guest side
-    if (hasStartedReveal && revealedCountRef.current < winners.length) {
+    // Always cancel on guest side unless all winners were revealed —
+    // draw_started was already broadcast when the draw was executed
+    if (revealedCountRef.current < winners.length) {
       void broadcastReveal('draw_cancelled');
     }
     onClose();
