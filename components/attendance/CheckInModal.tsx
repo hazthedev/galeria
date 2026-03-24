@@ -163,9 +163,6 @@ export function CheckInModal({ eventId, onClose, onSuccess }: CheckInModalProps)
                   disabled={isSubmitting}
                 />
               </div>
-              <p className="mt-1 text-xs" style={{ color: 'var(--g-muted)' }}>
-                Used to prevent duplicate check-ins
-              </p>
             </div>
 
             {/* Phone field */}
@@ -197,9 +194,6 @@ export function CheckInModal({ eventId, onClose, onSuccess }: CheckInModalProps)
                   disabled={isSubmitting}
                 />
               </div>
-              <p className="mt-1 text-xs" style={{ color: 'var(--g-muted)' }}>
-                Alternative to email for duplicate check
-              </p>
             </div>
 
             {/* Companions counter */}
