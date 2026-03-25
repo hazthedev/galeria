@@ -261,10 +261,12 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
           // Validate localStorage against active config — clear stale flags
           // from a previous draw round so the guest can participate again
           const storedConfigId = localStorage.getItem(`lucky_draw_config_${resolvedEventId}`);
-          if (storedConfigId && storedConfigId !== configId) {
+          const hasStaleJoin = localStorage.getItem(`lucky_draw_joined_${resolvedEventId}`) === 'true';
+          // Clear if config ID changed OR if join flags exist without a stored config ID (pre-fix data)
+          if (storedConfigId !== configId && (storedConfigId || hasStaleJoin)) {
             localStorage.removeItem(`lucky_draw_joined_${resolvedEventId}`);
             localStorage.removeItem(`lucky_draw_numbers_${resolvedEventId}`);
-            localStorage.removeItem(`lucky_draw_config_${resolvedEventId}`);
+            localStorage.setItem(`lucky_draw_config_${resolvedEventId}`, configId);
             setHasJoinedDraw(false);
             setLuckyDrawNumbers([]);
             setJoinLuckyDraw(true);
