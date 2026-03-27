@@ -2,6 +2,7 @@ import type { AnimationStyle } from '@/lib/types';
 import type { PrizeTierForm } from './types';
 
 export const prizeTierOptions: Array<{ value: PrizeTierForm['tier']; label: string }> = [
+  { value: 'grand', label: 'Grand Prize' },
   { value: 'first', label: 'First Prize' },
   { value: 'second', label: 'Second Prize' },
   { value: 'third', label: 'Third Prize' },
@@ -13,6 +14,7 @@ export const animationStyleOptions: Array<{ value: AnimationStyle; label: string
 ];
 
 export const defaultTierName: Record<PrizeTierForm['tier'], string> = {
+  grand: 'Grand Prize',
   first: 'First Prize',
   second: 'Second Prize',
   third: 'Third Prize',

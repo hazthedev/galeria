@@ -4,7 +4,7 @@
 
 export type AnimationStyle = 'slot';
 
-export type PrizeTier = 'first' | 'second' | 'third' | 'consolation';
+export type PrizeTier = 'grand' | 'first' | 'second' | 'third' | 'consolation';
 
 export type DrawStatus = 'scheduled' | 'completed' | 'cancelled';
 

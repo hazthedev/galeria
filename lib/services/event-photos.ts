@@ -4,7 +4,7 @@
 
 import { after, NextRequest, NextResponse } from 'next/server';
 import { getTenantDb } from '@/lib/db';
-import { deleteKeys } from '@/lib/redis';
+import { clearLuckyDrawConfigReadCache } from '@/lib/domain/events/lucky-draw-cache';
 import { deletePhotoAssets, uploadImageToStorage, validateUploadedImage, getTierValidationOptions } from '@/lib/images';
 import { generatePhotoId } from '@/lib/utils';
 import { createEntryFromPhoto } from '@/lib/lucky-draw';
@@ -25,25 +25,6 @@ function isDbSessionPoolExhausted(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error || '');
 
   return code === 'XX000' && message.includes('MaxClientsInSessionMode');
-}
-
-function buildLuckyDrawConfigCacheKey(
-  tenantId: string,
-  eventId: string,
-  activeOnly: boolean
-): string {
-  return `cache:lucky-draw:config:${tenantId}:${eventId}:${activeOnly ? 'active' : 'latest'}`;
-}
-
-async function clearLuckyDrawConfigCache(tenantId: string, eventId: string): Promise<void> {
-  try {
-    await deleteKeys([
-      buildLuckyDrawConfigCacheKey(tenantId, eventId, true),
-      buildLuckyDrawConfigCacheKey(tenantId, eventId, false),
-    ]);
-  } catch (error) {
-    console.warn('[API] Failed to clear lucky draw config cache after photo upload:', error);
-  }
 }
 
 interface PhotoInsertPayload {
@@ -223,7 +204,7 @@ function scheduleDeferredDirectUploadPostProcessing(input: {
     tasks.push({
       name: 'lucky-draw-cache',
       run: async () => {
-        await clearLuckyDrawConfigCache(input.tenantId, input.eventId);
+        await clearLuckyDrawConfigReadCache(input.tenantId, input.eventId);
       },
     });
   }
@@ -1181,7 +1162,7 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
 
     if (refreshLuckyDrawConfig) {
       after(async () => {
-        await clearLuckyDrawConfigCache(tenantId, eventId);
+        await clearLuckyDrawConfigReadCache(tenantId, eventId);
       });
     }
 

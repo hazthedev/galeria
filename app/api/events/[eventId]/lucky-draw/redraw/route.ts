@@ -4,6 +4,7 @@
 // Endpoint to redraw a single prize tier when winner is unavailable
 
 import { NextRequest, NextResponse } from 'next/server';
+import { clearLuckyDrawConfigReadCache } from '@/lib/domain/events/lucky-draw-cache';
 import { redrawPrizeTier } from '@/lib/lucky-draw';
 import { requireEventModeratorAccess } from '@/lib/domain/auth/auth';
 import { publishEventBroadcast } from '@/lib/realtime/server';
@@ -45,9 +46,9 @@ export async function POST(
     const body = await request.json();
     const { prizeTier, previousWinnerId, configId, reason } = body;
 
-        if (!prizeTier || !configId) {
+        if (!prizeTier || !configId || !previousWinnerId) {
             return NextResponse.json(
-                { error: 'prizeTier and configId are required', code: 'MISSING_PARAMS' },
+                { error: 'prizeTier, configId, and previousWinnerId are required', code: 'MISSING_PARAMS' },
                 { status: 400 }
             );
         }
@@ -63,6 +64,8 @@ export async function POST(
             reason: reason || 'Winner unavailable',
             redrawBy: userId,
         });
+
+        await clearLuckyDrawConfigReadCache(tenantId, eventId);
 
         await publishEventBroadcast(eventId, 'draw_winner', mapWinnerToBroadcastPayload(result.newWinner, eventId));
 
@@ -97,10 +100,21 @@ export async function POST(
     if (errorMessage.includes('Lucky Draw is not available on your current plan')) {
       return createLuckyDrawFeatureUnavailableResponse();
     }
+    if (
+      errorMessage.includes('required') ||
+      errorMessage.includes('not found') ||
+      errorMessage.includes('does not belong') ||
+      errorMessage.includes('only allowed') ||
+      errorMessage.includes('No eligible entries')
+    ) {
+      return NextResponse.json(
+        { error: errorMessage, code: 'REDRAW_INVALID' },
+        { status: 400 }
+      );
+    }
         return NextResponse.json(
             { error: errorMessage || 'Failed to redraw', code: 'REDRAW_ERROR' },
             { status: 500 }
         );
     }
 }
-

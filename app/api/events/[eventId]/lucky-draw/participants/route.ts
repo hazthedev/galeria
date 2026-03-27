@@ -4,7 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { requireEventModeratorAccess } from '@/lib/domain/auth/auth';
-import { getActiveConfig, getEventEntries } from '@/lib/lucky-draw';
+import { getEventEntries, getLatestConfig } from '@/lib/lucky-draw';
 import { resolveOptionalAuth, resolveTenantId } from '@/lib/api-request-context';
 import { isTenantFeatureEnabled } from '@/lib/tenant';
 
@@ -45,13 +45,12 @@ export async function GET(
 
     await requireEventModeratorAccess(request.headers, eventId);
 
-    // Get active config
-    const config = await getActiveConfig(tenantId, eventId);
+    const config = await getLatestConfig(tenantId, eventId);
 
     if (!config) {
       return NextResponse.json({
         data: [],
-        message: 'No active draw configuration',
+        message: 'No draw configuration found',
       });
     }
 

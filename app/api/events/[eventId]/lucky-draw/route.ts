@@ -3,6 +3,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
+import { clearLuckyDrawConfigReadCache } from '@/lib/domain/events/lucky-draw-cache';
 import {
   executeDraw,
   getActiveConfig,
@@ -56,6 +57,7 @@ export async function POST(
 
     // Execute draw and broadcast draw_started so guests see "starting..."
     const result = await executeDraw(tenantId, config.id, 'admin');
+    await clearLuckyDrawConfigReadCache(tenantId, eventId);
 
     await publishEventBroadcast(eventId, 'draw_started', {
       event_id: eventId,
@@ -89,6 +91,21 @@ export async function POST(
       return NextResponse.json(
         { error: 'Event not found', code: 'EVENT_NOT_FOUND' },
         { status: 404 }
+      );
+    }
+    if (errorMessage.includes('Draw is not in scheduled status')) {
+      return NextResponse.json(
+        { error: 'This draw has already been processed or is no longer scheduled.', code: 'DRAW_NOT_SCHEDULED' },
+        { status: 409 }
+      );
+    }
+    if (
+      errorMessage.includes('No eligible entries') ||
+      errorMessage.includes('Draw configuration not found')
+    ) {
+      return NextResponse.json(
+        { error: errorMessage, code: 'DRAW_INVALID' },
+        { status: 400 }
       );
     }
     return NextResponse.json(

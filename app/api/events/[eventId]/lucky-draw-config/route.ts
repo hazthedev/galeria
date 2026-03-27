@@ -4,10 +4,14 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantDb } from '@/lib/db';
-import { deleteKeys, getRawKey, setRawKey } from '@/lib/redis';
+import { getRawKey, setRawKey } from '@/lib/redis';
 import { hasModeratorRole, requireAuthForApi } from '@/lib/domain/auth/auth';
 import { resolveOptionalAuth, resolveTenantId } from '@/lib/api-request-context';
 import { isTenantFeatureEnabled } from '@/lib/tenant';
+import {
+  buildLuckyDrawConfigCacheKey,
+  clearLuckyDrawConfigReadCache,
+} from '@/lib/domain/events/lucky-draw-cache';
 import {
   createLuckyDrawConfig,
   getActiveConfig,
@@ -42,6 +46,12 @@ const isRecoverableReadError = (error: unknown) =>
   error !== null &&
   'code' in error &&
   ['42P01', '42703'].includes((error as { code?: string }).code || '');
+
+const isUniqueViolation = (error: unknown) =>
+  typeof error === 'object' &&
+  error !== null &&
+  'code' in error &&
+  (error as { code?: string }).code === '23505';
 
 const luckyDrawConfigSelectColumns = `
   id,
@@ -80,28 +90,6 @@ function toNumber(value: unknown): number {
   return 0;
 }
 
-function buildConfigCacheKey(
-  tenantId: string,
-  eventId: string,
-  activeOnly: boolean
-): string {
-  return `cache:lucky-draw:config:${tenantId}:${eventId}:${activeOnly ? 'active' : 'latest'}`;
-}
-
-async function clearConfigReadCache(
-  tenantId: string,
-  eventId: string
-): Promise<void> {
-  try {
-    await deleteKeys([
-      buildConfigCacheKey(tenantId, eventId, true),
-      buildConfigCacheKey(tenantId, eventId, false),
-    ]);
-  } catch (error) {
-    console.warn('[API] Failed to clear lucky draw config cache:', error);
-  }
-}
-
 type EventAccessRecord = {
   id: string;
   organizer_id: string;
@@ -138,6 +126,16 @@ async function requireConfigWriteAccess(
 }
 
 function getConfigMutationError(error: unknown) {
+  if (isUniqueViolation(error)) {
+    return NextResponse.json(
+      {
+        error: 'A scheduled Lucky Draw config already exists for this event. Refresh and edit the existing config instead.',
+        code: 'CONFIG_ALREADY_EXISTS',
+      },
+      { status: 409 }
+    );
+  }
+
   if (error instanceof Error) {
     if (
       error.message.includes('Authentication required') ||
@@ -195,7 +193,7 @@ export async function GET(
 
     const { searchParams } = new URL(request.url);
     const activeOnly = searchParams.get('active') === 'true';
-    const cacheKey = buildConfigCacheKey(tenantId, eventId, activeOnly);
+    const cacheKey = buildLuckyDrawConfigCacheKey(tenantId, eventId, activeOnly);
 
     try {
       const cachedRaw = await getRawKey(cacheKey);
@@ -377,7 +375,7 @@ async function upsertConfig(
         { id: existingConfig.id }
       );
 
-      await clearConfigReadCache(tenantId, eventId);
+      await clearLuckyDrawConfigReadCache(tenantId, eventId);
 
       const updatedConfig = await getLatestConfig(tenantId, eventId);
       return NextResponse.json({
@@ -402,7 +400,7 @@ async function upsertConfig(
       createdBy: userId,
     });
 
-    await clearConfigReadCache(tenantId, eventId);
+    await clearLuckyDrawConfigReadCache(tenantId, eventId);
 
     return NextResponse.json({
       data: newConfig,

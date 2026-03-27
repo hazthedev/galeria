@@ -4,9 +4,9 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantDb } from '@/lib/db';
-import { deleteKeys } from '@/lib/redis';
 import { requireEventModeratorAccess } from '@/lib/domain/auth/auth';
-import { createManualEntries, getActiveConfig, getEventEntries } from '@/lib/lucky-draw';
+import { clearLuckyDrawConfigReadCache } from '@/lib/domain/events/lucky-draw-cache';
+import { createManualEntries, getActiveConfig, getEventEntries, getLatestConfig } from '@/lib/lucky-draw';
 import { resolveOptionalAuth, resolveRequiredTenantId, resolveTenantId } from '@/lib/api-request-context';
 import { isTenantFeatureEnabled } from '@/lib/tenant';
 
@@ -28,25 +28,6 @@ const isRecoverableReadError = (error: unknown) =>
   'code' in error &&
   ['42P01', '42703'].includes((error as { code?: string }).code || '');
 
-function buildConfigCacheKey(
-  tenantId: string,
-  eventId: string,
-  activeOnly: boolean
-): string {
-  return `cache:lucky-draw:config:${tenantId}:${eventId}:${activeOnly ? 'active' : 'latest'}`;
-}
-
-async function clearConfigReadCache(tenantId: string, eventId: string): Promise<void> {
-  try {
-    await deleteKeys([
-      buildConfigCacheKey(tenantId, eventId, true),
-      buildConfigCacheKey(tenantId, eventId, false),
-    ]);
-  } catch (error) {
-    console.warn('[API] Failed to clear lucky draw config cache:', error);
-  }
-}
-
 // ============================================
 // GET /api/events/:eventId/lucky-draw/entries - List entries
 // ============================================
@@ -66,8 +47,7 @@ export async function GET(
 
     const { db } = await requireEventModeratorAccess(request.headers, eventId);
 
-    // Get active config
-    const config = await getActiveConfig(tenantId, eventId);
+    const config = await getLatestConfig(tenantId, eventId);
     if (!config) {
       return NextResponse.json({
         data: [],
@@ -76,7 +56,7 @@ export async function GET(
           limit: 0,
           offset: 0,
         },
-        message: 'No active draw configuration',
+        message: 'No draw configuration found',
       });
     }
 
@@ -252,7 +232,7 @@ export async function POST(
       entryCount,
     });
 
-    await clearConfigReadCache(tenantId, eventId);
+    await clearLuckyDrawConfigReadCache(tenantId, eventId);
 
     return NextResponse.json({
       data: {

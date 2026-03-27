@@ -6,6 +6,7 @@
 import 'server-only';
 
 import { getTenantDb } from '@/lib/db';
+import type { PoolClient, QueryResultRow } from 'pg';
 import type {
   LuckyDrawConfig,
   NewLuckyDrawConfig,
@@ -19,6 +20,16 @@ import type {
 import { getEffectiveTenantEntitlements } from '@/lib/domain/tenant/entitlements';
 
 import crypto from 'crypto';
+
+type LuckyDrawQueryExecutor = {
+  query<T extends QueryResultRow = QueryResultRow>(
+    text: string,
+    params?: unknown[]
+  ): Promise<{
+    rows: T[];
+    rowCount: number | null;
+  }>;
+};
 
 const luckyDrawConfigColumns = `
   id,
@@ -87,7 +98,7 @@ async function getLuckyDrawEntitlementsOrThrow(tenantId: string) {
 }
 
 async function assertTotalEntryCapacity(
-  db: ReturnType<typeof getTenantDb>,
+  executor: LuckyDrawQueryExecutor,
   configId: string,
   maxEntriesPerEvent: number,
   requestedEntries: number
@@ -96,7 +107,7 @@ async function assertTotalEntryCapacity(
     return;
   }
 
-  const entryCountResult = await db.query<{ count: bigint }>(`
+  const entryCountResult = await executor.query<{ count: bigint }>(`
     SELECT COUNT(*) as count
     FROM lucky_draw_entries
     WHERE config_id = $1
@@ -106,6 +117,179 @@ async function assertTotalEntryCapacity(
   if (entryCount + requestedEntries > maxEntriesPerEvent) {
     throw new Error(`Draw entry limit reached (${maxEntriesPerEvent})`);
   }
+}
+
+async function acquireLuckyDrawEventLock(
+  client: PoolClient,
+  tenantId: string,
+  eventId: string
+): Promise<void> {
+  await client.query('SELECT pg_advisory_xact_lock(hashtext($1), hashtext($2))', [
+    tenantId,
+    eventId,
+  ]);
+}
+
+async function syncConfigEntryCount(
+  executor: LuckyDrawQueryExecutor,
+  configId: string
+): Promise<void> {
+  await executor.query(
+    `
+      UPDATE lucky_draw_configs
+      SET total_entries = (
+        SELECT COUNT(*)
+        FROM lucky_draw_entries
+        WHERE config_id = $1
+      ),
+      updated_at = NOW()
+      WHERE id = $1
+    `,
+    [configId]
+  );
+}
+
+async function getConfigById(
+  executor: LuckyDrawQueryExecutor,
+  configId: string,
+  options?: {
+    eventId?: string;
+    forUpdate?: boolean;
+  }
+): Promise<LuckyDrawConfig | null> {
+  const conditions = ['id = $1'];
+  const params: unknown[] = [configId];
+
+  if (options?.eventId) {
+    conditions.push(`event_id = $${params.length + 1}`);
+    params.push(options.eventId);
+  }
+
+  const result = await executor.query<LuckyDrawConfig>(
+    `
+      SELECT ${luckyDrawConfigColumns}
+      FROM lucky_draw_configs
+      WHERE ${conditions.join(' AND ')}
+      ORDER BY created_at DESC
+      LIMIT 1
+      ${options?.forUpdate ? 'FOR UPDATE' : ''}
+    `,
+    params
+  );
+
+  return result.rows[0] || null;
+}
+
+async function getScheduledConfigForEvent(
+  executor: LuckyDrawQueryExecutor,
+  eventId: string,
+  options?: {
+    forUpdate?: boolean;
+  }
+): Promise<LuckyDrawConfig | null> {
+  const result = await executor.query<LuckyDrawConfig>(
+    `
+      SELECT ${luckyDrawConfigColumns}
+      FROM lucky_draw_configs
+      WHERE event_id = $1 AND status = 'scheduled'
+      ORDER BY created_at DESC
+      LIMIT 1
+      ${options?.forUpdate ? 'FOR UPDATE' : ''}
+    `,
+    [eventId]
+  );
+
+  return result.rows[0] || null;
+}
+
+type LuckyDrawEntryCandidate = LuckyDrawEntry & {
+  photoStatus: 'pending' | 'approved' | 'rejected' | null;
+};
+
+async function getEligibleEntryCandidates(
+  executor: LuckyDrawQueryExecutor,
+  configId: string
+): Promise<LuckyDrawEntryCandidate[]> {
+  const result = await executor.query<LuckyDrawEntryCandidate>(
+    `
+      SELECT
+        ${luckyDrawEntryColumns},
+        p.status AS "photoStatus"
+      FROM lucky_draw_entries le
+      LEFT JOIN photos p ON p.id = le.photo_id
+      WHERE le.config_id = $1
+        AND le.is_winner = false
+      ORDER BY le.created_at ASC
+    `,
+    [configId]
+  );
+
+  return result.rows;
+}
+
+export function isLuckyDrawPhotoStatusEligible(
+  photoStatus: 'pending' | 'approved' | 'rejected' | null | undefined,
+  photoId?: string | null
+): boolean {
+  if (!photoId) {
+    return true;
+  }
+
+  return photoStatus === 'approved';
+}
+
+export function filterEligibleLuckyDrawEntries<
+  T extends {
+    photoId?: string | null;
+    photoStatus?: 'pending' | 'approved' | 'rejected' | null;
+  }
+>(entries: T[]): T[] {
+  return entries.filter((entry) => isLuckyDrawPhotoStatusEligible(entry.photoStatus, entry.photoId));
+}
+
+export function filterEligibleRedrawEntries<
+  T extends {
+    id: string;
+    userFingerprint: string;
+    photoId?: string | null;
+    photoStatus?: 'pending' | 'approved' | 'rejected' | null;
+  }
+>(
+  entries: T[],
+  excludedFingerprints: Set<string>,
+  excludedEntryIds: Set<string>
+): T[] {
+  return filterEligibleLuckyDrawEntries(entries).filter(
+    (entry) =>
+      !excludedEntryIds.has(entry.id) &&
+      !excludedFingerprints.has(entry.userFingerprint)
+  );
+}
+
+const prizeTierOrder: Record<PrizeTier, number> = {
+  grand: 0,
+  first: 1,
+  second: 2,
+  third: 3,
+  consolation: 4,
+};
+
+export function sortPrizeTiers(
+  prizeTiers: LuckyDrawConfig['prizeTiers']
+): LuckyDrawConfig['prizeTiers'] {
+  return [...prizeTiers].sort(
+    (a, b) => (prizeTierOrder[a.tier] ?? 999) - (prizeTierOrder[b.tier] ?? 999)
+  );
+}
+
+export function buildRedrawPrizeDescription(
+  description?: string | null,
+  reason?: string | null
+): string {
+  const base = description?.trim() || '';
+  const note = reason?.trim() ? `[REDRAW: ${reason.trim()}]` : '[REDRAW]';
+
+  return base ? `${base} ${note}` : note;
 }
 
 // ============================================
@@ -214,15 +398,7 @@ export async function getActiveConfig(
   eventId: string
 ): Promise<LuckyDrawConfig | null> {
   const db = getTenantDb(tenantId);
-
-  const result = await db.query<LuckyDrawConfig>(`
-    SELECT ${luckyDrawConfigColumns}
-    FROM lucky_draw_configs
-    WHERE event_id = $1 AND status = 'scheduled'
-    LIMIT 1
-  `, [eventId]);
-
-  return result.rows[0] || null;
+  return getScheduledConfigForEvent(db, eventId);
 }
 
 /**
@@ -283,65 +459,64 @@ export async function createEntryFromPhoto(
     await getLuckyDrawEntitlementsOrThrow(tenantId)
   ).limits.max_draw_entries_per_event;
 
-  // Get active config for event
-  const config = await getActiveConfig(tenantId, eventId);
-  if (!config) {
-    throw new Error('No active draw configuration found for this event');
-  }
+  return db.transact<LuckyDrawEntry>(async (client) => {
+    await acquireLuckyDrawEventLock(client, tenantId, eventId);
 
-  // Check for duplicate entries (respect max entries per user rule)
-  const userEntryCountResult = await db.query<{ count: bigint }>(`
-    SELECT COUNT(*) as count
-    FROM lucky_draw_entries
-    WHERE config_id = $1 AND user_fingerprint = $2
-  `, [config.id, userFingerprint]);
-  const userEntryCount = Number(userEntryCountResult.rows[0]?.count || 0);
+    const config = await getScheduledConfigForEvent(client, eventId, { forUpdate: true });
+    if (!config) {
+      throw new Error('No active draw configuration found for this event');
+    }
 
-  if (userEntryCount >= (config.maxEntriesPerUser || 1)) {
-    throw new Error('Maximum entries per user reached');
-  }
+    const userEntryCountResult = await client.query<{ count: bigint }>(
+      `
+        SELECT COUNT(*) as count
+        FROM lucky_draw_entries
+        WHERE config_id = $1 AND user_fingerprint = $2
+      `,
+      [config.id, userFingerprint]
+    );
+    const userEntryCount = Number(userEntryCountResult.rows[0]?.count || 0);
 
-  await assertTotalEntryCapacity(
-    db,
-    config.id,
-    maxEntriesPerEvent,
-    1
-  );
+    if (userEntryCount >= (config.maxEntriesPerUser || 1)) {
+      throw new Error('Maximum entries per user reached');
+    }
 
-  // Create entry
-  const entryResult = await db.query<LuckyDrawEntry>(`
-    INSERT INTO lucky_draw_entries (
-      event_id,
-      config_id,
-      photo_id,
-      user_fingerprint,
-      participant_name,
-      is_winner,
-      created_at
-    )
-    VALUES ($1, $2, $3, $4, $5, $6, $7)
-    RETURNING ${luckyDrawEntryColumns}
-  `, [
-    eventId,
-    config.id,
-    photoId,
-    userFingerprint,
-    participantName || null,
-    false,
-    new Date(),
-  ]);
+    await assertTotalEntryCapacity(
+      client,
+      config.id,
+      maxEntriesPerEvent,
+      1
+    );
 
-  await db.query(
-    `UPDATE lucky_draw_configs
-     SET total_entries = (
-       SELECT COUNT(*) FROM lucky_draw_entries WHERE config_id = $1
-     ),
-     updated_at = NOW()
-     WHERE id = $1`,
-    [config.id]
-  );
+    const entryResult = await client.query<LuckyDrawEntry>(
+      `
+        INSERT INTO lucky_draw_entries (
+          event_id,
+          config_id,
+          photo_id,
+          user_fingerprint,
+          participant_name,
+          is_winner,
+          created_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        RETURNING ${luckyDrawEntryColumns}
+      `,
+      [
+        eventId,
+        config.id,
+        photoId,
+        userFingerprint,
+        participantName || null,
+        false,
+        new Date(),
+      ]
+    );
 
-  return entryResult.rows[0];
+    await syncConfigEntryCount(client, config.id);
+
+    return entryResult.rows[0];
+  });
 }
 
 /**
@@ -360,70 +535,72 @@ export async function createManualEntries(
   const db = getTenantDb(tenantId);
   const entitlements = await getLuckyDrawEntitlementsOrThrow(tenantId);
 
-  const config = await getActiveConfig(tenantId, eventId);
-  if (!config) {
-    throw new Error('No active draw configuration found for this event');
-  }
-
   const requestedCount = input.entryCount && input.entryCount > 0 ? Math.floor(input.entryCount) : 1;
   const userFingerprint = input.userFingerprint || `manual_${generateUUID()}`;
 
-  const existingResult = await db.query<{ count: bigint }>(`
-    SELECT COUNT(*) as count
-    FROM lucky_draw_entries
-    WHERE config_id = $1 AND user_fingerprint = $2
-  `, [config.id, userFingerprint]);
-  const existingCount = Number(existingResult.rows[0]?.count || 0);
-  const maxAllowed = config.maxEntriesPerUser || 1;
+  return db.transact<{ entries: LuckyDrawEntry[]; userFingerprint: string }>(async (client) => {
+    await acquireLuckyDrawEventLock(client, tenantId, eventId);
 
-  if (existingCount + requestedCount > maxAllowed) {
-    throw new Error('Maximum entries per user reached');
-  }
+    const config = await getScheduledConfigForEvent(client, eventId, { forUpdate: true });
+    if (!config) {
+      throw new Error('No active draw configuration found for this event');
+    }
 
-  await assertTotalEntryCapacity(
-    db,
-    config.id,
-    entitlements.limits.max_draw_entries_per_event,
-    requestedCount
-  );
+    const existingResult = await client.query<{ count: bigint }>(
+      `
+        SELECT COUNT(*) as count
+        FROM lucky_draw_entries
+        WHERE config_id = $1 AND user_fingerprint = $2
+      `,
+      [config.id, userFingerprint]
+    );
+    const existingCount = Number(existingResult.rows[0]?.count || 0);
+    const maxAllowed = config.maxEntriesPerUser || 1;
 
-  const entries: LuckyDrawEntry[] = [];
-  for (let i = 0; i < requestedCount; i += 1) {
-    const result = await db.query<LuckyDrawEntry>(`
-      INSERT INTO lucky_draw_entries (
-        event_id,
-        config_id,
-        photo_id,
-        user_fingerprint,
-        participant_name,
-        is_winner,
-        created_at
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
-      RETURNING ${luckyDrawEntryColumns}
-    `, [
-      eventId,
+    if (existingCount + requestedCount > maxAllowed) {
+      throw new Error('Maximum entries per user reached');
+    }
+
+    await assertTotalEntryCapacity(
+      client,
       config.id,
-      input.photoId ?? null,
-      userFingerprint,
-      input.participantName,
-      false,
-      new Date(),
-    ]);
-    entries.push(result.rows[0]);
-  }
+      entitlements.limits.max_draw_entries_per_event,
+      requestedCount
+    );
 
-  await db.query(
-    `UPDATE lucky_draw_configs
-     SET total_entries = (
-       SELECT COUNT(*) FROM lucky_draw_entries WHERE config_id = $1
-     ),
-     updated_at = NOW()
-     WHERE id = $1`,
-    [config.id]
-  );
+    const entries: LuckyDrawEntry[] = [];
+    for (let i = 0; i < requestedCount; i += 1) {
+      const result = await client.query<LuckyDrawEntry>(
+        `
+          INSERT INTO lucky_draw_entries (
+            event_id,
+            config_id,
+            photo_id,
+            user_fingerprint,
+            participant_name,
+            is_winner,
+            created_at
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          RETURNING ${luckyDrawEntryColumns}
+        `,
+        [
+          eventId,
+          config.id,
+          input.photoId ?? null,
+          userFingerprint,
+          input.participantName,
+          false,
+          new Date(),
+        ]
+      );
+      entries.push(result.rows[0]);
+    }
 
-  return { entries, userFingerprint };
+    await syncConfigEntryCount(client, config.id);
+
+    return { entries, userFingerprint };
+  });
 }
 
 /**
@@ -506,189 +683,200 @@ export async function executeDraw(
 }> {
   await getLuckyDrawEntitlementsOrThrow(tenantId);
   const db = getTenantDb(tenantId);
+  void executedBy;
 
-  // 1. Get configuration
-  const configResult = await db.query<LuckyDrawConfig>(`
-    SELECT ${luckyDrawConfigColumns}
-    FROM lucky_draw_configs
-    WHERE id = $1
-  `, [configId]);
+  return db.transact(async (client) => {
+    const configSnapshot = await getConfigById(client, configId);
+    if (!configSnapshot) {
+      throw new Error('Draw configuration not found');
+    }
 
-  const config = configResult.rows[0];
+    await acquireLuckyDrawEventLock(client, tenantId, configSnapshot.eventId);
 
-  if (!config) {
-    throw new Error('Draw configuration not found');
-  }
+    const config = await getConfigById(client, configId, { forUpdate: true });
+    if (!config) {
+      throw new Error('Draw configuration not found');
+    }
+    if (config.status !== 'scheduled') {
+      throw new Error('Draw is not in scheduled status');
+    }
 
-  if (config.status !== 'scheduled') {
-    throw new Error('Draw is not in scheduled status');
-  }
+    const totalEntriesResult = await client.query<{ count: bigint }>(
+      `
+        SELECT COUNT(*) as count
+        FROM lucky_draw_entries
+        WHERE config_id = $1
+      `,
+      [configId]
+    );
+    const totalEntries = Number(totalEntriesResult.rows[0]?.count || 0);
 
-  // 2. Get all entries for this config
-  const allEntries = await db.query<LuckyDrawEntry>(`
-    SELECT ${luckyDrawEntryColumns}
-    FROM lucky_draw_entries
-    WHERE config_id = $1 AND is_winner = false
-    ORDER BY created_at ASC
-  `, [configId]);
+    const eligibleEntries = filterEligibleLuckyDrawEntries(
+      await getEligibleEntryCandidates(client, configId)
+    );
 
-  const eligibleEntries = allEntries.rows;
-  const totalEntries = eligibleEntries.length;
+    if (eligibleEntries.length === 0) {
+      throw new Error('No eligible entries found');
+    }
 
-  if (eligibleEntries.length === 0) {
-    throw new Error('No eligible entries found');
-  }
+    const userEntriesMap = new Map<string, LuckyDrawEntryCandidate[]>();
+    for (const entry of eligibleEntries) {
+      const entries = userEntriesMap.get(entry.userFingerprint) || [];
+      entries.push(entry);
+      userEntriesMap.set(entry.userFingerprint, entries);
+    }
 
-  // 3. Handle duplicate entries (respect max_entries_per_user)
-  const userEntriesMap = new Map<string, LuckyDrawEntry[]>();
-  for (const entry of eligibleEntries) {
-    const entries = userEntriesMap.get(entry.userFingerprint) || [];
-    entries.push(entry);
-    userEntriesMap.set(entry.userFingerprint, entries);
-  }
+    const filteredEntries: LuckyDrawEntryCandidate[] = [];
+    for (const entries of userEntriesMap.values()) {
+      const maxCount = config.preventDuplicateWinners ? 1 : (config.maxEntriesPerUser || 1);
+      filteredEntries.push(...entries.slice(0, Math.min(entries.length, maxCount)));
+    }
 
-  // Select only up to max_entries_per_user from each user
-  const filteredEntries: LuckyDrawEntry[] = [];
-  for (const entries of userEntriesMap.values()) {
-    const maxCount = config.preventDuplicateWinners ? 1 : (config.maxEntriesPerUser || 1);
-    const selected = entries.slice(0, Math.min(entries.length, maxCount));
-    filteredEntries.push(...selected);
-  }
+    const eligibleEntriesCount = filteredEntries.length;
 
-  const eligibleEntriesCount = filteredEntries.length;
+    if (eligibleEntriesCount === 0) {
+      throw new Error('No eligible entries after applying duplicate rules');
+    }
 
-  if (eligibleEntriesCount === 0) {
-    throw new Error('No eligible entries after applying duplicate rules');
-  }
+    const shuffledEntries = options?.seed
+      ? seededShuffle(filteredEntries, options.seed)
+      : fisherYatesShuffle(filteredEntries);
+    const entryById = new Map(shuffledEntries.map((entry) => [entry.id, entry]));
 
-  // 4. Shuffle entries (Fisher-Yates)
-  const shuffledEntries = options?.seed
-    ? seededShuffle(filteredEntries, options.seed)
-    : fisherYatesShuffle(filteredEntries);
-  const entryById = new Map(shuffledEntries.map((entry) => [entry.id, entry]));
-
-  // 5. Select winners by prize tiers
-  const winners: Winner[] = [];
-  let selectionOrder = 0;
+    const winners: Winner[] = [];
+    let selectionOrder = 0;
 
   // Sort prize tiers by tier order (grand → first → second → third → consolation)
-  // prize_tier enum is alphabetical, so we need to map to numeric order
-  const tierOrder = {
-    grand: 0,
-    first: 1,
-    second: 2,
-    third: 3,
-    consolation: 4,
-  } as const;
+    for (const prizeTier of sortPrizeTiers(config.prizeTiers)) {
+      for (let i = 0; i < prizeTier.count; i++) {
+        if (selectionOrder >= shuffledEntries.length) {
+          break;
+        }
 
-  const sortedPrizeTiers = [...config.prizeTiers].sort((a, b) =>
-    (tierOrder[a.tier] || 999) - (tierOrder[b.tier] || 999)
-  );
+        const winnerEntry = shuffledEntries[selectionOrder];
+        const fallbackName = winnerEntry.userFingerprint.slice(0, 8) || 'Anonymous';
+        winners.push({
+          id: generateUUID(),
+          eventId: winnerEntry.eventId,
+          entryId: winnerEntry.id,
+          participantName: winnerEntry.participantName || fallbackName,
+          selfieUrl: '',
+          prizeTier: prizeTier.tier,
+          prizeName: prizeTier.name,
+          prizeDescription: prizeTier.description || '',
+          selectionOrder: selectionOrder + 1,
+          isClaimed: false,
+          drawnAt: new Date(),
+          createdAt: new Date(),
+        });
 
-  for (const prizeTier of sortedPrizeTiers) {
-    for (let i = 0; i < prizeTier.count; i++) {
-      if (selectionOrder >= shuffledEntries.length) {
-        break;
+        selectionOrder += 1;
       }
-
-      const winner = shuffledEntries[selectionOrder];
-      const fallbackName = winner.userFingerprint.slice(0, 8) || 'Anonymous';
-      winners.push({
-        id: generateUUID(),
-        eventId: winner.eventId,
-        entryId: winner.id,
-        participantName: winner.participantName || fallbackName,
-        selfieUrl: '',
-        prizeTier: prizeTier.tier,
-        prizeName: prizeTier.name,
-        prizeDescription: prizeTier.description || '',
-        selectionOrder: selectionOrder + 1,
-        isClaimed: false,
-        drawnAt: new Date(),
-        createdAt: new Date(),
-      });
-
-      selectionOrder++;
     }
-  }
 
-  // 6. Mark entries as winners and update config status
-  for (const winner of winners) {
-    await db.update(
-      'lucky_draw_entries',
-      { is_winner: true, prize_tier: winner.prizeTier },
-      { id: winner.entryId }
-    );
-  }
+    for (const winner of winners) {
+      await client.query(
+        `
+          UPDATE lucky_draw_entries
+          SET is_winner = true,
+              prize_tier = $1
+          WHERE id = $2
+        `,
+        [winner.prizeTier, winner.entryId]
+      );
+    }
 
-  await db.update(
-    'lucky_draw_configs',
-    {
-      status: 'completed',
-      completed_at: new Date(),
-      updated_at: new Date(),
-    },
-    { id: configId }
-  );
-
-  // 7. Create winner records
-  const photoIds = Array.from(
-    new Set(
-      winners
-        .map((winner) => entryById.get(winner.entryId)?.photoId || null)
-        .filter((id): id is string => !!id)
-    )
-  );
-
-  const photosResult = photoIds.length
-    ? await db.query<{ id: string; contributorName: string | null; images: { full_url?: string } }>(
+    const completedAt = new Date();
+    await client.query(
       `
+        UPDATE lucky_draw_configs
+        SET status = 'completed',
+            completed_at = $2,
+            updated_at = $2
+        WHERE id = $1
+      `,
+      [configId, completedAt]
+    );
+
+    const photoIds = Array.from(
+      new Set(
+        winners
+          .map((winner) => entryById.get(winner.entryId)?.photoId || null)
+          .filter((id): id is string => Boolean(id))
+      )
+    );
+
+    const photosResult = photoIds.length
+      ? await client.query<{ id: string; contributorName: string | null; images: { full_url?: string } }>(
+        `
           SELECT id, contributor_name AS "contributorName", images
           FROM photos
           WHERE id = ANY($1)
         `,
-      [photoIds]
-    )
-    : { rows: [] as Array<{ id: string; contributorName: string | null; images: { full_url?: string } }> };
+        [photoIds]
+      )
+      : {
+          rows: [] as Array<{ id: string; contributorName: string | null; images: { full_url?: string } }>,
+          rowCount: 0,
+        };
 
-  const photoMap = new Map(photosResult.rows.map((photo) => [photo.id, photo]));
+    const photoMap = new Map(photosResult.rows.map((photo) => [photo.id, photo]));
 
-  const enrichedWinners = winners.map((winner) => {
-    const entry = entryById.get(winner.entryId);
-    const photo = entry?.photoId ? photoMap.get(entry.photoId) : undefined;
-    const participantName = winner.participantName || photo?.contributorName || 'Anonymous';
-    const selfieUrl = photo?.images?.full_url || '';
+    const enrichedWinners = winners.map((winner) => {
+      const entry = entryById.get(winner.entryId);
+      const photo = entry?.photoId ? photoMap.get(entry.photoId) : undefined;
+      const participantName = winner.participantName || photo?.contributorName || 'Anonymous';
+      const selfieUrl = photo?.images?.full_url || '';
+      return {
+        ...winner,
+        participantName,
+        selfieUrl,
+      };
+    });
+
+    for (const winner of enrichedWinners) {
+      await client.query(
+        `
+          INSERT INTO winners (
+            event_id,
+            entry_id,
+            participant_name,
+            selfie_url,
+            prize_tier,
+            prize_name,
+            prize_description,
+            selection_order,
+            is_claimed,
+            drawn_at,
+            created_at
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        `,
+        [
+          winner.eventId,
+          winner.entryId,
+          winner.participantName,
+          winner.selfieUrl,
+          winner.prizeTier,
+          winner.prizeName,
+          winner.prizeDescription,
+          winner.selectionOrder,
+          false,
+          winner.drawnAt,
+          winner.createdAt,
+        ]
+      );
+    }
+
     return {
-      ...winner,
-      participantName,
-      selfieUrl,
+      winners: enrichedWinners,
+      statistics: {
+        totalEntries,
+        eligibleEntries: eligibleEntriesCount,
+        winnersSelected: winners.length,
+      },
     };
   });
-
-  for (const winner of enrichedWinners) {
-    await db.insert('winners', {
-      event_id: winner.eventId,
-      entry_id: winner.entryId,
-      participant_name: winner.participantName,
-      selfie_url: winner.selfieUrl,
-      prize_tier: winner.prizeTier,
-      prize_name: winner.prizeName,
-      prize_description: winner.prizeDescription,
-      selection_order: winner.selectionOrder,
-      is_claimed: false,
-      drawn_at: new Date(),
-      created_at: new Date(),
-    });
-  }
-
-  return {
-    winners: enrichedWinners,
-    statistics: {
-      totalEntries,
-      eligibleEntries: eligibleEntriesCount,
-      winnersSelected: winners.length,
-    },
-  };
 }
 
 /**
@@ -768,8 +956,8 @@ export async function redrawPrizeTier(
   params: {
     eventId: string;
     configId: string;
-    prizeTier: string;
-    previousWinnerId?: string;
+    prizeTier: PrizeTier;
+    previousWinnerId: string;
     reason?: string;
     redrawBy: string;
   }
@@ -779,166 +967,232 @@ export async function redrawPrizeTier(
 }> {
   await getLuckyDrawEntitlementsOrThrow(tenantId);
   const db = getTenantDb(tenantId);
-  const { eventId, configId, prizeTier, previousWinnerId, reason } = params;
+  const { eventId, configId, prizeTier, previousWinnerId, reason, redrawBy } = params;
+  void redrawBy;
 
-  // 1. Get configuration
-  const configResult = await db.query<LuckyDrawConfig>(`
-    SELECT ${luckyDrawConfigColumns}
-    FROM lucky_draw_configs
-    WHERE id = $1
-  `, [configId]);
+  return db.transact(async (client) => {
+    await acquireLuckyDrawEventLock(client, tenantId, eventId);
 
-  const config = configResult.rows[0];
-  if (!config) {
-    throw new Error('Draw configuration not found');
-  }
+    const config = await getConfigById(client, configId, { eventId, forUpdate: true });
+    if (!config) {
+      throw new Error('Draw configuration not found');
+    }
+    if (config.status !== 'completed') {
+      throw new Error('Redraw is only allowed for completed draws');
+    }
 
-  // 2. Get prize tier info
-  const tierInfo = config.prizeTiers.find(t => t.tier === prizeTier);
-  if (!tierInfo) {
-    throw new Error(`Prize tier "${prizeTier}" not found in configuration`);
-  }
+    const tierInfo = config.prizeTiers.find((tier) => tier.tier === prizeTier);
+    if (!tierInfo) {
+      throw new Error(`Prize tier "${prizeTier}" not found in configuration`);
+    }
 
-  // 3. Mark previous winner as replaced (if provided)
-  let previousWinner: Winner | null = null;
-  if (previousWinnerId) {
-    const prevWinnerResult = await db.query<Winner>(`
-      SELECT ${winnerColumns}
-      FROM winners
-      WHERE id = $1
-    `, [previousWinnerId]);
-    previousWinner = prevWinnerResult.rows[0] || null;
+    const previousWinnerResult = await client.query<
+      Winner & {
+        configId: string;
+        userFingerprint: string;
+        replacementNote: string | null;
+      }
+    >(
+      `
+        SELECT
+          ${winnerColumns},
+          le.config_id AS "configId",
+          le.user_fingerprint AS "userFingerprint",
+          CASE
+            WHEN w.prize_description LIKE '%[REPLACED:%' THEN w.prize_description
+            ELSE NULL
+          END AS "replacementNote"
+        FROM winners w
+        JOIN lucky_draw_entries le ON le.id = w.entry_id
+        WHERE w.id = $1
+        FOR UPDATE OF w, le
+      `,
+      [previousWinnerId]
+    );
+    const previousWinnerRecord = previousWinnerResult.rows[0];
+    if (!previousWinnerRecord) {
+      throw new Error('Previous winner not found');
+    }
+    if (previousWinnerRecord.eventId !== eventId || previousWinnerRecord.configId !== configId) {
+      throw new Error('Previous winner does not belong to this draw');
+    }
+    if (previousWinnerRecord.prizeTier !== prizeTier) {
+      throw new Error('Previous winner does not belong to the requested prize tier');
+    }
+    if (previousWinnerRecord.replacementNote) {
+      throw new Error('Previous winner has already been replaced');
+    }
 
-    if (previousWinner) {
-      // Mark the winner as replaced (not claimed, add note)
-      await db.query(`
+    const previousWinner: Winner = {
+      id: previousWinnerRecord.id,
+      eventId: previousWinnerRecord.eventId,
+      entryId: previousWinnerRecord.entryId,
+      participantName: previousWinnerRecord.participantName,
+      selfieUrl: previousWinnerRecord.selfieUrl,
+      prizeTier: previousWinnerRecord.prizeTier,
+      prizeName: previousWinnerRecord.prizeName,
+      prizeDescription: previousWinnerRecord.prizeDescription,
+      selectionOrder: previousWinnerRecord.selectionOrder,
+      isClaimed: previousWinnerRecord.isClaimed,
+      drawnAt: previousWinnerRecord.drawnAt,
+      notifiedAt: previousWinnerRecord.notifiedAt,
+      createdAt: previousWinnerRecord.createdAt,
+    };
+
+    await client.query(
+      `
         UPDATE winners
         SET is_claimed = false,
             prize_description = COALESCE(prize_description, '') || ' [REPLACED: ' || $2 || ']',
             notified_at = NOW()
         WHERE id = $1
-      `, [previousWinnerId, reason || 'Winner unavailable']);
+      `,
+      [previousWinnerId, reason || 'Winner unavailable']
+    );
 
-      // Mark the entry as no longer a winner so it's not excluded
-      await db.update(
-        'lucky_draw_entries',
-        { is_winner: false, prize_tier: null },
-        { id: previousWinner.entryId }
+    await client.query(
+      `
+        UPDATE lucky_draw_entries
+        SET is_winner = false,
+            prize_tier = NULL
+        WHERE id = $1
+      `,
+      [previousWinner.entryId]
+    );
+
+    const existingWinnerFingerprints = new Set<string>();
+    if (config.preventDuplicateWinners) {
+      const activeWinnersResult = await client.query<{ userFingerprint: string }>(
+        `
+          SELECT DISTINCT le.user_fingerprint AS "userFingerprint"
+          FROM winners w
+          JOIN lucky_draw_entries le ON le.id = w.entry_id
+          WHERE w.event_id = $1
+            AND w.prize_description NOT LIKE '%[REPLACED:%'
+        `,
+        [eventId]
       );
+
+      for (const row of activeWinnersResult.rows) {
+        existingWinnerFingerprints.add(row.userFingerprint);
+      }
     }
-  }
 
-  // 4. Get all entries excluding existing winners
-  const existingWinnersResult = await db.query<{ userFingerprint: string }>(`
-    SELECT DISTINCT le.user_fingerprint AS "userFingerprint"
-    FROM winners w
-    JOIN lucky_draw_entries le ON le.id = w.entry_id
-    WHERE w.event_id = $1
-      AND w.prize_description NOT LIKE '%[REPLACED:%'
-  `, [eventId]);
+    existingWinnerFingerprints.add(previousWinnerRecord.userFingerprint);
 
-  const existingWinnerFingerprints = new Set(
-    existingWinnersResult.rows.map(r => r.userFingerprint)
-  );
+    const eligibleEntries = filterEligibleRedrawEntries(
+      await getEligibleEntryCandidates(client, configId),
+      existingWinnerFingerprints,
+      new Set([previousWinner.entryId])
+    );
 
-  // If previous winner was replaced, remove from exclusion list
-  if (previousWinner) {
-    const prevEntryResult = await db.query<{ userFingerprint: string }>(`
-      SELECT user_fingerprint AS "userFingerprint"
-      FROM lucky_draw_entries
-      WHERE id = $1
-    `, [previousWinner.entryId]);
-    if (prevEntryResult.rows[0]) {
-      existingWinnerFingerprints.delete(prevEntryResult.rows[0].userFingerprint);
+    if (eligibleEntries.length === 0) {
+      throw new Error('No eligible entries available for redraw');
     }
-  }
 
-  // 5. Get eligible entries (not winners, not from existing winner fingerprints)
-  const eligibleEntriesResult = await db.query<LuckyDrawEntry>(`
-    SELECT ${luckyDrawEntryColumns}
-    FROM lucky_draw_entries
-    WHERE config_id = $1 AND is_winner = false
-    ORDER BY created_at ASC
-  `, [configId]);
+    const shuffled = fisherYatesShuffle(eligibleEntries);
+    const selectedEntry = shuffled[0];
 
-  const eligibleEntries = eligibleEntriesResult.rows.filter(
-    entry => !existingWinnerFingerprints.has(entry.userFingerprint)
-  );
+    let selfieUrl = '';
+    let participantName = selectedEntry.participantName || 'Anonymous';
 
-  if (eligibleEntries.length === 0) {
-    throw new Error('No eligible entries available for redraw');
-  }
+    if (selectedEntry.photoId) {
+      const photoResult = await client.query<{ contributorName: string | null; images: { full_url?: string } }>(
+        `
+          SELECT contributor_name AS "contributorName", images
+          FROM photos
+          WHERE id = $1
+        `,
+        [selectedEntry.photoId]
+      );
 
-  // 6. Shuffle and select new winner
-  const shuffled = fisherYatesShuffle(eligibleEntries);
-  const selectedEntry = shuffled[0];
-
-  // 7. Get photo info for selfie URL
-  let selfieUrl = '';
-  let participantName = selectedEntry.participantName || 'Anonymous';
-
-  if (selectedEntry.photoId) {
-    const photoResult = await db.query<{ contributorName: string | null; images: { full_url?: string } }>(`
-      SELECT contributor_name AS "contributorName", images
-      FROM photos
-      WHERE id = $1
-    `, [selectedEntry.photoId]);
-
-    if (photoResult.rows[0]) {
-      selfieUrl = photoResult.rows[0].images?.full_url || '';
-      participantName = photoResult.rows[0].contributorName || participantName;
+      if (photoResult.rows[0]) {
+        selfieUrl = photoResult.rows[0].images?.full_url || '';
+        participantName = photoResult.rows[0].contributorName || participantName;
+      }
     }
-  }
 
-  // 8. Mark entry as winner
-  await db.update(
-    'lucky_draw_entries',
-    { is_winner: true, prize_tier: prizeTier },
-    { id: selectedEntry.id }
-  );
+    await client.query(
+      `
+        UPDATE lucky_draw_entries
+        SET is_winner = true,
+            prize_tier = $1
+        WHERE id = $2
+      `,
+      [prizeTier, selectedEntry.id]
+    );
 
-  // 9. Get next selection order
-  const maxOrderResult = await db.query<{ maxOrder: number }>(`
-    SELECT COALESCE(MAX(selection_order), 0) as "maxOrder"
-    FROM winners
-    WHERE event_id = $1
-  `, [eventId]);
-  const nextOrder = (maxOrderResult.rows[0]?.maxOrder || 0) + 1;
+    const maxOrderResult = await client.query<{ maxOrder: number }>(
+      `
+        SELECT COALESCE(MAX(selection_order), 0) as "maxOrder"
+        FROM winners
+        WHERE event_id = $1
+      `,
+      [eventId]
+    );
+    const nextOrder = (maxOrderResult.rows[0]?.maxOrder || 0) + 1;
 
-  // 10. Create new winner record
-  const newWinner: Winner = {
-    id: generateUUID(),
-    eventId,
-    entryId: selectedEntry.id,
-    participantName,
-    selfieUrl,
-    prizeTier: tierInfo.tier,
-    prizeName: tierInfo.name,
-    prizeDescription: tierInfo.description || '' + (reason ? ` [REDRAW: ${reason}]` : ' [REDRAW]'),
-    selectionOrder: nextOrder,
-    isClaimed: false,
-    drawnAt: new Date(),
-    createdAt: new Date(),
-  };
+    const newWinner: Winner = {
+      id: generateUUID(),
+      eventId,
+      entryId: selectedEntry.id,
+      participantName,
+      selfieUrl,
+      prizeTier: tierInfo.tier,
+      prizeName: tierInfo.name,
+      prizeDescription: buildRedrawPrizeDescription(tierInfo.description, reason),
+      selectionOrder: nextOrder,
+      isClaimed: false,
+      drawnAt: new Date(),
+      createdAt: new Date(),
+    };
 
-  await db.insert('winners', {
-    event_id: newWinner.eventId,
-    entry_id: newWinner.entryId,
-    participant_name: newWinner.participantName,
-    selfie_url: newWinner.selfieUrl,
-    prize_tier: newWinner.prizeTier,
-    prize_name: newWinner.prizeName,
-    prize_description: newWinner.prizeDescription,
-    selection_order: newWinner.selectionOrder,
-    is_claimed: false,
-    drawn_at: new Date(),
-    created_at: new Date(),
+    await client.query(
+      `
+        INSERT INTO winners (
+          event_id,
+          entry_id,
+          participant_name,
+          selfie_url,
+          prize_tier,
+          prize_name,
+          prize_description,
+          selection_order,
+          is_claimed,
+          drawn_at,
+          created_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      `,
+      [
+        newWinner.eventId,
+        newWinner.entryId,
+        newWinner.participantName,
+        newWinner.selfieUrl,
+        newWinner.prizeTier,
+        newWinner.prizeName,
+        newWinner.prizeDescription,
+        newWinner.selectionOrder,
+        false,
+        newWinner.drawnAt,
+        newWinner.createdAt,
+      ]
+    );
+
+    await client.query(
+      `
+        UPDATE lucky_draw_configs
+        SET updated_at = NOW()
+        WHERE id = $1
+      `,
+      [configId]
+    );
+
+    return {
+      newWinner,
+      previousWinner,
+    };
   });
-
-  return {
-    newWinner,
-    previousWinner,
-  };
 }
 
 // ============================================

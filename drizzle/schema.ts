@@ -15,7 +15,7 @@
 // All tables with tenant_id have RLS enabled to enforce tenant isolation.
 // The set_tenant_id() function (created in migrations) sets the session context.
 
-import { pgTable, pgEnum, uuid, text, integer, timestamp, boolean, jsonb, index, unique, doublePrecision } from 'drizzle-orm/pg-core';
+import { pgTable, pgEnum, uuid, text, integer, timestamp, boolean, jsonb, index, unique, uniqueIndex, doublePrecision } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
 // ============================================
@@ -417,6 +417,9 @@ export const luckyDrawConfigs = pgTable('lucky_draw_configs', {
   drawConfigEventIdx: index('draw_config_event_idx').on(table.eventId),
   drawConfigStatusIdx: index('draw_config_status_idx').on(table.status),
   drawConfigScheduledIdx: index('draw_config_scheduled_idx').on(table.scheduledAt),
+  drawConfigScheduledPerEventUnique: uniqueIndex('draw_config_scheduled_per_event_unique')
+    .on(table.eventId)
+    .where(sql`${table.status} = 'scheduled'`),
 }));
 
 // ============================================
