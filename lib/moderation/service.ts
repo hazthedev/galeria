@@ -5,6 +5,13 @@ import { getTenantDb } from '@/lib/db';
 import { deletePhotoAssets } from '@/lib/images';
 import { updateGuestProgress } from '@/lib/lucky-draw';
 import { publishEventBroadcast } from '@/lib/realtime/server';
+import {
+  approveQuarantinedPhoto,
+  getQuarantineMetadata,
+  purgeQuarantinedPhoto,
+  quarantinePhoto,
+  updateQuarantineStatus,
+} from '@/lib/storage/quarantine';
 
 type PhotoStatus = 'pending' | 'approved' | 'rejected';
 type ModerationAction = 'approve' | 'reject' | 'delete' | 'review';
@@ -219,6 +226,10 @@ export async function approvePhotoManually(input: {
       };
     }
 
+    if (await getQuarantineMetadata(photo.id)) {
+      await approveQuarantinedPhoto(photo.id, input.moderatorId);
+    }
+
     await client.query(
       'UPDATE photos SET status = $1, approved_at = $2 WHERE id = $3',
       ['approved', new Date(), photo.id]
@@ -297,6 +308,25 @@ export async function rejectPhotoManually(input: {
       };
     }
 
+    const quarantineMetadata = await getQuarantineMetadata(photo.id);
+    if (quarantineMetadata) {
+      await updateQuarantineStatus(photo.id, {
+        status: 'rejected',
+        reviewedBy: input.moderatorId,
+        reviewedAt: new Date(),
+        reason: normalizedReason || quarantineMetadata.reason,
+        categories: quarantineMetadata.categories,
+      });
+    } else {
+      await quarantinePhoto(photo.event_id, photo.id, normalizedReason || undefined);
+      await updateQuarantineStatus(photo.id, {
+        status: 'rejected',
+        reviewedBy: input.moderatorId,
+        reviewedAt: new Date(),
+        reason: normalizedReason || undefined,
+      });
+    }
+
     await client.query(
       'UPDATE photos SET status = $1, approved_at = NULL WHERE id = $2',
       ['rejected', photo.id]
@@ -360,6 +390,12 @@ export async function deletePhotoManually(input: {
       await deletePhotoAssets(photo.event_id, photo.id);
     } catch (error) {
       console.warn('[MODERATION] Failed to delete public photo assets:', error);
+    }
+
+    try {
+      await purgeQuarantinedPhoto(photo.id);
+    } catch (error) {
+      console.warn('[MODERATION] Failed to purge quarantined assets:', error);
     }
 
     await insertModerationLog(client, {

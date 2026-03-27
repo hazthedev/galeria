@@ -13,6 +13,7 @@ import { verifyAccessToken } from '@/lib/domain/auth/auth';
 import { extractSessionId, validateSession } from '@/lib/domain/auth/session';
 import { checkUploadRateLimit } from '@/lib/api/middleware/rate-limit';
 import { validateRecaptchaForUpload, isRecaptchaRequiredForUploads } from '@/lib/api/middleware/recaptcha';
+import { redactRejectedPhotosForGuest } from '@/lib/moderation/guest-visibility';
 import { hydrateModeratorPhotoPreviews } from '@/lib/moderation/presentation';
 import type { DeviceType, IPhoto, SubscriptionTier } from '@/lib/types';
 import { getEffectiveEntitlementsForTier, resolveUserTier } from '@/lib/tenant';
@@ -1346,6 +1347,8 @@ export async function handleEventPhotoList(request: NextRequest, eventId: string
     });
     if (isModerator && photos.length > 0) {
       photos = await hydrateModeratorPhotoPreviews(photos);
+    } else if (filter.status === 'rejected' && photos.length > 0) {
+      photos = redactRejectedPhotosForGuest(photos);
     }
     let total = listResult.rows.length > 0 ? Number(listResult.rows[0].total_count || 0) : 0;
 

@@ -117,8 +117,10 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
   const reconcileTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const mergedPhotos = useMemo(
-    () => mergePhotos(approvedPhotos, pendingPhotos, rejectedPhotos),
-    [approvedPhotos, pendingPhotos, rejectedPhotos]
+    // Rejected photos stay in separate state for moderation notices, but we do not
+    // render them back into the guest gallery.
+    () => mergePhotos(approvedPhotos, pendingPhotos, []),
+    [approvedPhotos, pendingPhotos]
   );
 
   // Guest name state (persisted)
