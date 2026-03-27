@@ -4,9 +4,13 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantDb } from '@/lib/db';
-import { getEffectiveTenantEntitlements } from '@/lib/tenant';
+import { getEffectiveTenantEntitlements, getTierConfig, normalizeSubscriptionTier } from '@/lib/tenant';
 import type { SubscriptionTier } from '@/lib/types';
 import { resolveOptionalAuth, resolveTenantId } from '@/lib/api-request-context';
+import {
+  buildEventPhotoLimitSummary,
+  normalizeConfiguredEventPhotoLimit,
+} from '@/lib/domain/events/event-stats';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -23,6 +27,7 @@ interface EventStats {
   luckyDrawStatus: 'active' | 'not_set';
   luckyDrawEntryCount: number;
   tierMaxPhotosPerEvent: number;
+  tenantMaxPhotosPerEvent: number;
   configuredMaxPhotosPerEvent: number;
   effectiveMaxPhotosPerEvent: number;
   remainingPhotosInEvent: number;
@@ -38,6 +43,7 @@ interface EventStats {
 
 function buildEmptyStats(
   tierMaxPhotosPerEvent = 0,
+  tenantMaxPhotosPerEvent = 0,
   tierDisplayName = 'Free',
   configuredMaxPhotosPerEvent = 0,
   effectiveMaxPhotosPerEvent = 0
@@ -54,6 +60,7 @@ function buildEmptyStats(
     luckyDrawStatus: 'not_set',
     luckyDrawEntryCount: 0,
     tierMaxPhotosPerEvent,
+    tenantMaxPhotosPerEvent,
     configuredMaxPhotosPerEvent,
     effectiveMaxPhotosPerEvent,
     remainingPhotosInEvent: effectiveMaxPhotosPerEvent < 0 ? -1 : effectiveMaxPhotosPerEvent,
@@ -151,28 +158,6 @@ function getTimelineDate(value: string | Date): string {
   return new Date(value).toISOString().split('T')[0];
 }
 
-function normalizeConfiguredEventPhotoLimit(settings: unknown): number {
-  if (!settings || typeof settings !== 'object') {
-    return 50;
-  }
-  const limitsRaw = (settings as Record<string, unknown>).limits;
-  if (!limitsRaw || typeof limitsRaw !== 'object') {
-    return 50;
-  }
-  const value = (limitsRaw as Record<string, unknown>).max_total_photos;
-  const parsed = typeof value === 'number' ? value : Number(value);
-  if (!Number.isFinite(parsed)) {
-    return 50;
-  }
-  if (parsed === -1) {
-    return -1;
-  }
-  if (parsed <= 0) {
-    return 50;
-  }
-  return parsed;
-}
-
 function areReactionsEnabled(settings: unknown): boolean {
   if (!settings || typeof settings !== 'object') {
     return true;
@@ -180,23 +165,6 @@ function areReactionsEnabled(settings: unknown): boolean {
 
   const features = (settings as { features?: { reactions_enabled?: boolean } }).features;
   return features?.reactions_enabled !== false;
-}
-
-function getEffectiveEventPhotoLimit(tierLimit: number, configuredLimit: number): number {
-  if (tierLimit === -1) {
-    return configuredLimit;
-  }
-  if (configuredLimit === -1) {
-    return tierLimit;
-  }
-  return Math.min(tierLimit, configuredLimit);
-}
-
-function getRemaining(limit: number, used: number): number {
-  if (limit === -1) {
-    return -1;
-  }
-  return Math.max(0, limit - used);
 }
 
 // ============================================
@@ -259,16 +227,21 @@ export async function GET(
       tenantId,
       ((access.subscription_tier as SubscriptionTier) || 'free')
     );
+    const normalizedTier = normalizeSubscriptionTier(access.subscription_tier || 'free');
+    const tierDefaults = getTierConfig(normalizedTier);
     const configuredMaxPhotosPerEvent = normalizeConfiguredEventPhotoLimit(access.settings);
-    const effectiveMaxPhotosPerEvent = getEffectiveEventPhotoLimit(
-      entitlements.limits.max_photos_per_event,
-      configuredMaxPhotosPerEvent
-    );
-    const stats = buildEmptyStats(
-      entitlements.limits.max_photos_per_event,
-      entitlements.displayName,
+    const photoLimitSummary = buildEventPhotoLimitSummary({
+      tierMaxPhotosPerEvent: tierDefaults.limits.max_photos_per_event,
+      tenantMaxPhotosPerEvent: entitlements.limits.max_photos_per_event,
       configuredMaxPhotosPerEvent,
-      effectiveMaxPhotosPerEvent
+      totalPhotos: 0,
+    });
+    const stats = buildEmptyStats(
+      photoLimitSummary.tierMaxPhotosPerEvent,
+      photoLimitSummary.tenantMaxPhotosPerEvent,
+      entitlements.displayName,
+      photoLimitSummary.configuredMaxPhotosPerEvent,
+      photoLimitSummary.effectiveMaxPhotosPerEvent
     );
     const warnings: string[] = [];
 
@@ -356,7 +329,12 @@ export async function GET(
     const combined = combinedResult.rows[0];
 
     stats.totalPhotos = toNumber(combined?.total_photos);
-    stats.remainingPhotosInEvent = getRemaining(stats.effectiveMaxPhotosPerEvent, stats.totalPhotos);
+    stats.remainingPhotosInEvent = buildEventPhotoLimitSummary({
+      tierMaxPhotosPerEvent: stats.tierMaxPhotosPerEvent,
+      tenantMaxPhotosPerEvent: stats.tenantMaxPhotosPerEvent,
+      configuredMaxPhotosPerEvent: stats.configuredMaxPhotosPerEvent,
+      totalPhotos: stats.totalPhotos,
+    }).remainingPhotosInEvent;
     stats.totalParticipants = toNumber(combined?.total_participants);
     stats.photosToday = toNumber(combined?.photos_today);
     stats.totalReactions = toNumber(combined?.total_reactions);

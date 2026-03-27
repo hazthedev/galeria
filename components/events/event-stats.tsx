@@ -23,6 +23,7 @@ interface EventStatsData {
   luckyDrawStatus: 'active' | 'not_set';
   luckyDrawEntryCount: number;
   tierMaxPhotosPerEvent: number;
+  tenantMaxPhotosPerEvent: number;
   configuredMaxPhotosPerEvent: number;
   effectiveMaxPhotosPerEvent: number;
   remainingPhotosInEvent: number;
@@ -294,6 +295,10 @@ export function EventStats({
     stats.tierMaxPhotosPerEvent < 0
       ? 'Unlimited'
       : stats.tierMaxPhotosPerEvent.toLocaleString();
+  const tenantLimitLabel =
+    stats.tenantMaxPhotosPerEvent < 0
+      ? 'Unlimited'
+      : stats.tenantMaxPhotosPerEvent.toLocaleString();
   const configuredLimitLabel =
     stats.configuredMaxPhotosPerEvent < 0
       ? 'Unlimited'
@@ -309,7 +314,6 @@ export function EventStats({
   const visibleStatCards = statCards.filter(
     (card) => allowReactions || card.key !== 'totalReactions'
   );
-  const limitsSummary = `Configured: ${configuredLimitLabel} | Tier: ${tierLimitLabel}`;
 
   return (
     <div className={clsx('space-y-4 sm:space-y-6', className)}>
@@ -388,10 +392,10 @@ export function EventStats({
                 {stats.totalPhotos.toLocaleString()} used of {effectiveLimitLabel}
               </p>
               <p className="text-xs text-gray-500 dark:text-gray-500">
-                {limitsSummary}
+                Tenant limit: {tenantLimitLabel} | Configured cap: {configuredLimitLabel}
               </p>
-              <p className="hidden text-xs text-gray-500 dark:text-gray-500">
-                Configured: {configuredLimitLabel} · Tier: {tierLimitLabel}
+              <p className="text-xs text-gray-500 dark:text-gray-500">
+                Plan default: {tierLimitLabel}
               </p>
             </div>
           </div>
