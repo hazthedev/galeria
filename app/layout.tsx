@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { AuthProvider } from "@/lib/auth-context";
-import { RealtimeProvider } from "@/lib/realtime/client";
-import { Toaster } from "sonner";
+
+const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+const metadataBase = new URL(appUrl.endsWith("/") ? appUrl : `${appUrl}/`);
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,9 +16,16 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Galeria",
-  description: "Capture Moments, Together",
+  metadataBase,
+  title: {
+    default: "Galeria",
+    template: "%s | Galeria",
+  },
+  description: "Branded event photo galleries with guest uploads, lucky draws, photo challenges, and QR attendance tracking.",
   applicationName: "Galeria",
+  alternates: {
+    canonical: "/",
+  },
   icons: {
     icon: "/icon",
     shortcut: "/icon",
@@ -26,14 +33,24 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: "Galeria",
-    description: "Capture Moments, Together",
+    description: "Branded event photo galleries with guest uploads, lucky draws, photo challenges, and QR attendance tracking.",
     siteName: "Galeria",
     type: "website",
+    url: "/",
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: "Galeria event photo gallery platform",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "Galeria",
-    description: "Capture Moments, Together",
+    description: "Branded event photo galleries with guest uploads, lucky draws, photo challenges, and QR attendance tracking.",
+    images: ["/twitter-image"],
   },
 };
 
@@ -44,16 +61,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        <AuthProvider>
-          <RealtimeProvider>
-            {children}
-            <Toaster position="top-right" richColors closeButton />
-          </RealtimeProvider>
-        </AuthProvider>
-      </body>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>{children}</body>
     </html>
   );
 }
