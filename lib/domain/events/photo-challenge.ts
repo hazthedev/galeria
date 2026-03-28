@@ -3,7 +3,7 @@
 // ============================================
 
 import type { TenantDatabase } from '@/lib/db';
-import type { IPhotoChallenge, IGuestPhotoProgress } from '@/lib/types';
+import type { IPhotoChallenge, IGuestPhotoProgress, IPrizeClaim } from '@/lib/types';
 
 export function getGuestFingerprintCandidates(fingerprint: string): string[] {
   const trimmed = fingerprint.trim();
@@ -41,6 +41,54 @@ export async function findGuestProgressByFingerprint(
   }
 
   return null;
+}
+
+export async function findPrizeClaimByFingerprint(
+  db: TenantDatabase,
+  eventId: string,
+  fingerprint: string
+): Promise<IPrizeClaim | null> {
+  for (const candidate of getGuestFingerprintCandidates(fingerprint)) {
+    const claim = await db.findOne<IPrizeClaim>('prize_claims', {
+      event_id: eventId,
+      user_fingerprint: candidate,
+    });
+
+    if (claim) {
+      return claim;
+    }
+  }
+
+  return null;
+}
+
+export async function countApprovedGuestChallengePhotos(
+  db: TenantDatabase,
+  eventId: string,
+  fingerprint: string
+): Promise<number> {
+  const candidates = Array.from(
+    new Set(
+      getGuestFingerprintCandidates(fingerprint).map((candidate) =>
+        candidate.startsWith('guest_') ? candidate : `guest_${candidate}`
+      )
+    )
+  );
+
+  if (candidates.length === 0) {
+    return 0;
+  }
+
+  const result = await db.query<{ count: string }>(
+    `SELECT COUNT(*)::text AS count
+     FROM photos
+     WHERE event_id = $1
+       AND status = 'approved'
+       AND user_fingerprint = ANY($2::text[])`,
+    [eventId, candidates]
+  );
+
+  return Number(result.rows[0]?.count || 0);
 }
 
 // Get active photo challenge config for an event
@@ -107,25 +155,16 @@ export async function updateGuestProgress(
     return { progress: null, goalJustReached: false };
   }
 
-  // Don't update if already reached goal
-  if (progress.goal_reached) {
-    return { progress, goalJustReached: false };
-  }
-
   // Update counters
+  const nextApprovedCount = photoApproved
+    ? (progress.photos_approved || 0) + 1
+    : (progress.photos_approved || 0);
   const updates: Partial<IGuestPhotoProgress> = {
     photos_uploaded: (progress.photos_uploaded || 0) + 1,
+    photos_approved: nextApprovedCount,
+    goal_reached: progress.goal_reached || nextApprovedCount >= challenge.goal_photos,
     updated_at: new Date(),
   };
-
-  if (photoApproved) {
-    updates.photos_approved = (progress.photos_approved || 0) + 1;
-
-    // Check if goal reached
-    if (updates.photos_approved >= challenge.goal_photos) {
-      updates.goal_reached = true;
-    }
-  }
 
   // Update in database
   await db.update(

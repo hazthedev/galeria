@@ -51,6 +51,7 @@ export function PhotoChallengePrizeModal({
   surfaceMuted,
 }: PhotoChallengePrizeModalProps) {
   const [claimToken, setClaimToken] = useState<string | null>(null);
+  const [claimUrl, setClaimUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [downloaded, setDownloaded] = useState(false);
@@ -87,6 +88,7 @@ export function PhotoChallengePrizeModal({
       }
 
       setClaimToken(data.data.claim_token);
+      setClaimUrl(data.data.qr_code_url || null);
     } catch (err) {
       console.error('[PRIZE_MODAL] Failed to generate claim token:', err);
       setError(err instanceof Error ? err.message : 'Failed to generate prize claim');
@@ -122,7 +124,7 @@ export function PhotoChallengePrizeModal({
     img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
   };
 
-  const qrCodeUrl = claimToken ? `${typeof window !== 'undefined' ? window.location.origin : ''}/claim/${claimToken}` : '';
+  const qrCodeUrl = claimUrl || '';
 
   return (
     <AnimatePresence>

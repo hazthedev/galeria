@@ -17,7 +17,7 @@ type RouteContext = {
 export async function POST(req: NextRequest, context: RouteContext) {
   try {
     const { eventId } = await context.params;
-    const { db } = await requireEventModeratorAccess(req.headers, eventId);
+    const { db, userId } = await requireEventModeratorAccess(req.headers, eventId);
 
     const body = await req.json();
     const { token } = body;
@@ -29,7 +29,17 @@ export async function POST(req: NextRequest, context: RouteContext) {
       );
     }
     // Find the prize claim
-    const claim = await db.findOne('prize_claims', {
+    const claim = await db.findOne<{
+      id: string;
+      event_id: string;
+      user_fingerprint: string;
+      challenge_id: string | null;
+      qr_code_token: string;
+      claimed_at: Date;
+      revoked_at: Date | null;
+      verified_by: string | null;
+      metadata?: Record<string, unknown> | null;
+    }>('prize_claims', {
       event_id: eventId,
       qr_code_token: token,
       revoked_at: null,
@@ -39,6 +49,22 @@ export async function POST(req: NextRequest, context: RouteContext) {
       return NextResponse.json(
         { error: 'Invalid or expired claim token', code: 'INVALID_TOKEN' },
         { status: 404 }
+      );
+    }
+
+    const alreadyVerified = Boolean(claim.verified_by);
+    if (!alreadyVerified) {
+      await db.update(
+        'prize_claims',
+        {
+          verified_by: userId,
+          metadata: {
+            ...(claim.metadata || {}),
+            verified_at: new Date().toISOString(),
+            verified_by: userId,
+          },
+        },
+        { id: claim.id }
       );
     }
 
@@ -66,7 +92,9 @@ export async function POST(req: NextRequest, context: RouteContext) {
         photos_approved: progress?.photos_approved || 0,
         goal_photos: challenge.goal_photos,
         claimed_at: claim.claimed_at,
-        verified: !claim.revoked_at,
+        verified: true,
+        verified_by: claim.verified_by || userId,
+        already_verified: alreadyVerified,
       },
     });
   } catch (error) {

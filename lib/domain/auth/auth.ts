@@ -295,47 +295,6 @@ export async function registerUser(
 }
 
 // ============================================
-// SESSION STORAGE (Redis)
-// ============================================
-
-interface ISession {
-  user_id: string;
-  tenant_id: string;
-  refresh_token: string;
-  expires_at: Date;
-  user_agent?: string;
-  ip_address?: string;
-}
-
-/**
- * Store refresh token in Redis
- */
-export async function storeSession(
-  sessionId: string,
-  _session: ISession
-): Promise<void> {
-  // TODO: Implement Redis storage
-  // For now, we'll use in-memory (not production-ready)
-}
-
-/**
- * Get session from Redis
- */
-export async function getSession(
-  sessionId: string
-): Promise<ISession | null> {
-  // TODO: Implement Redis retrieval
-  return null;
-}
-
-/**
- * Delete session from Redis
- */
-export async function deleteSession(sessionId: string): Promise<void> {
-  // TODO: Implement Redis deletion
-}
-
-// ============================================
 // AUTHORIZATION HELPERS
 // ============================================
 

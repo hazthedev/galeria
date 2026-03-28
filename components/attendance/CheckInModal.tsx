@@ -9,6 +9,7 @@ import { User, Mail, Phone, Users, X, Minus, Plus, UserCheck, Loader2 } from 'lu
 import { toast } from 'sonner';
 import clsx from 'clsx';
 import { motion, AnimatePresence } from 'motion/react';
+import { getClientFingerprint } from '@/lib/rate-limit';
 
 interface CheckInModalProps {
   eventId: string;
@@ -28,14 +29,23 @@ export function CheckInModal({ eventId, onClose, onSuccess }: CheckInModalProps)
     setIsSubmitting(true);
 
     try {
+      const fingerprint = getClientFingerprint();
+      if (!fingerprint) {
+        throw new Error('Unable to identify your device for check-in');
+      }
+
       const response = await fetch(`/api/events/${eventId}/attendance`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-fingerprint': fingerprint,
+        },
         credentials: 'include',
         body: JSON.stringify({
           guest_name: guestName,
           guest_email: guestEmail || undefined,
           guest_phone: guestPhone || undefined,
+          user_fingerprint: fingerprint,
           companions_count: companionsCount,
           check_in_method: 'guest_self',
         }),

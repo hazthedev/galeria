@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
+import type { PoolClient } from 'pg';
 import { getTenantDb } from '@/lib/db';
 import { verifyAccessToken } from '@/lib/domain/auth/auth';
 import type { ReactionType } from '@/lib/types';
@@ -23,6 +24,20 @@ type PhotoReactionContext = {
       reactions_enabled?: boolean;
     };
   } | null;
+};
+
+type LockedPhotoReactionState = {
+  eventId: string;
+  reactions: Partial<Record<ReactionType, number>> | null;
+};
+
+type ReactionMutationResult = {
+  eventId: string;
+  count: number;
+  userCount: number;
+  added: boolean;
+  reason?: 'max_reached';
+  broadcast: boolean;
 };
 
 function createReactionFeatureUnavailableResponse(message: string) {
@@ -59,6 +74,135 @@ async function getPhotoReactionContext(
   );
 
   return result.rows[0] || null;
+}
+
+async function lockPhotoReactionState(
+  client: PoolClient,
+  photoId: string
+): Promise<LockedPhotoReactionState | null> {
+  const result = await client.query<LockedPhotoReactionState>(
+    `SELECT
+      event_id AS "eventId",
+      reactions
+     FROM photos
+     WHERE id = $1
+     FOR UPDATE`,
+    [photoId]
+  );
+
+  return result.rows[0] || null;
+}
+
+async function mutatePhotoReaction(input: {
+  db: ReturnType<typeof getTenantDb>;
+  photoId: string;
+  userId: string;
+  type: ReactionType;
+  mode: string;
+}): Promise<ReactionMutationResult | null> {
+  return input.db.transact<ReactionMutationResult | null>(async (client) => {
+    const photo = await lockPhotoReactionState(client, input.photoId);
+    if (!photo) {
+      return null;
+    }
+
+    const reactionCounts: Partial<Record<ReactionType, number>> = photo.reactions || {};
+    const currentCountResult = await client.query<{ count: string }>(
+      `SELECT COUNT(*)::text AS count
+       FROM photo_reactions
+       WHERE photo_id = $1 AND user_id = $2 AND type = $3`,
+      [input.photoId, input.userId, input.type]
+    );
+    const currentUserCount = parseInt(currentCountResult.rows[0]?.count || '0', 10);
+
+    if (input.mode === 'increment') {
+      if (currentUserCount >= MAX_REACTIONS_PER_USER) {
+        return {
+          eventId: photo.eventId,
+          count: reactionCounts[input.type] || 0,
+          userCount: currentUserCount,
+          added: false,
+          reason: 'max_reached',
+          broadcast: false,
+        };
+      }
+
+      await client.query(
+        `INSERT INTO photo_reactions (id, photo_id, user_id, type, created_at)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [
+          `reaction_${Date.now()}_${crypto.randomBytes(8).toString('hex')}`,
+          input.photoId,
+          input.userId,
+          input.type,
+          new Date(),
+        ]
+      );
+
+      const newCount = (reactionCounts[input.type] || 0) + 1;
+      await client.query(
+        'UPDATE photos SET reactions = $1 WHERE id = $2',
+        [{ ...reactionCounts, [input.type]: newCount }, input.photoId]
+      );
+
+      return {
+        eventId: photo.eventId,
+        count: newCount,
+        userCount: currentUserCount + 1,
+        added: true,
+        broadcast: true,
+      };
+    }
+
+    if (currentUserCount > 0) {
+      const deleteResult = await client.query(
+        `DELETE FROM photo_reactions
+         WHERE photo_id = $1 AND user_id = $2 AND type = $3`,
+        [input.photoId, input.userId, input.type]
+      );
+      const removedCount = deleteResult.rowCount || 0;
+      const newCount = Math.max(0, (reactionCounts[input.type] || 0) - removedCount);
+
+      await client.query(
+        'UPDATE photos SET reactions = $1 WHERE id = $2',
+        [{ ...reactionCounts, [input.type]: newCount }, input.photoId]
+      );
+
+      return {
+        eventId: photo.eventId,
+        count: newCount,
+        userCount: Math.max(0, currentUserCount - removedCount),
+        added: false,
+        broadcast: removedCount > 0,
+      };
+    }
+
+    await client.query(
+      `INSERT INTO photo_reactions (id, photo_id, user_id, type, created_at)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [
+        `reaction_${Date.now()}_${crypto.randomBytes(8).toString('hex')}`,
+        input.photoId,
+        input.userId,
+        input.type,
+        new Date(),
+      ]
+    );
+
+    const newCount = (reactionCounts[input.type] || 0) + 1;
+    await client.query(
+      'UPDATE photos SET reactions = $1 WHERE id = $2',
+      [{ ...reactionCounts, [input.type]: newCount }, input.photoId]
+    );
+
+    return {
+      eventId: photo.eventId,
+      count: newCount,
+      userCount: currentUserCount + 1,
+      added: true,
+      broadcast: true,
+    };
+  });
 }
 
 // ============================================
@@ -173,8 +317,6 @@ export async function POST(
       );
     }
 
-    const reactionCounts: Partial<Record<ReactionType, number>> = photo.reactions || {};
-
     // Parse request body
     const body = await request.json();
     const { type }: { type: ReactionType } = body;
@@ -194,135 +336,39 @@ export async function POST(
     const url = new URL(request.url);
     const mode = url.searchParams.get('mode') || 'toggle';
 
-    // Get user's current reaction count for this photo
-    const userReactionsResult = await db.query<{ count: string }>(
-      `SELECT COUNT(*) as count FROM photo_reactions WHERE photo_id = $1 AND user_id = $2`,
-      [photoId, userId]
-    );
-    const currentUserCount = parseInt(userReactionsResult.rows[0]?.count || '0', 10);
+    const mutation = await mutatePhotoReaction({
+      db,
+      photoId,
+      userId,
+      type,
+      mode,
+    });
 
-    if (mode === 'increment') {
-      // INCREMENT MODE: Always add (up to max), never remove
-      if (currentUserCount >= MAX_REACTIONS_PER_USER) {
-        return NextResponse.json({
-          data: {
-            type,
-            count: reactionCounts[type] || 0,
-            userCount: currentUserCount,
-            added: false,
-            reason: 'max_reached',
-          },
-        });
-      }
-
-      // Add new reaction
-      const reactionId = `reaction_${Date.now()}_${crypto.randomBytes(8).toString('hex')}`;
-      await db.insert('photo_reactions', {
-        id: reactionId,
-        photo_id: photoId,
-        user_id: userId,
-        type,
-        created_at: new Date(),
-      });
-
-      // Increment count on photo
-      const newCount = (reactionCounts[type] || 0) + 1;
-      await db.update(
-        'photos',
-        { reactions: { ...reactionCounts, [type]: newCount } },
-        { id: photoId }
+    if (!mutation) {
+      return NextResponse.json(
+        { error: 'Photo not found', code: 'PHOTO_NOT_FOUND' },
+        { status: 404 }
       );
+    }
 
-      await publishEventBroadcast(photo.eventId, 'reaction_added', {
+    if (mutation.broadcast) {
+      await publishEventBroadcast(mutation.eventId, 'reaction_added', {
         photo_id: photoId,
         emoji: type,
-        count: newCount,
-        event_id: photo.eventId,
-      });
-
-      return NextResponse.json({
-        data: {
-          type,
-          count: newCount,
-          userCount: currentUserCount + 1,
-          added: true,
-        },
-      });
-    } else {
-      // TOGGLE MODE: Add if not reacted, remove if already reacted
-      const existingReaction = await db.findOne('photo_reactions', {
-        photo_id: photoId,
-        user_id: userId,
-        type,
-      });
-
-      if (existingReaction) {
-        // Remove reaction (toggle off)
-        await db.delete('photo_reactions', {
-          photo_id: photoId,
-          user_id: userId,
-          type,
-        });
-
-        // Decrement count
-        const newCount = Math.max(0, (reactionCounts[type] || 0) - 1);
-        await db.update(
-          'photos',
-          { reactions: { ...reactionCounts, [type]: newCount } },
-          { id: photoId }
-        );
-
-        await publishEventBroadcast(photo.eventId, 'reaction_added', {
-          photo_id: photoId,
-          emoji: type,
-          count: newCount,
-          event_id: photo.eventId,
-        });
-
-        return NextResponse.json({
-          data: {
-            type,
-            count: newCount,
-            userCount: Math.max(0, currentUserCount - 1),
-            added: false,
-          },
-        });
-      }
-
-      // Add new reaction
-      const reactionId = `reaction_${Date.now()}_${crypto.randomBytes(8).toString('hex')}`;
-      await db.insert('photo_reactions', {
-        id: reactionId,
-        photo_id: photoId,
-        user_id: userId,
-        type,
-        created_at: new Date(),
-      });
-
-      // Increment count
-      const newCount = (reactionCounts[type] || 0) + 1;
-      await db.update(
-        'photos',
-        { reactions: { ...reactionCounts, [type]: newCount } },
-        { id: photoId }
-      );
-
-      await publishEventBroadcast(photo.eventId, 'reaction_added', {
-        photo_id: photoId,
-        emoji: type,
-        count: newCount,
-        event_id: photo.eventId,
-      });
-
-      return NextResponse.json({
-        data: {
-          type,
-          count: newCount,
-          userCount: currentUserCount + 1,
-          added: true,
-        },
+        count: mutation.count,
+        event_id: mutation.eventId,
       });
     }
+
+    return NextResponse.json({
+      data: {
+        type,
+        count: mutation.count,
+        userCount: mutation.userCount,
+        added: mutation.added,
+        reason: mutation.reason,
+      },
+    });
   } catch (error) {
     if (error instanceof Error && error.message.includes('Tenant context missing')) {
       return NextResponse.json(

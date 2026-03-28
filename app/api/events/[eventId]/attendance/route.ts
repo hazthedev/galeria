@@ -217,9 +217,30 @@ export async function POST(
     }
 
     // Get user fingerprint for tracking
-    const userFingerprint = body.user_fingerprint ||
+    const userFingerprint = (
+      body.user_fingerprint ||
       headers.get('x-fingerprint') ||
-      crypto.randomUUID();
+      ''
+    ).trim();
+
+    if (!userFingerprint) {
+      return NextResponse.json(
+        { error: 'Unable to identify user', code: 'NO_FINGERPRINT' },
+        { status: 400 }
+      );
+    }
+
+    const existingByFingerprint = await db.query<IAttendance>(
+      'SELECT id FROM attendances WHERE event_id = $1 AND user_fingerprint = $2',
+      [eventId, userFingerprint]
+    );
+
+    if (existingByFingerprint.rows.length > 0) {
+      return NextResponse.json(
+        { error: 'Guest already checked in', code: 'ALREADY_CHECKED_IN' },
+        { status: 409 }
+      );
+    }
 
     // Create attendance record
     const result = await db.query<IAttendance>(

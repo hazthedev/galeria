@@ -6,10 +6,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSession, deleteSession, extractSessionId } from '@/lib/domain/auth/session';
 import { getRequestIp, getRequestUserAgent } from '@/middleware/auth';
+import { DEFAULT_TENANT_ID, SYSTEM_TENANT_ID } from '@/lib/constants/tenants';
 import type { IAuthResponseSession, IUser } from '@/lib/types';
 import { getTenantDb } from '@/lib/infrastructure/database/db';
 import { verifyTOTP } from '@/lib/mfa/totp';
-import { getSupabaseServerAuthClient } from '@/lib/infrastructure/auth/supabase-server';
+import { getSupabaseAdminClient, isSupabaseAdminConfigured } from '@/lib/infrastructure/auth/supabase-server';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -19,6 +20,61 @@ interface MFAVerifyRequest {
   token: string;
   email: string;
   rememberMe?: boolean;
+}
+
+type MFAUserRecord = {
+  id: string;
+  email: string;
+  name: string | null;
+  role: string;
+  tenant_id: string;
+  totp_secret: string | null;
+  totp_enabled: boolean;
+  email_verified: boolean;
+  created_at: Date;
+  updated_at: Date;
+  password_hash?: string | null;
+};
+
+async function findMfaUser(mfaUserId: string, email: string): Promise<MFAUserRecord | null> {
+  const normalizedEmail = email.trim().toLowerCase();
+
+  if (isSupabaseAdminConfigured()) {
+    const supabase = getSupabaseAdminClient();
+    const { data, error } = await supabase
+      .from('users')
+      .select('id, email, name, role, tenant_id, totp_secret, totp_enabled, email_verified, created_at, updated_at, password_hash')
+      .eq('id', mfaUserId)
+      .eq('email', normalizedEmail)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(`Failed to load MFA user: ${error.message}`);
+    }
+
+    if (data) {
+      return {
+        ...(data as MFAUserRecord),
+        created_at: new Date(String(data.created_at)),
+        updated_at: new Date(String(data.updated_at)),
+      };
+    }
+  }
+
+  const fallbackTenantIds = Array.from(new Set([DEFAULT_TENANT_ID, SYSTEM_TENANT_ID]));
+  for (const tenantId of fallbackTenantIds) {
+    const db = getTenantDb(tenantId);
+    const user = await db.findOne<MFAUserRecord>('users', {
+      id: mfaUserId,
+      email: normalizedEmail,
+    });
+
+    if (user) {
+      return user;
+    }
+  }
+
+  return null;
 }
 
 /**
@@ -60,23 +116,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get user and verify MFA
-    const db = getTenantDb(mfaUserId); // Using mfaUserId as tenant_id for super admin
-
-    const user = await db.findOne<{
-      id: string;
-      email: string;
-      name: string | null;
-      role: string;
-      tenant_id: string;
-      totp_secret: string | null;
-      totp_enabled: boolean;
-      email_verified: boolean;
-      created_at: Date;
-      updated_at: Date;
-    }>(
-      'users',
-      { id: mfaUserId }
-    );
+    const user = await findMfaUser(mfaUserId, email);
 
     if (!user) {
       return NextResponse.json(

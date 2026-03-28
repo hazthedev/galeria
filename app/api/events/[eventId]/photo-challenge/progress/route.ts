@@ -4,7 +4,11 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantDb } from '@/lib/db';
-import { findGuestProgressByFingerprint } from '@/lib/photo-challenge';
+import {
+  countApprovedGuestChallengePhotos,
+  findGuestProgressByFingerprint,
+  findPrizeClaimByFingerprint,
+} from '@/lib/photo-challenge';
 import { resolveOptionalAuth, resolveTenantId } from '@/lib/api-request-context';
 
 type RouteContext = {
@@ -59,18 +63,14 @@ export async function GET(req: NextRequest, context: RouteContext) {
     const progress = await findGuestProgressByFingerprint(db, eventId, fingerprint);
 
     // Get user's approved photos count
-    const photos = await db.findMany('photos', {
-      event_id: eventId,
-      user_fingerprint: `guest_${fingerprint}`,
-      status: 'approved',
-    });
-
-    const photosApproved = photos.length;
+    const photosApproved = await countApprovedGuestChallengePhotos(db, eventId, fingerprint);
     const goalPhotos = challenge.goal_photos;
     const goalReached = photosApproved >= goalPhotos;
+    const existingClaim = await findPrizeClaimByFingerprint(db, eventId, fingerprint);
+    const activeClaim = existingClaim && !existingClaim.revoked_at ? existingClaim : null;
 
     // Check if prize is available to claim
-    const canClaim = goalReached && !progress?.prize_revoked;
+    const canClaim = goalReached && !progress?.prize_revoked && !activeClaim;
 
     return NextResponse.json({
       data: {
@@ -83,7 +83,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
         photos_approved: photosApproved,
         goal_reached: goalReached,
         can_claim: canClaim,
-        prize_claimed_at: progress?.prize_claimed_at || null,
+        prize_claimed_at: activeClaim?.claimed_at || progress?.prize_claimed_at || null,
         prize_revoked: progress?.prize_revoked || false,
       },
     });

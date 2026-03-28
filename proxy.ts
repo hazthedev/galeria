@@ -46,6 +46,60 @@ function withDefaultTenantHeaders(request: NextRequest) {
   return NextResponse.next({ request: { headers } });
 }
 
+type ResolvedTenantPayload = {
+  id: string;
+  tenantType: string;
+  tenantTier: string;
+  tenantName?: string;
+  branding: Record<string, unknown>;
+  features: Record<string, unknown>;
+  limits: Record<string, unknown>;
+  status: string;
+  isCustomDomain: boolean;
+  isMaster: boolean;
+};
+
+function withResolvedTenantHeaders(
+  request: NextRequest,
+  tenant: ResolvedTenantPayload
+) {
+  const headers = new Headers(request.headers);
+  headers.set('x-tenant-id', tenant.id);
+  headers.set('x-tenant-type', tenant.tenantType);
+  headers.set('x-tenant-tier', tenant.tenantTier);
+  if (tenant.tenantName) {
+    headers.set('x-tenant-name', tenant.tenantName);
+  }
+  headers.set('x-tenant-branding', JSON.stringify(tenant.branding || {}));
+  headers.set('x-tenant-features', JSON.stringify(tenant.features || {}));
+  headers.set('x-tenant-limits', JSON.stringify(tenant.limits || {}));
+  headers.set('x-is-custom-domain', String(tenant.isCustomDomain));
+  headers.set('x-is-master', String(tenant.isMaster));
+  return NextResponse.next({ request: { headers } });
+}
+
+function createTenantNotFoundResponse(request: NextRequest) {
+  if (request.nextUrl.pathname.startsWith('/api/')) {
+    return NextResponse.json(
+      { error: 'Tenant not found', code: 'TENANT_NOT_FOUND' },
+      { status: 404 }
+    );
+  }
+
+  return new NextResponse('Tenant not found', { status: 404 });
+}
+
+function createTenantUnavailableResponse(request: NextRequest) {
+  if (request.nextUrl.pathname.startsWith('/api/')) {
+    return NextResponse.json(
+      { error: 'Tenant resolution unavailable', code: 'TENANT_RESOLUTION_UNAVAILABLE' },
+      { status: 503 }
+    );
+  }
+
+  return new NextResponse('Tenant resolution unavailable', { status: 503 });
+}
+
 /**
  * Next.js proxy
  * Runs on every request (except static files)
@@ -58,6 +112,7 @@ export async function proxy(request: NextRequest) {
   if (
     url.pathname.startsWith('/_next') ||
     url.pathname.startsWith('/static') ||
+    url.pathname.startsWith('/api/internal/tenant-context') ||
     url.pathname.includes('.')
   ) {
     return NextResponse.next();
@@ -77,7 +132,46 @@ export async function proxy(request: NextRequest) {
     return withDefaultTenantHeaders(request);
   }
 
-  // For production, the tenant resolution would happen here
-  // For now, just pass through
-  return NextResponse.next();
+  try {
+    const resolveUrl = new URL('/api/internal/tenant-context', request.url);
+    resolveUrl.searchParams.set('host', hostname);
+
+    const response = await fetch(resolveUrl, {
+      cache: 'no-store',
+      headers: {
+        'x-tenant-resolution-request': '1',
+      },
+    });
+
+    if (response.status === 404) {
+      return createTenantNotFoundResponse(request);
+    }
+
+    if (!response.ok) {
+      return createTenantUnavailableResponse(request);
+    }
+
+    const payload = await response.json() as { data?: ResolvedTenantPayload };
+    const tenant = payload.data;
+
+    if (!tenant) {
+      return createTenantUnavailableResponse(request);
+    }
+
+    if (tenant.status === 'suspended') {
+      if (url.pathname.startsWith('/api/')) {
+        return NextResponse.json(
+          { error: 'Tenant suspended', code: 'TENANT_SUSPENDED' },
+          { status: 503 }
+        );
+      }
+
+      return NextResponse.rewrite(new URL('/suspended', request.url));
+    }
+
+    return withResolvedTenantHeaders(request, tenant);
+  } catch (error) {
+    console.error('[PROXY] Tenant resolution failed:', error);
+    return createTenantUnavailableResponse(request);
+  }
 }

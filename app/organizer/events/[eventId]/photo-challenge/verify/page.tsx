@@ -4,8 +4,8 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useState, useEffect, useCallback } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { QrCode, Check, X, Loader2, Search } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -21,6 +21,7 @@ interface ClaimData {
 export default function PhotoChallengeVerifyPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const eventId = params.eventId as string;
 
   const [tokenInput, setTokenInput] = useState('');
@@ -28,8 +29,8 @@ export default function PhotoChallengeVerifyPage() {
   const [claimData, setClaimData] = useState<ClaimData | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const handleVerify = async () => {
-    const token = tokenInput.trim();
+  const verifyToken = useCallback(async (rawToken: string) => {
+    const token = rawToken.trim();
     if (!token) {
       toast.error('Please enter a claim token');
       return;
@@ -53,7 +54,8 @@ export default function PhotoChallengeVerifyPage() {
       }
 
       setClaimData(data.data);
-      toast.success('Prize claim verified!');
+      setTokenInput(token);
+      toast.success(data.data?.already_verified ? 'Prize claim was already verified' : 'Prize claim verified!');
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Verification failed';
       setError(errorMsg);
@@ -61,7 +63,21 @@ export default function PhotoChallengeVerifyPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [eventId]);
+
+  const handleVerify = useCallback(async () => {
+    await verifyToken(tokenInput);
+  }, [tokenInput, verifyToken]);
+
+  useEffect(() => {
+    const token = searchParams.get('token');
+    if (!token || token === tokenInput || claimData) {
+      return;
+    }
+
+    setTokenInput(token);
+    void verifyToken(token);
+  }, [searchParams, tokenInput, claimData, verifyToken]);
 
   const handleRevoke = async () => {
     if (!claimData?.user_fingerprint) return;

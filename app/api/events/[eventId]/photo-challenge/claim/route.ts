@@ -5,12 +5,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantDb } from '@/lib/db';
 import crypto from 'crypto';
-import { findGuestProgressByFingerprint, normalizeGuestChallengeFingerprint } from '@/lib/photo-challenge';
+import {
+  countApprovedGuestChallengePhotos,
+  findGuestProgressByFingerprint,
+  findPrizeClaimByFingerprint,
+  normalizeGuestChallengeFingerprint,
+} from '@/lib/photo-challenge';
 import { resolveOptionalAuth, resolveRequiredTenantId } from '@/lib/api-request-context';
 
 type RouteContext = {
   params: Promise<{ eventId: string }>;
 };
+
+function buildPrizeClaimUrl(eventId: string, token: string): string {
+  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '');
+  const path = `/organizer/events/${eventId}/photo-challenge/verify?token=${encodeURIComponent(token)}`;
+  return baseUrl ? `${baseUrl}${path}` : path;
+}
 
 /**
  * POST /api/events/[eventId]/photo-challenge/claim
@@ -58,13 +69,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
     }
 
     // Get user's approved photos count
-    const photos = await db.findMany('photos', {
-      event_id: eventId,
-      user_fingerprint: `guest_${fingerprint}`,
-      status: 'approved',
-    });
-
-    const photosApproved = photos.length;
+    const photosApproved = await countApprovedGuestChallengePhotos(db, eventId, fingerprint);
     const goalPhotos = challenge.goal_photos;
     const goalReached = photosApproved >= goalPhotos;
 
@@ -86,16 +91,19 @@ export async function POST(req: NextRequest, context: RouteContext) {
     }
 
     // Check if already claimed
-    const existingClaim = await db.findOne('prize_claims', {
-      event_id: eventId,
-      user_fingerprint: fingerprint,
-    });
+    const existingClaim = await findPrizeClaimByFingerprint(db, eventId, fingerprint);
 
     if (existingClaim && !existingClaim.revoked_at) {
+      const existingClaimUrl = typeof existingClaim.metadata?.qr_code_url === 'string'
+        ? existingClaim.metadata.qr_code_url
+        : buildPrizeClaimUrl(eventId, existingClaim.qr_code_token);
       return NextResponse.json({
         already_claimed: true,
-        qr_code_url: existingClaim.metadata?.qr_code_url || null,
-        claim_token: existingClaim.qr_code_token,
+        data: {
+          qr_code_url: existingClaimUrl,
+          claim_token: existingClaim.qr_code_token,
+          qr_data: null,
+        },
         prize_title: challenge.prize_title,
       });
     }
@@ -109,17 +117,36 @@ export async function POST(req: NextRequest, context: RouteContext) {
       token,
       timestamp: Date.now(),
     };
+    const qrCodeUrl = buildPrizeClaimUrl(eventId, token);
 
-    // Store claim record
-    await db.insert('prize_claims', {
-      event_id: eventId,
-      user_fingerprint: fingerprint,
+    const claimPayload = {
       challenge_id: challenge.id,
       qr_code_token: token,
-      metadata: qrCodeData,
+      metadata: {
+        ...qrCodeData,
+        qr_code_url: qrCodeUrl,
+      },
       claimed_at: new Date(),
-      created_at: new Date(),
-    });
+      revoked_at: null,
+      revoke_reason: null,
+      verified_by: null,
+    };
+
+    // Store claim record
+    if (existingClaim) {
+      await db.update(
+        'prize_claims',
+        claimPayload,
+        { id: existingClaim.id }
+      );
+    } else {
+      await db.insert('prize_claims', {
+        event_id: eventId,
+        user_fingerprint: fingerprint,
+        created_at: new Date(),
+        ...claimPayload,
+      });
+    }
 
     // Update or create progress record
     if (progress) {
@@ -143,8 +170,10 @@ export async function POST(req: NextRequest, context: RouteContext) {
 
     // Generate QR code URL (client will generate actual QR)
     // For now, return the token that the client can use
-    const qrCodeDataString = JSON.stringify(qrCodeData);
-    const qrCodeUrl = `${process.env.NEXT_PUBLIC_APP_URL}/claim/${token}`;
+    const qrCodeDataString = JSON.stringify({
+      ...qrCodeData,
+      qr_code_url: qrCodeUrl,
+    });
 
     return NextResponse.json({
       data: {
