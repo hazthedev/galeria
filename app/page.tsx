@@ -9,7 +9,7 @@ import { UseCasesSection } from "@/components/landing/UseCasesSection";
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen overflow-hidden bg-white text-slate-900 [color-scheme:light]">
+    <div className="min-h-screen overflow-hidden bg-white text-slate-900 dark:bg-gray-950 dark:text-gray-100">
       <LandingNav />
       <HeroSection />
       <FeaturesSection />
