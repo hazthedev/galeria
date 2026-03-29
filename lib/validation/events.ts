@@ -11,6 +11,7 @@ export const eventCreateSchema = z.object({
   location: z.string().optional(),
   expected_guests: z.coerce.number().int().positive().optional(),
   custom_hashtag: z.string().optional(),
+  short_code: z.string().optional(),
   settings: z.any().optional(),
 });
 

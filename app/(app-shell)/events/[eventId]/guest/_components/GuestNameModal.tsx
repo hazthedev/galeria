@@ -10,6 +10,7 @@ import { hexToRgba } from '../_lib/guest-theme';
 interface GuestNameModalProps {
   isOpen: boolean;
   onSubmit: (name: string, isAnonymous: boolean) => void;
+  onSkip: () => void;
   eventName: string;
   initialName?: string;
   initialAnonymous?: boolean;
@@ -29,6 +30,7 @@ interface GuestNameModalProps {
 export function GuestNameModal({
   isOpen,
   onSubmit,
+  onSkip,
   eventName,
   initialName,
   initialAnonymous,
@@ -174,10 +176,19 @@ export function GuestNameModal({
 
             <button
               onClick={handleSubmit}
-              className="w-full rounded-lg py-3 text-sm font-semibold transition-all"
+              className="min-h-11 w-full rounded-lg py-3 text-sm font-semibold transition-all"
               style={{ backgroundColor: themeSecondary, color: secondaryText }}
             >
               Continue
+            </button>
+
+            <button
+              type="button"
+              onClick={onSkip}
+              className="min-h-11 w-full rounded-lg border px-4 py-3 text-sm font-medium transition-colors"
+              style={{ borderColor: surfaceBorder, color: surfaceMuted, backgroundColor: inputBackground }}
+            >
+              Just Browsing
             </button>
           </div>
         </motion.div>

@@ -49,19 +49,19 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
     resolvedEventId, event, isLoading, error, showShareModal, showUploadModal, showCheckInModal,
     hasCheckedIn, isUploading, isOptimizing, uploadProgress, uploadError, uploadSuccess, uploadSuccessMessage,
     moderationNotice, moderationNoticeType, joinLuckyDraw, hasJoinedDraw, luckyDrawNumbers, hasActiveLuckyDrawConfig,
-    photoChallenge, challengeProgress, showPrizeModal, fingerprint, recaptchaToken, recaptchaError, winner, wonPrize,
-    showDrawOverlay, showWinnerOverlay, mergedPhotos, guestName, isAnonymous, showGuestModal, allowAnonymous,
-    luckyDrawEnabled, reactionsEnabled, attendanceEnabled, photoCardStyle, themePrimary, themeSecondary, themeBackground, themeSurface,
+    photoChallenge, challengeProgress, showPrizeModal, fingerprint, recaptchaToken, recaptchaError, isRecaptchaConfigured, winner, wonPrize,
+    showDrawOverlay, showWinnerOverlay, mergedPhotos, guestName, isAnonymous, browseOnly, showGuestModal, allowAnonymous,
+    luckyDrawEnabled, reactionsEnabled, attendanceEnabled, canUpload, photoCardStyle, themePrimary, themeSecondary, themeBackground, themeSurface,
     themeGradient, surfaceText, surfaceMuted, surfaceBorder, inputBackground, inputBorder, headerBackground,
     secondaryText, selectedFiles, caption, userLoves, animatingPhotos, selectedPhotoIds, canDownload, lightboxEnabled, selectedCount,
     galleryFilter, setGalleryFilter, filteredPhotos,
     uploadUsageUser,
     lightboxOpen, lightboxIndex,
-    loadMoreRef, hasMoreApproved, isLoadingMore, handleGuestModalSubmit, setShowGuestModal, handleLoveReaction,
+    loadMoreRef, hasMoreApproved, isLoadingMore, handleGuestModalSubmit, handleGuestModalSkip, setShowGuestModal, handleLoveReaction,
     handleDownloadPhoto, handleDownloadAll, handleDownloadSelected, handleDownloadSelectedIndividually,
     toggleSelectedPhoto, openLightbox, setLightboxOpen, setLightboxIndex,
     loadMoreApproved, setShowShareModal, shareUrl, handleShare, copyToClipboard, handleFileSelect,
-    removeSelectedFile, handleUpload, setShowUploadModal, setRecaptchaToken, setRecaptchaError, setCaption,
+    removeSelectedFile, handleUpload, openUploadModal, setShowUploadModal, setRecaptchaToken, setRecaptchaError, setCaption,
     setJoinLuckyDraw, setSelectedFiles, setUploadError, setUploadSuccess, setUploadSuccessMessage, setOptimizedCount,
     setShowCheckInModal, setHasCheckedIn, setIsAnonymous, setShowPrizeModal, setShowDrawOverlay, setShowWinnerOverlay, setWonPrize,
   } = controller;
@@ -97,6 +97,7 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
     month: 'long',
     day: 'numeric',
   });
+  const eventIsActive = event.status === 'active';
 
   return (
     <div
@@ -119,6 +120,7 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
       <GuestNameModal
         isOpen={showGuestModal}
         onSubmit={handleGuestModalSubmit}
+        onSkip={handleGuestModalSkip}
         eventName={event.name}
         initialName={guestName}
         initialAnonymous={isAnonymous}
@@ -305,6 +307,21 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
         }}
       >
         {/* Event Details — Compact Pills */}
+        {!eventIsActive && (
+          <motion.div
+            className="mb-4 rounded-2xl border px-4 py-3 text-sm font-medium"
+            style={{
+              borderColor: v.border,
+              backgroundColor: v.inputBg,
+              color: v.text,
+            }}
+            variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+          >
+            This event has ended.
+          </motion.div>
+        )}
+
         <motion.div
           className="mb-6 flex flex-wrap items-center gap-2"
           style={{ color: v.text }}
@@ -411,42 +428,40 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
             {moderationNotice}
           </div>
         )}
-        <motion.div
-          className="mb-8"
-          variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }}
-          transition={{ duration: 0.3, ease: 'easeOut' }}
-        >
-          <button
-            type="button"
-            onClick={() => {
-              setShowUploadModal(true);
-              setRecaptchaToken(null);
-              setRecaptchaError(null);
-            }}
-            className="group w-full overflow-hidden rounded-2xl p-6 text-left transition-all duration-200 ease-out hover:shadow-lg sm:p-8"
-            style={{
-              backgroundImage: `linear-gradient(135deg, ${themePrimary}18, ${themeSecondary}18)`,
-              borderColor: v.border,
-            }}
+        {!browseOnly && canUpload && event?.settings?.features?.photo_upload_enabled !== false && (
+          <motion.div
+            className="mb-8"
+            variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
           >
-            <div className="flex items-center gap-4">
-              <div
-                className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl transition-transform duration-200 ease-out group-hover:scale-110"
-                style={{ backgroundImage: `linear-gradient(135deg, ${themePrimary}, ${themeSecondary})` }}
-              >
-                <Camera className="h-6 w-6 text-white" />
+            <button
+              type="button"
+              onClick={openUploadModal}
+              className="group w-full overflow-hidden rounded-2xl p-6 text-left transition-all duration-200 ease-out hover:shadow-lg sm:p-8"
+              style={{
+                backgroundImage: `linear-gradient(135deg, ${themePrimary}18, ${themeSecondary}18)`,
+                borderColor: v.border,
+              }}
+            >
+              <div className="flex items-center gap-4">
+                <div
+                  className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl transition-transform duration-200 ease-out group-hover:scale-110"
+                  style={{ backgroundImage: `linear-gradient(135deg, ${themePrimary}, ${themeSecondary})` }}
+                >
+                  <Camera className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold leading-snug tracking-tight sm:text-lg" style={{ color: v.text }}>
+                    Add your photos
+                  </h3>
+                  <p className="mt-0.5 text-sm leading-relaxed" style={{ color: v.muted }}>
+                    Capture and share your favorite moments
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-base font-semibold leading-snug tracking-tight sm:text-lg" style={{ color: v.text }}>
-                  Add your photos
-                </h3>
-                <p className="mt-0.5 text-sm leading-relaxed" style={{ color: v.muted }}>
-                  Capture and share your favorite moments
-                </p>
-              </div>
-            </div>
-          </button>
-        </motion.div>
+            </button>
+          </motion.div>
+        )}
 
         {/* Gallery Filter Pills */}
         {mergedPhotos.length > 0 && (
@@ -551,6 +566,7 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
         guestName={guestName}
         recaptchaToken={recaptchaToken}
         recaptchaError={recaptchaError}
+        isRecaptchaConfigured={isRecaptchaConfigured}
         allowAnonymous={allowAnonymous}
         uploadUsageUser={uploadUsageUser}
         themePrimary={themePrimary}
@@ -587,13 +603,9 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
       />
 
       {/* Floating Camera Button */}
-      {event?.settings?.features?.photo_upload_enabled !== false && (
+      {!browseOnly && canUpload && event?.settings?.features?.photo_upload_enabled !== false && (
         <motion.button
-          onClick={() => {
-            setShowUploadModal(true);
-            setRecaptchaToken(null);
-            setRecaptchaError(null);
-          }}
+          onClick={openUploadModal}
           animate="idle"
           whileHover="hover"
           whileTap="tap"
@@ -607,7 +619,7 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
       )}
 
       {/* Check-in Button */}
-      {attendanceEnabled && !hasCheckedIn && (
+      {attendanceEnabled && eventIsActive && !hasCheckedIn && (
         <motion.button
           onClick={() => setShowCheckInModal(true)}
           animate="idle"

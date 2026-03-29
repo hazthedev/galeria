@@ -155,8 +155,8 @@ export async function POST(
 
     if (event.status !== 'active') {
       return NextResponse.json(
-        { error: 'Event is not active', code: 'EVENT_NOT_ACTIVE' },
-        { status: 400 }
+        { error: 'This event is no longer accepting check-ins', code: 'EVENT_NOT_ACTIVE' },
+        { status: 403 }
       );
     }
 

@@ -5,6 +5,7 @@
 
 import { randomBytes } from 'crypto';
 import { getTenantDb } from '@/lib/infrastructure/database';
+export { RESERVED_SHORT_CODES, isReservedShortCode } from '@/lib/shared/short-codes';
 
 /**
  * Generate a random short code

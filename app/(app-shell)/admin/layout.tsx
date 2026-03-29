@@ -12,13 +12,13 @@ import {
     Calendar,
     Settings,
     Building2,
-    Shield,
     Menu,
     User,
     LogOut,
     Monitor,
     FileText,
 } from 'lucide-react';
+import { BrandMark } from '@/components/landing/BrandMark';
 import clsx from 'clsx';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
@@ -32,6 +32,7 @@ const SIDEBAR_ITEMS = [
     { href: '/admin/sessions', label: 'Sessions', icon: Monitor },
     { href: '/admin/audit', label: 'Audit Logs', icon: FileText },
     { href: '/admin/settings', label: 'Settings', icon: Settings },
+    { href: '/organizer', label: 'Organizer View', icon: Calendar },
 ];
 
 export default function SupervisorLayout({
@@ -147,11 +148,10 @@ export default function SupervisorLayout({
                 aria-label="Admin navigation"
             >
                 {/* Header */}
-                <div className="flex h-16 items-center gap-2 px-4" style={{ borderBottom: '1px solid var(--color-border)' }}>
-                    <Shield className="h-5 w-5 text-violet-600" />
-                    <span className="text-base font-semibold text-gray-900 dark:text-white">
-                        Super Admin
-                    </span>
+                <div className="flex h-16 items-center gap-2.5 px-4" style={{ borderBottom: '1px solid var(--color-border)' }}>
+                    <BrandMark size={28} gradientId="gm-admin-sidebar" />
+                    <span className="text-base font-semibold text-gray-900 dark:text-white">Galeria</span>
+                    <span className="ml-auto rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-700 dark:bg-violet-900/30 dark:text-violet-400">Admin</span>
                 </div>
 
                 {/* Navigation */}

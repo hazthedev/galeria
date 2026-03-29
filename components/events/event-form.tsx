@@ -8,6 +8,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, Calendar, MapPin, Hash, Users, CheckCircle } from 'lucide-react';
 import clsx from 'clsx';
+import { isReservedShortCode } from '@/lib/shared/short-codes';
 import type { IEvent, EventType, EventStatus } from '@/lib/types';
 
 interface EventFormData {
@@ -112,7 +113,9 @@ export function EventForm({
 
     if (formData.short_code.trim()) {
       const shortCode = formData.short_code.trim().toLowerCase();
-      if (!/^[a-z0-9-]{3,20}$/.test(shortCode)) {
+      if (isReservedShortCode(shortCode)) {
+        newErrors.short_code = 'This URL code is reserved';
+      } else if (!/^[a-z0-9-]{3,20}$/.test(shortCode)) {
         newErrors.short_code = 'URL code must be 3-20 characters (letters, numbers, hyphens)';
       }
     }
@@ -197,6 +200,14 @@ export function EventForm({
       });
     }
   };
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const eventDateValue = formData.event_date ? new Date(`${formData.event_date}T00:00:00`) : null;
+  const showPastDateWarning =
+    Boolean(eventDateValue) &&
+    !errors.event_date &&
+    eventDateValue!.getTime() < today.getTime();
 
   return (
     <form onSubmit={handleSubmit} className={clsx('space-y-6', className)}>
@@ -462,6 +473,12 @@ export function EventForm({
       )}
 
       {/* Actions */}
+      {showPastDateWarning && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800/50 dark:bg-amber-900/20 dark:text-amber-300">
+          This date is in the past — the event will be created as a historical record
+        </div>
+      )}
+
       <div className="flex items-center justify-end gap-3 pt-4">
         {onCancel && (
           <button

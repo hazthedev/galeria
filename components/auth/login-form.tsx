@@ -1,13 +1,14 @@
 // ============================================
 // Galeria - Login Form Component
 // ============================================
-// Login form with email and password validation
+// Login form with email/password validation and MFA verification
 
 'use client';
 
-import { useState, FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import clsx from 'clsx';
 import { useAuth } from '@/lib/auth';
@@ -35,6 +36,8 @@ interface LoginResponse {
   sessionId?: string;
   message?: string;
   error?: string;
+  mfaRequired?: boolean;
+  mfaUserId?: string | null;
 }
 
 interface ApiError {
@@ -58,18 +61,21 @@ export function LoginForm({ onSuccess, redirectTo = '/organizer', className }: L
   const [errors, setErrors] = useState<Partial<Record<keyof LoginFormData, string>>>({});
   const [apiError, setApiError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [mfaStep, setMfaStep] = useState(false);
+  const [mfaUserId, setMfaUserId] = useState<string | null>(null);
+  const [mfaEmail, setMfaEmail] = useState('');
+  const [totpCode, setTotpCode] = useState('');
+  const [mfaError, setMfaError] = useState<string | null>(null);
 
   const validateForm = (): boolean => {
     const newErrors: Partial<Record<keyof LoginFormData, string>> = {};
 
-    // Email validation
     if (!formData.email) {
       newErrors.email = 'Email is required';
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = 'Please enter a valid email address';
     }
 
-    // Password validation
     if (!formData.password) {
       newErrors.password = 'Password is required';
     }
@@ -78,13 +84,38 @@ export function LoginForm({ onSuccess, redirectTo = '/organizer', className }: L
     return Object.keys(newErrors).length === 0;
   };
 
+  const resetMfaState = () => {
+    setMfaStep(false);
+    setMfaUserId(null);
+    setMfaEmail('');
+    setTotpCode('');
+    setMfaError(null);
+  };
+
+  const completeLogin = (user: IUser | undefined) => {
+    toast.success('Welcome back!');
+
+    let destination = redirectTo;
+    if (user?.role === 'super_admin') {
+      destination = '/admin';
+    } else if (redirectTo === '/organizer' || !redirectTo) {
+      destination = '/organizer';
+    }
+
+    if (user) {
+      setAuthenticatedUser(user, formData.rememberMe);
+    }
+
+    onSuccess?.();
+    router.replace(destination);
+    router.refresh();
+  };
+
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
-    // Clear previous errors
     setApiError(null);
+    setMfaError(null);
 
-    // Validate form
     if (!validateForm()) {
       return;
     }
@@ -102,7 +133,7 @@ export function LoginForm({ onSuccess, redirectTo = '/organizer', className }: L
           password: formData.password,
           rememberMe: formData.rememberMe,
         }),
-        credentials: 'include', // Important for cookies
+        credentials: 'include',
       });
 
       const data: LoginResponse | ApiError = await response.json();
@@ -112,35 +143,29 @@ export function LoginForm({ onSuccess, redirectTo = '/organizer', className }: L
         const msg = errorData.message || 'Login failed. Please try again.';
         setApiError(msg);
         toast.error(msg);
-        setIsLoading(false);
         return;
       }
 
       const successData = data as LoginResponse;
 
-      if (successData.success) {
-        toast.success('Welcome back!');
-
-        // Redirect based on user role - use window.location for full page load
-        // This ensures cookies are properly read and auth state is fresh
-        let destination = redirectTo;
-        if (successData.user?.role === 'super_admin') {
-          destination = '/admin';
-        } else if (redirectTo === '/organizer' || !redirectTo) {
-          destination = '/organizer';
-        }
-
-        if (successData.user) {
-          setAuthenticatedUser(successData.user, formData.rememberMe);
-        }
-
-        router.replace(destination);
-        router.refresh();
-      } else {
-        const msg = successData.error || 'Login failed. Please try again.';
-        setApiError(msg);
-        toast.error(msg);
+      if (successData.mfaRequired === true && successData.mfaUserId) {
+        setMfaUserId(successData.mfaUserId);
+        setMfaEmail(formData.email.trim().toLowerCase());
+        setMfaStep(true);
+        setTotpCode('');
+        setApiError(null);
+        setMfaError(null);
+        return;
       }
+
+      if (successData.success) {
+        completeLogin(successData.user);
+        return;
+      }
+
+      const msg = successData.error || 'Login failed. Please try again.';
+      setApiError(msg);
+      toast.error(msg);
     } catch (error) {
       console.error('[LOGIN] Error:', error);
       const msg = 'An unexpected error occurred. Please try again.';
@@ -151,146 +176,289 @@ export function LoginForm({ onSuccess, redirectTo = '/organizer', className }: L
     }
   };
 
+  const handleMfaSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setApiError(null);
+    setMfaError(null);
+
+    const cleanCode = totpCode.replace(/\D/g, '').slice(0, 6);
+    if (cleanCode.length !== 6 || !mfaUserId) {
+      setMfaError('Invalid code — please try again');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const response = await fetch('/api/auth/mfa/verify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          mfaUserId,
+          token: cleanCode,
+          email: mfaEmail,
+          rememberMe: formData.rememberMe,
+        }),
+      });
+
+      const data: LoginResponse | ApiError = await response.json();
+
+      if (!response.ok) {
+        setMfaError('Invalid code — please try again');
+        return;
+      }
+
+      const successData = data as LoginResponse;
+      if (!successData.success) {
+        setMfaError('Invalid code — please try again');
+        return;
+      }
+
+      resetMfaState();
+      completeLogin(successData.user);
+    } catch (error) {
+      console.error('[LOGIN_MFA] Error:', error);
+      setMfaError('Invalid code — please try again');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleInputChange = (field: keyof LoginFormData, value: string | boolean) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    // Clear field error when user starts typing
+    setFormData((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) {
-      setErrors(prev => {
-        const newErrors = { ...prev };
-        delete newErrors[field];
-        return newErrors;
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next[field];
+        return next;
       });
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className={clsx('space-y-5', className)}>
-      {/* API Error */}
+    <form
+      onSubmit={mfaStep ? handleMfaSubmit : handleSubmit}
+      className={clsx('space-y-5', className)}
+    >
       {apiError && (
         <div className="rounded-lg bg-red-50 p-4 text-sm text-red-800 dark:bg-red-900/20 dark:text-red-300">
           {apiError}
         </div>
       )}
 
-      {/* Email Field */}
-      <div className="space-y-1.5">
-        <label
-          htmlFor="email"
-          className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-        >
-          Email
-        </label>
-        <input
-          id="email"
-          type="email"
-          autoComplete="email"
-          value={formData.email}
-          onChange={e => handleInputChange('email', e.target.value)}
-          className={clsx(
-            'block w-full rounded-lg border px-4 py-2.5 text-sm',
-            'transition-colors duration-200',
-            'placeholder:text-gray-400',
-            'focus:outline-none focus:ring-2 focus:ring-offset-0',
-            {
-              'border-gray-300 bg-white text-gray-900 focus:border-violet-500 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100':
-                !errors.email,
-              'border-red-300 bg-red-50 text-red-900 focus:border-red-500 focus:ring-red-500 dark:border-red-600 dark:bg-red-900/10 dark:text-red-200':
-                errors.email,
-            }
-          )}
-          aria-invalid={errors.email ? 'true' : 'false'}
-          aria-describedby={errors.email ? 'email-error' : undefined}
-          placeholder="you@example.com"
-          disabled={isLoading}
-        />
-        {errors.email && (
-          <p id="email-error" className="text-sm text-red-600 dark:text-red-400">
-            {errors.email}
-          </p>
-        )}
-      </div>
+      {mfaStep ? (
+        <>
+          <div className="space-y-2">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              Enter authentication code
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Use the 6-digit code from your authenticator app to finish signing in.
+            </p>
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              {mfaEmail}
+            </p>
+          </div>
 
-      {/* Password Field */}
-      <div className="space-y-1.5">
-        <label
-          htmlFor="password"
-          className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-        >
-          Password
-        </label>
-        <input
-          id="password"
-          type="password"
-          autoComplete="current-password"
-          value={formData.password}
-          onChange={e => handleInputChange('password', e.target.value)}
-          className={clsx(
-            'block w-full rounded-lg border px-4 py-2.5 text-sm',
-            'transition-colors duration-200',
-            'placeholder:text-gray-400',
-            'focus:outline-none focus:ring-2 focus:ring-offset-0',
-            {
-              'border-gray-300 bg-white text-gray-900 focus:border-violet-500 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100':
-                !errors.password,
-              'border-red-300 bg-red-50 text-red-900 focus:border-red-500 focus:ring-red-500 dark:border-red-600 dark:bg-red-900/10 dark:text-red-200':
-                errors.password,
-            }
-          )}
-          aria-invalid={errors.password ? 'true' : 'false'}
-          aria-describedby={errors.password ? 'password-error' : undefined}
-          placeholder="••••••••"
-          disabled={isLoading}
-        />
-        {errors.password && (
-          <p id="password-error" className="text-sm text-red-600 dark:text-red-400">
-            {errors.password}
-          </p>
-        )}
-      </div>
+          <div className="space-y-1.5">
+            <label
+              htmlFor="totp-code"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Verification code
+            </label>
+            <input
+              id="totp-code"
+              type="text"
+              autoFocus
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={6}
+              value={totpCode}
+              onChange={(e) => {
+                setTotpCode(e.target.value.replace(/\D/g, '').slice(0, 6));
+                if (mfaError) {
+                  setMfaError(null);
+                }
+              }}
+              className={clsx(
+                'block min-h-11 w-full rounded-lg border px-4 py-2.5 text-sm tracking-[0.35em]',
+                'transition-colors duration-200 placeholder:text-gray-400',
+                'focus:outline-none focus:ring-2 focus:ring-offset-0',
+                mfaError
+                  ? 'border-red-300 bg-red-50 text-red-900 focus:border-red-500 focus:ring-red-500 dark:border-red-600 dark:bg-red-900/10 dark:text-red-200'
+                  : 'border-gray-300 bg-white text-gray-900 focus:border-violet-500 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100'
+              )}
+              placeholder="123456"
+              disabled={isLoading}
+            />
+            {mfaError && (
+              <p className="text-sm text-red-600 dark:text-red-400">
+                {mfaError}
+              </p>
+            )}
+          </div>
 
-      {/* Remember Me */}
-      <div className="flex items-center">
-        <input
-          id="remember-me"
-          type="checkbox"
-          checked={formData.rememberMe}
-          onChange={e => handleInputChange('rememberMe', e.target.checked)}
-          className="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800"
-          disabled={isLoading}
-        />
-        <label
-          htmlFor="remember-me"
-          className="ml-2 block text-sm text-gray-700 dark:text-gray-300"
-        >
-          Remember me for 30 days
-        </label>
-      </div>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <button
+              type="submit"
+              disabled={isLoading}
+              className={clsx(
+                'flex min-h-11 flex-1 items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold',
+                'transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2',
+                'disabled:cursor-not-allowed disabled:opacity-50',
+                isLoading
+                  ? 'bg-violet-400 text-white'
+                  : 'bg-violet-600 text-white hover:bg-violet-700 focus:ring-violet-500 dark:bg-violet-500 dark:hover:bg-violet-600'
+              )}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Verifying...
+                </>
+              ) : (
+                'Verify'
+              )}
+            </button>
 
-      {/* Submit Button */}
-      <button
-        type="submit"
-        disabled={isLoading}
-        className={clsx(
-          'flex w-full items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold',
-          'transition-all duration-200',
-          'focus:outline-none focus:ring-2 focus:ring-offset-2',
-          'disabled:cursor-not-allowed disabled:opacity-50',
-          {
-            'bg-violet-600 text-white hover:bg-violet-700 focus:ring-violet-500 dark:bg-violet-500 dark:hover:bg-violet-600':
-              !isLoading,
-            'bg-violet-400': isLoading,
-          }
-        )}
-      >
-        {isLoading ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Signing in...
-          </>
-        ) : (
-          'Sign In'
-        )}
-      </button>
+            <button
+              type="button"
+              onClick={resetMfaState}
+              disabled={isLoading}
+              className="flex min-h-11 flex-1 items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition-all duration-200 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="space-y-1.5">
+            <label
+              htmlFor="email"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Email
+            </label>
+            <input
+              id="email"
+              type="email"
+              autoComplete="email"
+              value={formData.email}
+              onChange={(e) => handleInputChange('email', e.target.value)}
+              className={clsx(
+                'block min-h-11 w-full rounded-lg border px-4 py-2.5 text-sm',
+                'transition-colors duration-200 placeholder:text-gray-400',
+                'focus:outline-none focus:ring-2 focus:ring-offset-0',
+                {
+                  'border-gray-300 bg-white text-gray-900 focus:border-violet-500 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100':
+                    !errors.email,
+                  'border-red-300 bg-red-50 text-red-900 focus:border-red-500 focus:ring-red-500 dark:border-red-600 dark:bg-red-900/10 dark:text-red-200':
+                    errors.email,
+                }
+              )}
+              aria-invalid={errors.email ? 'true' : 'false'}
+              aria-describedby={errors.email ? 'email-error' : undefined}
+              placeholder="you@example.com"
+              disabled={isLoading}
+            />
+            {errors.email && (
+              <p id="email-error" className="text-sm text-red-600 dark:text-red-400">
+                {errors.email}
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Password
+            </label>
+            <input
+              id="password"
+              type="password"
+              autoComplete="current-password"
+              value={formData.password}
+              onChange={(e) => handleInputChange('password', e.target.value)}
+              className={clsx(
+                'block min-h-11 w-full rounded-lg border px-4 py-2.5 text-sm',
+                'transition-colors duration-200 placeholder:text-gray-400',
+                'focus:outline-none focus:ring-2 focus:ring-offset-0',
+                {
+                  'border-gray-300 bg-white text-gray-900 focus:border-violet-500 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100':
+                    !errors.password,
+                  'border-red-300 bg-red-50 text-red-900 focus:border-red-500 focus:ring-red-500 dark:border-red-600 dark:bg-red-900/10 dark:text-red-200':
+                    errors.password,
+                }
+              )}
+              aria-invalid={errors.password ? 'true' : 'false'}
+              aria-describedby={errors.password ? 'password-error' : undefined}
+              placeholder="••••••••"
+              disabled={isLoading}
+            />
+            {errors.password && (
+              <p id="password-error" className="text-sm text-red-600 dark:text-red-400">
+                {errors.password}
+              </p>
+            )}
+          </div>
+
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center">
+              <input
+                id="remember-me"
+                type="checkbox"
+                checked={formData.rememberMe}
+                onChange={(e) => handleInputChange('rememberMe', e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800"
+                disabled={isLoading}
+              />
+              <label
+                htmlFor="remember-me"
+                className="ml-2 block text-sm text-gray-700 dark:text-gray-300"
+              >
+                Remember me for 30 days
+              </label>
+            </div>
+
+            <Link
+              href="/auth/forgot-password"
+              className="text-sm font-medium text-violet-600 transition-colors hover:text-violet-700 dark:text-violet-400 dark:hover:text-violet-300"
+            >
+              Forgot password?
+            </Link>
+          </div>
+
+          <button
+            type="submit"
+            disabled={isLoading}
+            className={clsx(
+              'flex min-h-11 w-full items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold',
+              'transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2',
+              'disabled:cursor-not-allowed disabled:opacity-50',
+              isLoading
+                ? 'bg-violet-400 text-white'
+                : 'bg-violet-600 text-white hover:bg-violet-700 focus:ring-violet-500 dark:bg-violet-500 dark:hover:bg-violet-600'
+            )}
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Signing in...
+              </>
+            ) : (
+              'Sign In'
+            )}
+          </button>
+        </>
+      )}
     </form>
   );
 }

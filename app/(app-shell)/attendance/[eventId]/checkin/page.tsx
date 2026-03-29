@@ -56,6 +56,7 @@ export default function AttendanceCheckInPage() {
   }, [eventId, router]);
 
   const attendanceEnabled = event?.settings?.features?.attendance_enabled !== false;
+  const eventIsActive = event?.status === 'active';
 
   // If event is loaded but attendance is disabled, redirect will happen in useEffect
   // Show loading state
@@ -181,39 +182,45 @@ export default function AttendanceCheckInPage() {
                 <h2 className="mb-2 text-3xl font-bold text-gray-900 dark:text-gray-100">
                   Welcome to {event.name}!
                 </h2>
-                <p className="text-lg text-gray-600 dark:text-gray-400">
-                  Please check in below to let us know you&apos;re here.
+                  <p className="text-lg text-gray-600 dark:text-gray-400">
+                  {eventIsActive
+                    ? 'Please check in below to let us know you&apos;re here.'
+                    : 'This event is no longer accepting check-ins.'}
                 </p>
               </div>
 
               {/* Info Card */}
-              <div className="mb-8 rounded-xl border border-emerald-200 bg-white/80 backdrop-blur-sm p-6 shadow-lg dark:border-emerald-800/50 dark:bg-gray-900/80">
+              <div className="mb-8 rounded-xl border border-emerald-200 bg-white/80 p-6 shadow-lg backdrop-blur-sm dark:border-emerald-800/50 dark:bg-gray-900/80">
                 <div className="flex items-start gap-3 mb-4">
                   <Info className="h-5 w-5 text-emerald-600 mt-0.5" />
                   <div>
                     <h3 className="font-semibold text-gray-900 dark:text-gray-100">
-                      Check-in Information
+                      {eventIsActive ? 'Check-in Information' : 'Check-in Closed'}
                     </h3>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
-                      Please provide your name to check in. Email and phone are optional but help prevent duplicate check-ins.
+                      {eventIsActive
+                        ? 'Please provide your name to check in. Email and phone are optional but help prevent duplicate check-ins.'
+                        : 'This event has already ended, so new guest check-ins are no longer accepted.'}
                     </p>
                   </div>
                 </div>
               </div>
 
               {/* Check-in Button */}
-              <div className="flex justify-center">
-                <button
-                  onClick={() => setShowCheckInModal(true)}
-                  className="inline-flex items-center gap-3 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 px-8 py-4 text-lg font-semibold text-white shadow-lg hover:from-emerald-600 hover:to-teal-600 transition-all transform hover:scale-105"
-                  style={{
-                    backgroundImage: `linear-gradient(135deg, ${themePrimary}, ${themeSecondary})`,
-                  }}
-                >
-                  <Users className="h-6 w-6" />
-                  Check In Now
-                </button>
-              </div>
+              {eventIsActive && (
+                <div className="flex justify-center">
+                  <button
+                    onClick={() => setShowCheckInModal(true)}
+                    className="inline-flex items-center gap-3 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 px-8 py-4 text-lg font-semibold text-white shadow-lg transition-all hover:scale-105 hover:from-emerald-600 hover:to-teal-600"
+                    style={{
+                      backgroundImage: `linear-gradient(135deg, ${themePrimary}, ${themeSecondary})`,
+                    }}
+                  >
+                    <Users className="h-6 w-6" />
+                    Check In Now
+                  </button>
+                </div>
+              )}
 
               {/* Event Details */}
               <div className="mt-8 rounded-xl border border-emerald-200 bg-white/60 backdrop-blur-sm p-6 shadow-sm dark:border-emerald-800/50 dark:bg-gray-900/60">

@@ -18,6 +18,7 @@ interface ConfirmDialogProps {
   onConfirm: () => void | Promise<void>;
   variant?: 'danger' | 'warning' | 'info' | 'primary';
   isPending?: boolean;
+  confirmDisabled?: boolean;
 }
 
 export function ConfirmDialog({
@@ -30,8 +31,12 @@ export function ConfirmDialog({
   onConfirm,
   variant = 'danger',
   isPending = false,
+  confirmDisabled = false,
 }: ConfirmDialogProps) {
   const handleConfirm = async () => {
+    if (confirmDisabled) {
+      return;
+    }
     await onConfirm();
     if (!isPending) {
       onOpenChange(false);
@@ -103,7 +108,7 @@ export function ConfirmDialog({
           <button
             type="button"
             onClick={handleConfirm}
-            disabled={isPending}
+            disabled={isPending || confirmDisabled}
             className={`inline-flex min-h-11 items-center justify-center rounded-lg px-4 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed dark:focus-visible:ring-offset-gray-800 ${styles.confirm}`}
           >
             {isPending ? (

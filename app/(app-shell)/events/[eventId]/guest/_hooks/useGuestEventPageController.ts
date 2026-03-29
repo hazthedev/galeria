@@ -74,6 +74,7 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
   const fingerprint = useMemo(() => getClientFingerprint(), []);
   const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
   const [recaptchaError, setRecaptchaError] = useState<string | null>(null);
+  const [isRecaptchaConfigured, setIsRecaptchaConfigured] = useState(false);
   const { winner, isDrawing } = useLuckyDraw(resolvedEventId || '');
   const [showDrawOverlay, setShowDrawOverlay] = useState(false);
   const [showWinnerOverlay, setShowWinnerOverlay] = useState(false);
@@ -126,13 +127,16 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
   // Guest name state (persisted)
   const [guestName, setGuestName] = useState<string>('');
   const [isAnonymous, setIsAnonymous] = useState(false);
+  const [browseOnly, setBrowseOnly] = useState(false);
   const [showGuestModal, setShowGuestModal] = useState(false);
+  const [pendingUploadAfterName, setPendingUploadAfterName] = useState(false);
   const allowAnonymous = event?.settings?.features?.anonymous_allowed !== false;
   const moderationRequired = event?.settings?.features?.moderation_required || false;
   const luckyDrawEnabled = event?.settings?.features?.lucky_draw_enabled !== false;
   const reactionsEnabled = event?.settings?.features?.reactions_enabled !== false;
   const attendanceEnabled = event?.settings?.features?.attendance_enabled !== false;
   const lightboxEnabled = event?.settings?.features?.lightbox_enabled !== false;
+  const canUpload = event?.status === 'active';
   const derivedTheme = useGuestTheme(event);
   const {
     photoCardStyle,
@@ -188,6 +192,7 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
         const parsed = JSON.parse(savedData);
         setGuestName(parsed.name || '');
         setIsAnonymous(allowAnonymous ? parsed.isAnonymous || false : false);
+        setBrowseOnly(Boolean(parsed.browseOnly));
       } catch {
         // Show modal if no valid data
         setShowGuestModal(true);
@@ -227,6 +232,57 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
   useEffect(() => {
     setUploadUsageUser(null);
   }, [resolvedEventId, fingerprint]);
+
+  useEffect(() => {
+    if (!resolvedEventId) {
+      setIsRecaptchaConfigured(false);
+      return;
+    }
+
+    let isCancelled = false;
+
+    const loadRecaptchaConfig = async () => {
+      try {
+        const headers: Record<string, string> = {};
+        if (event?.tenant_id) {
+          headers['x-tenant-id'] = event.tenant_id;
+        }
+
+        const response = await fetch('/api/auth/recaptcha/config', {
+          credentials: 'include',
+          headers,
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to load CAPTCHA configuration');
+        }
+
+        const data = await response.json();
+        if (!isCancelled) {
+          setIsRecaptchaConfigured(Boolean(data?.enabled && data?.siteKey));
+        }
+      } catch (err) {
+        if (!isCancelled) {
+          setIsRecaptchaConfigured(false);
+        }
+      }
+    };
+
+    void loadRecaptchaConfig();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [resolvedEventId, event?.tenant_id]);
+
+  useEffect(() => {
+    if (isRecaptchaConfigured) {
+      return;
+    }
+
+    setRecaptchaToken(null);
+    setRecaptchaError(null);
+  }, [isRecaptchaConfigured]);
 
   useEffect(() => {
     if (hasJoinedDraw && joinLuckyDraw) {
@@ -306,6 +362,7 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
     const nextAnonymous = allowAnonymous ? anonymous : false;
     setGuestName(name);
     setIsAnonymous(nextAnonymous);
+    setBrowseOnly(false);
     setShowGuestModal(false);
 
     // If anonymous or lucky draw disabled, can't join
@@ -318,8 +375,40 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
     // Save to localStorage
     if (resolvedEventId) {
       const storageKey = `guest_name_${resolvedEventId}`;
-      localStorage.setItem(storageKey, JSON.stringify({ name, isAnonymous: nextAnonymous }));
+      localStorage.setItem(storageKey, JSON.stringify({ name, isAnonymous: nextAnonymous, browseOnly: false }));
     }
+
+    if (pendingUploadAfterName) {
+      setPendingUploadAfterName(false);
+      setRecaptchaToken(null);
+      setRecaptchaError(null);
+      setShowUploadModal(true);
+    }
+  };
+
+  const handleGuestModalSkip = () => {
+    setBrowseOnly(true);
+    setIsAnonymous(false);
+    setGuestName('');
+    setPendingUploadAfterName(false);
+    setShowGuestModal(false);
+
+    if (resolvedEventId) {
+      const storageKey = `guest_name_${resolvedEventId}`;
+      localStorage.setItem(storageKey, JSON.stringify({ name: '', isAnonymous: false, browseOnly: true }));
+    }
+  };
+
+  const openUploadModal = () => {
+    if (browseOnly) {
+      setPendingUploadAfterName(true);
+      setShowGuestModal(true);
+      return;
+    }
+
+    setRecaptchaToken(null);
+    setRecaptchaError(null);
+    setShowUploadModal(true);
   };
 
   // Load user's love reactions from localStorage
@@ -1277,7 +1366,7 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
       setUploadError('Please enter your name first');
       return;
     }
-    if ((isAnonymous || !guestName.trim()) && !recaptchaToken) {
+    if ((isAnonymous || !guestName.trim()) && isRecaptchaConfigured && !recaptchaToken) {
       setUploadError('Please complete the CAPTCHA');
       return;
     }
@@ -1538,6 +1627,7 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
     fingerprint,
     recaptchaToken,
     recaptchaError,
+    isRecaptchaConfigured,
     winner,
     wonPrize,
     isDrawing,
@@ -1546,12 +1636,14 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
     mergedPhotos,
     guestName,
     isAnonymous,
+    browseOnly,
     showGuestModal,
     allowAnonymous,
     moderationRequired,
     luckyDrawEnabled,
     reactionsEnabled,
     attendanceEnabled,
+    canUpload,
     photoCardStyle,
     themePrimary,
     themeSecondary,
@@ -1581,6 +1673,7 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
     lightboxIndex,
     loadMoreRef,
     handleGuestModalSubmit,
+    handleGuestModalSkip,
     setShowGuestModal,
     handleLoveReaction,
     handleDownloadPhoto,
@@ -1599,6 +1692,7 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
     handleFileSelect,
     removeSelectedFile,
     handleUpload,
+    openUploadModal,
     setShowUploadModal,
     setRecaptchaToken,
     setRecaptchaError,

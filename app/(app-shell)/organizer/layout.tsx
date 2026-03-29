@@ -5,8 +5,8 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
+import { BrandMark } from '@/components/landing/BrandMark';
 import {
     LayoutDashboard,
     Calendar,
@@ -38,12 +38,12 @@ export default function OrganizerLayout({
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const sidebarRef = useRef<HTMLElement>(null);
 
-    // Redirect non-authenticated users
+    // Redirect non-organizer users
     useEffect(() => {
-        if (!isLoading && !isAuthenticated) {
+        if (!isLoading && (!isAuthenticated || (user?.role !== 'organizer' && user?.role !== 'super_admin'))) {
             router.push('/auth/login');
         }
-    }, [isLoading, isAuthenticated, router]);
+    }, [isLoading, isAuthenticated, user, router]);
 
     useEffect(() => {
         if (!sidebarOpen) {
@@ -98,7 +98,7 @@ export default function OrganizerLayout({
         );
     }
 
-    if (!isAuthenticated) {
+    if (!isAuthenticated || (user?.role !== 'organizer' && user?.role !== 'super_admin')) {
         return null;
     }
 
@@ -143,14 +143,9 @@ export default function OrganizerLayout({
             >
                 {/* Header */}
                 <div className="flex h-16 items-center gap-2 px-4" style={{ borderBottom: '1px solid var(--color-border)' }}>
-                    <Link href="/" className="flex items-center gap-2">
-                        <Image
-                            src="/logo-light.svg"
-                            alt="Galeria Logo"
-                            width={138}
-                            height={32}
-                            className="h-8 w-auto"
-                        />
+                    <Link href="/" className="flex items-center gap-2.5">
+                        <BrandMark size={32} gradientId="gm-org-sidebar" />
+                        <span className="text-lg font-bold text-white">Galeria</span>
                     </Link>
                 </div>
 

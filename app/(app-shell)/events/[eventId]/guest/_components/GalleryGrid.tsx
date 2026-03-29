@@ -1,8 +1,8 @@
 import { Camera, ImageIcon, Loader2 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
+import type { CSSProperties, RefObject } from 'react';
 import type { IPhoto } from '@/lib/types';
 import { PhotoCard } from './PhotoCard';
-import type { RefObject } from 'react';
 
 // Theme colors read from CSS variables (--g-*) set by GuestEventPageView
 const v = {
@@ -50,6 +50,11 @@ export function GalleryGrid({
   lightboxEnabled,
   onLoadMore,
 }: GalleryGridProps) {
+  const photoCardVisibilityStyle: CSSProperties = {
+    contentVisibility: 'auto',
+    containIntrinsicSize: '320px 420px',
+  };
+
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
@@ -103,6 +108,7 @@ export function GalleryGrid({
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.9 }}
                   transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                  style={photoCardVisibilityStyle}
                 >
                   <PhotoCard
                     photo={photo}

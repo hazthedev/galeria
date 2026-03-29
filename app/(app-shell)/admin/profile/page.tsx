@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
 import { Loader2, User, Lock, Save } from 'lucide-react';
+import { MFASettings } from '@/components/admin/MFASettings';
 
 export default function SuperAdminProfilePage() {
     const { user, refresh } = useAuth();
@@ -36,6 +37,7 @@ export default function SuperAdminProfilePage() {
         try {
             const response = await fetch('/api/admin/profile', {
                 method: 'PATCH',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     name: name !== user?.name ? name : undefined,
@@ -160,6 +162,20 @@ export default function SuperAdminProfilePage() {
                         </button>
                     </div>
                 </form>
+            </div>
+
+            <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                <div className="border-b border-gray-200 px-4 py-4 dark:border-gray-700 sm:px-6">
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                        Multi-Factor Authentication
+                    </h2>
+                    <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                        Manage the extra verification step for your super admin account.
+                    </p>
+                </div>
+                <div className="p-4 sm:p-6">
+                    <MFASettings />
+                </div>
             </div>
         </div>
     );

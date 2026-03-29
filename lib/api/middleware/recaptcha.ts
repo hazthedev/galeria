@@ -272,13 +272,14 @@ export function isRecaptchaRequiredForUploads(
   isAuthenticated: boolean = false
 ): boolean {
   const config = getTenantRecaptchaConfig(tenantId);
+  const isConfigured = Boolean(config.siteKey && config.secretKey);
 
   // Authenticated users may skip reCAPTCHA based on config
   if (isAuthenticated && !config.requireForUploads) {
     return false;
   }
 
-  return config.enabled;
+  return config.enabled && isConfigured;
 }
 
 // ============================================

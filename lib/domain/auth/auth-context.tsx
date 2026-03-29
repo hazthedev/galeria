@@ -42,6 +42,30 @@ interface MeResponse {
   message?: string;
 }
 
+const SESSION_EXPIRY_EXEMPT_PATHS = new Set([
+  '/api/auth/login',
+  '/api/auth/register',
+  '/api/auth/reset-password',
+  '/api/auth/mfa/verify',
+]);
+
+function shouldTriggerSessionExpiry(requestUrl: string, origin: string): boolean {
+  try {
+    const url = new URL(requestUrl, origin);
+    if (url.origin !== origin || !url.pathname.startsWith('/api/')) {
+      return false;
+    }
+
+    if (url.pathname.startsWith('/api/auth/recaptcha')) {
+      return false;
+    }
+
+    return !SESSION_EXPIRY_EXEMPT_PATHS.has(url.pathname);
+  } catch {
+    return false;
+  }
+}
+
 // ============================================
 // CONTEXT
 // ============================================
@@ -59,14 +83,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [session, setSession] = useState<ISessionData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [sessionExpired, setSessionExpired] = useState(false);
 
   // Use ref to track current user value to avoid stale closures
   const userRef = useRef<IUser | null>(null);
+  const sessionExpiredRef = useRef(false);
 
   // Update ref whenever user changes
   useEffect(() => {
     userRef.current = user;
   }, [user]);
+
+  useEffect(() => {
+    sessionExpiredRef.current = sessionExpired;
+  }, [sessionExpired]);
 
   // Fetch current user data
   const refresh = useCallback(async () => {
@@ -154,6 +184,60 @@ export function AuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const originalFetch = window.fetch.bind(window);
+
+    window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+      const response = await originalFetch(input, init);
+
+      if (
+        response.status === 401 &&
+        userRef.current &&
+        !sessionExpiredRef.current
+      ) {
+        const requestUrl = typeof input === 'string'
+          ? input
+          : input instanceof URL
+            ? input.toString()
+            : input.url;
+
+        if (shouldTriggerSessionExpiry(requestUrl, window.location.origin)) {
+          sessionExpiredRef.current = true;
+          setSessionExpired(true);
+        }
+      }
+
+      return response;
+    };
+
+    return () => {
+      window.fetch = originalFetch;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!sessionExpired) {
+      return;
+    }
+
+    setUser(null);
+    setSession(null);
+    setError('Session expired');
+    sessionExpiredRef.current = false;
+    setSessionExpired(false);
+
+    if (pathname !== '/auth/login') {
+      router.replace('/auth/login?expired=true');
+      return;
+    }
+
+    router.replace('/auth/login?expired=true');
+  }, [sessionExpired, pathname, router]);
 
   // NOTE: Removed auto-refresh on route change to improve performance.
   // The session is validated on mount and on protected API calls.

@@ -45,6 +45,7 @@ export interface UploadModalProps {
   guestName: string;
   recaptchaToken: string | null;
   recaptchaError: string | null;
+  isRecaptchaConfigured: boolean;
   allowAnonymous: boolean;
   uploadUsageUser: { used: number; limit: number; remaining: number } | null;
   themePrimary: string;
@@ -90,6 +91,7 @@ export function UploadModal({
   guestName,
   recaptchaToken,
   recaptchaError,
+  isRecaptchaConfigured,
   allowAnonymous,
   uploadUsageUser,
   themePrimary,
@@ -403,7 +405,7 @@ export function UploadModal({
                     </div>
                   )}
 
-                  {(isAnonymous || !guestName.trim()) && (
+                  {(isAnonymous || !guestName.trim()) && isRecaptchaConfigured && (
                     <div
                       className="rounded-lg border p-3"
                       style={{ borderColor: surfaceBorder, backgroundColor: inputBackground }}

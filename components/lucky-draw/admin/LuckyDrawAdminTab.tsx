@@ -503,7 +503,7 @@ export function LuckyDrawAdminTab({ eventId }: LuckyDrawAdminTabProps) {
     // Check entries exist
     const entryCount = entriesTotal;
     if (entryCount === 0) {
-      toast.error('No Entries: Users must upload photos to enter the draw. Add manual entries or wait for participants to upload photos.');
+      toast.warning('No entries yet — guests need to upload photos first');
       return;
     }
 

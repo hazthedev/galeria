@@ -7,6 +7,7 @@ import { getTenantDb } from '@/lib/db';
 import { verifyAccessToken } from '@/lib/domain/auth/auth';
 import { extractSessionId, validateSession } from '@/lib/domain/auth/session';
 import { generateSlug, generateEventUrl } from '@/lib/utils';
+import { isReservedShortCode } from '@/lib/shared/short-codes';
 import type { IEvent, IEventUpdate } from '@/lib/types';
 import { resolveOptionalAuth, resolveRequiredTenantId, resolveTenantId } from '@/lib/api-request-context';
 import { getEffectiveTenantEntitlements } from '@/lib/tenant';
@@ -155,6 +156,13 @@ export async function PATCH(
       if (!/^[a-z0-9-]{3,20}$/.test(shortCode)) {
         return NextResponse.json(
           { error: 'Short code must be 3-20 characters (letters, numbers, hyphens)', code: 'VALIDATION_ERROR' },
+          { status: 400 }
+        );
+      }
+
+      if (isReservedShortCode(shortCode)) {
+        return NextResponse.json(
+          { error: 'This URL code is reserved', code: 'SHORT_CODE_RESERVED' },
           { status: 400 }
         );
       }

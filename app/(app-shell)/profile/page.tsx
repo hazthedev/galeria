@@ -7,11 +7,15 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
-import { Loader2, User, Lock, Save } from 'lucide-react';
+import { AlertTriangle, Loader2, Lock, Save, User } from 'lucide-react';
+import { ConfirmDialog } from '@/components/admin/ConfirmDialog';
 
 export default function ProfilePage() {
     const { user, isLoading: isAuthLoading, refresh } = useAuth();
     const [isLoading, setIsLoading] = useState(false);
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [deleteConfirmation, setDeleteConfirmation] = useState('');
+    const [isDeleting, setIsDeleting] = useState(false);
 
     // Form state
     const [name, setName] = useState('');
@@ -49,6 +53,7 @@ export default function ProfilePage() {
         try {
             const response = await fetch('/api/organizer/profile', {
                 method: 'PATCH',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     name: hasNameChange ? name : undefined,
@@ -187,8 +192,93 @@ export default function ProfilePage() {
                             </div>
                         </form>
                     </div>
+
+                    <div className="overflow-hidden rounded-xl border border-red-200 bg-white shadow-sm dark:border-red-900/40 dark:bg-gray-800">
+                        <div className="border-b border-red-100 bg-red-50/70 px-6 py-4 dark:border-red-900/30 dark:bg-red-950/20">
+                            <div className="flex items-start gap-3">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-300">
+                                    <AlertTriangle className="h-5 w-5" />
+                                </div>
+                                <div>
+                                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                                        Delete Account
+                                    </h2>
+                                    <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                                        Permanently remove your account and associated organizer data.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="space-y-4 p-6">
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                                This action cannot be undone. Your events, uploads, attendance records, and draw entries will be removed or anonymized where possible.
+                            </p>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setDeleteConfirmation('');
+                                    setDeleteDialogOpen(true);
+                                }}
+                                className="inline-flex min-h-11 items-center justify-center rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-red-700"
+                            >
+                                Delete Account
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
+
+            <ConfirmDialog
+                open={deleteDialogOpen}
+                onOpenChange={(open) => {
+                    setDeleteDialogOpen(open);
+                    if (!open) {
+                        setDeleteConfirmation('');
+                    }
+                }}
+                title="Delete your account?"
+                description={(
+                    <div className="space-y-4">
+                        <p>
+                            Type <span className="font-semibold text-gray-900 dark:text-white">{user?.email}</span> to confirm account deletion.
+                        </p>
+                        <input
+                            type="email"
+                            value={deleteConfirmation}
+                            onChange={(e) => setDeleteConfirmation(e.target.value)}
+                            placeholder={user?.email || 'you@example.com'}
+                            className="min-h-11 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500 dark:border-gray-600 dark:bg-gray-900 dark:text-white"
+                        />
+                    </div>
+                )}
+                confirmLabel="Delete Account"
+                cancelLabel="Keep Account"
+                variant="danger"
+                isPending={isDeleting}
+                confirmDisabled={deleteConfirmation.trim().toLowerCase() !== (user?.email || '').toLowerCase()}
+                onConfirm={async () => {
+                    setIsDeleting(true);
+                    try {
+                        const response = await fetch('/api/organizer/profile', {
+                            method: 'DELETE',
+                            credentials: 'include',
+                        });
+
+                        const data = await response.json().catch(() => ({}));
+                        if (!response.ok) {
+                            throw new Error(data.error || 'Failed to delete account');
+                        }
+
+                        toast.success('Account deleted successfully');
+                        window.location.href = '/';
+                    } catch (error) {
+                        toast.error(error instanceof Error ? error.message : 'Failed to delete account');
+                        throw error;
+                    } finally {
+                        setIsDeleting(false);
+                    }
+                }}
+            />
         </div>
     );
 }

@@ -8,6 +8,7 @@ import { getTenantDb } from '@/lib/db';
 import { verifyAccessToken } from '@/lib/domain/auth/auth';
 import { generateSlug, generateUUID, generateEventUrl } from '@/lib/utils';
 import { extractSessionId, validateSession } from '@/lib/domain/auth/session';
+import { isReservedShortCode } from '@/lib/shared/short-codes';
 import { generateShortCode } from '@/lib/shared/utils/short-code';
 import { getSupabaseAdminClient, isSupabaseAdminConfigured } from '@/lib/infrastructure/auth/supabase-server';
 import { resolveOrProvisionAppUser } from '@/lib/domain/auth/provision-app-user';
@@ -345,6 +346,34 @@ export async function handleEventCreate(request: NextRequest) {
 
     // Get database connection
     const db = getTenantDb(tenantId);
+
+    let requestedShortCode: string | undefined;
+    if (typeof body.short_code === 'string' && body.short_code.trim()) {
+      requestedShortCode = body.short_code.trim().toLowerCase();
+
+      if (!/^[a-z0-9-]{3,20}$/.test(requestedShortCode)) {
+        return NextResponse.json(
+          { error: 'Short code must be 3-20 characters (letters, numbers, hyphens)', code: 'VALIDATION_ERROR' },
+          { status: 400 }
+        );
+      }
+
+      if (isReservedShortCode(requestedShortCode)) {
+        return NextResponse.json(
+          { error: 'This URL code is reserved', code: 'SHORT_CODE_RESERVED' },
+          { status: 400 }
+        );
+      }
+
+      const existingShortCode = await db.findOne<IEvent>('events', { short_code: requestedShortCode });
+      if (existingShortCode) {
+        return NextResponse.json(
+          { error: 'Short code already in use', code: 'SHORT_CODE_TAKEN' },
+          { status: 409 }
+        );
+      }
+    }
+
     const [eventLimitResult, tenantEntitlements] = await Promise.all([
       checkEventLimit(tenantId, 'free'),
       getEffectiveTenantEntitlements(tenantId),
@@ -408,7 +437,7 @@ export async function handleEventCreate(request: NextRequest) {
     const maxCreateAttempts = 5;
     for (let attempt = 1; attempt <= maxCreateAttempts; attempt++) {
       const slug = `${baseSlug}-${crypto.randomBytes(2).toString('hex')}`;
-      const shortCode = generateShortCode(6);
+      const shortCode = requestedShortCode || generateShortCode(6);
       const eventUrl = generateEventUrl(baseUrl, eventId, slug);
       const now = new Date();
       const eventDate = new Date(body.event_date);

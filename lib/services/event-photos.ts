@@ -600,8 +600,8 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
     // Check if event is active
     if (event.status !== 'active') {
       return finalizeUploadResponse(NextResponse.json(
-        { error: 'Event is not active', code: 'EVENT_NOT_ACTIVE' },
-        { status: 400 }
+        { error: 'This event is no longer accepting uploads', code: 'EVENT_NOT_ACTIVE' },
+        { status: 403 }
       ), 'event-not-active');
     }
 

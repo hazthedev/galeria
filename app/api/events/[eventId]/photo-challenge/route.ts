@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getTenantDb } from '@/lib/db';
 import { hasModeratorRole, requireAuthForApi } from '@/lib/domain/auth/auth';
 import { resolveOptionalAuth, resolveTenantId } from '@/lib/api-request-context';
+import { normalizeGuestChallengeFingerprint } from '@/lib/domain/events/photo-challenge';
 
 type RouteContext = {
   params: Promise<{ eventId: string }>;
@@ -152,6 +153,73 @@ export async function POST(req: NextRequest, context: RouteContext) {
       created_at: new Date(),
       updated_at: new Date(),
     });
+
+    const approvedPhotos = await db.query<{ user_fingerprint: string; approved_count: string }>(
+      `
+        SELECT user_fingerprint, COUNT(*)::text AS approved_count
+        FROM photos
+        WHERE event_id = $1
+          AND status = 'approved'
+          AND user_fingerprint IS NOT NULL
+          AND user_fingerprint <> ''
+        GROUP BY user_fingerprint
+      `,
+      [eventId]
+    );
+
+    const seededProgress = new Map<string, number>();
+    for (const row of approvedPhotos.rows) {
+      const normalizedFingerprint = normalizeGuestChallengeFingerprint(row.user_fingerprint);
+      if (!normalizedFingerprint) {
+        continue;
+      }
+
+      const approvedCount = Number(row.approved_count || 0);
+      seededProgress.set(
+        normalizedFingerprint,
+        (seededProgress.get(normalizedFingerprint) || 0) + approvedCount
+      );
+    }
+
+    for (const [fingerprint, approvedCount] of seededProgress.entries()) {
+      await db.query(
+        `
+          INSERT INTO guest_photo_progress (
+            id,
+            event_id,
+            user_fingerprint,
+            photos_uploaded,
+            photos_approved,
+            goal_reached,
+            prize_claimed_at,
+            prize_revoked,
+            revoke_reason,
+            created_at,
+            updated_at
+          )
+          VALUES (
+            gen_random_uuid(),
+            $1,
+            $2,
+            $3,
+            $3,
+            $4,
+            NULL,
+            false,
+            NULL,
+            NOW(),
+            NOW()
+          )
+          ON CONFLICT (event_id, user_fingerprint)
+          DO UPDATE SET
+            photos_uploaded = EXCLUDED.photos_uploaded,
+            photos_approved = EXCLUDED.photos_approved,
+            goal_reached = EXCLUDED.goal_reached,
+            updated_at = NOW()
+        `,
+        [eventId, fingerprint, approvedCount, approvedCount >= challenge.goal_photos]
+      );
+    }
 
     return NextResponse.json({
       data: challenge,
