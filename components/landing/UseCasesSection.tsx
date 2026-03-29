@@ -26,28 +26,28 @@ const USE_CASES: UseCase[] = [
     title: "Birthday Parties",
     desc: "Kids chase the lucky draw. Parents get every photo in one place.",
     gradientClassName: "from-pink-500 to-rose-500",
-    bgClassName: "from-pink-50 to-rose-50 dark:from-pink-950/20 dark:to-rose-950/20",
+    bgClassName: "from-pink-50/85 to-[#fcf6f4] dark:from-pink-950/20 dark:to-rose-950/20",
   },
   {
     icon: Heart,
     title: "Weddings & Receptions",
     desc: "Every guest becomes a photographer. The couple gets a gallery they didn&apos;t have to organise.",
     gradientClassName: "from-violet-500 to-purple-500",
-    bgClassName: "from-violet-50 to-purple-50 dark:from-violet-950/20 dark:to-purple-950/20",
+    bgClassName: "from-violet-50/85 to-[#faf6fb] dark:from-violet-950/20 dark:to-purple-950/20",
   },
   {
     icon: Building2,
     title: "Corporate Events",
     desc: "Branded galleries, QR check-ins, and exportable attendance data — ready for the recap deck.",
     gradientClassName: "from-indigo-500 to-violet-500",
-    bgClassName: "from-indigo-50 to-violet-50 dark:from-indigo-950/20 dark:to-violet-950/20",
+    bgClassName: "from-indigo-50/85 to-[#f8f6fb] dark:from-indigo-950/20 dark:to-violet-950/20",
   },
 ];
 
 export function UseCasesSection() {
   return (
     <section id="use-cases" className="relative py-24 sm:py-36">
-      <div className="absolute inset-0 -z-10 bg-gray-50 dark:bg-gray-900/50" />
+      <div className="absolute inset-0 -z-10 bg-[#efe7dc]/70 dark:bg-gray-900/50" />
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <motion.div
           initial="hidden"
@@ -62,7 +62,7 @@ export function UseCasesSection() {
           <h2 className="mt-3 text-3xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-5xl">
             Perfect for any event
           </h2>
-          <p className="mt-5 text-lg text-gray-500 dark:text-gray-400">
+          <p className="mt-5 text-lg text-stone-600 dark:text-gray-400">
             From birthday parties to company summits
           </p>
         </motion.div>
@@ -77,7 +77,7 @@ export function UseCasesSection() {
               whileHover={{ y: -6, transition: springConfigs.gentle }}
               viewport={landingViewport}
               variants={useCaseVariants}
-              className={`relative overflow-hidden rounded-3xl border border-gray-200/50 bg-gradient-to-b ${item.bgClassName} p-10 text-center transition-all duration-300 hover:shadow-xl dark:border-gray-800/50`}
+              className={`relative overflow-hidden rounded-3xl border border-[#e3d6c8]/70 bg-gradient-to-b ${item.bgClassName} p-10 text-center transition-all duration-300 hover:shadow-xl hover:shadow-[#d8cab8]/25 dark:border-gray-800/50`}
             >
               <motion.div
                 whileHover={{
@@ -90,7 +90,7 @@ export function UseCasesSection() {
                 <item.icon className="h-9 w-9" />
               </motion.div>
               <h3 className="mt-6 text-xl font-semibold text-gray-900 dark:text-white">{item.title}</h3>
-              <p className="mt-3 text-[15px] leading-relaxed text-gray-500 dark:text-gray-400">
+              <p className="mt-3 text-[15px] leading-relaxed text-stone-600 dark:text-gray-400">
                 {item.desc}
               </p>
             </motion.article>

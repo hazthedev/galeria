@@ -76,7 +76,7 @@ const FEATURES: Feature[] = [
 export function FeaturesSection() {
   return (
     <section id="features" className="relative py-24 sm:py-36">
-      <div className="absolute inset-0 -z-10 bg-gray-50 dark:bg-gray-900/50" />
+      <div className="absolute inset-0 -z-10 bg-[#efe7dc]/70 dark:bg-gray-900/50" />
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <motion.div
           initial="hidden"
@@ -91,7 +91,7 @@ export function FeaturesSection() {
           <h2 className="mt-3 text-3xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-5xl">
             Everything you need, nothing you don&apos;t
           </h2>
-          <p className="mt-5 text-lg text-gray-500 dark:text-gray-400">
+          <p className="mt-5 text-lg text-stone-600 dark:text-gray-400">
             Photo sharing, lucky draws, moderation, attendance — all built in.
           </p>
         </motion.div>
@@ -106,7 +106,7 @@ export function FeaturesSection() {
               whileHover={{ y: -4, transition: springConfigs.gentle }}
               viewport={landingViewport}
               variants={featureCardVariants}
-              className="group relative rounded-3xl border border-gray-200/80 bg-white p-8 transition-all duration-300 hover:border-gray-300 hover:shadow-xl hover:shadow-gray-200/50 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700 dark:hover:shadow-none"
+              className="group relative rounded-3xl border border-[#e5d8ca]/80 bg-[#fcf8f2] p-8 transition-all duration-300 hover:border-[#d9cab8] hover:shadow-xl hover:shadow-[#d8cab8]/30 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700 dark:hover:shadow-none"
             >
               <motion.div
                 whileHover={{ scale: 1.1, transition: springConfigs.bouncy }}
@@ -115,7 +115,7 @@ export function FeaturesSection() {
                 <feature.icon className={`h-7 w-7 ${feature.iconClassName}`} />
               </motion.div>
               <h3 className="mt-5 text-lg font-semibold text-gray-900 dark:text-white">{feature.title}</h3>
-              <p className="mt-2 text-[15px] leading-relaxed text-gray-500 dark:text-gray-400">
+              <p className="mt-2 text-[15px] leading-relaxed text-stone-600 dark:text-gray-400">
                 {feature.desc}
               </p>
             </motion.article>

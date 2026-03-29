@@ -1,5 +1,5 @@
 import { ImageResponse } from 'next/og';
-import { BrandMarkGradient } from '@/lib/brand/brand-image';
+import { BrandMark } from '@/components/landing/BrandMark';
 
 export const size = {
   width: 180,
@@ -21,7 +21,7 @@ export default function AppleIcon() {
           width: '100%',
         }}
       >
-        <BrandMarkGradient size={180} borderRadius={40} fontSize={96} />
+        <BrandMark size={180} gradientId="gm-apple-icon" variant="gradient" />
       </div>
     ),
     size,

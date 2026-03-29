@@ -145,7 +145,7 @@ export default function OrganizerLayout({
                 <div className="flex h-16 items-center gap-2 px-4" style={{ borderBottom: '1px solid var(--color-border)' }}>
                     <Link href="/" className="flex items-center gap-2.5">
                         <BrandMark size={32} gradientId="gm-org-sidebar" />
-                        <span className="text-lg font-bold text-white">Galeria</span>
+                        <span className="text-lg font-bold text-gray-900 dark:text-white">Galeria</span>
                     </Link>
                 </div>
 

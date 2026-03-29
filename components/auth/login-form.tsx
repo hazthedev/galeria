@@ -255,10 +255,10 @@ export function LoginForm({ onSuccess, redirectTo = '/organizer', className }: L
             <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
               Enter authentication code
             </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
+            <p className="text-sm text-stone-600 dark:text-gray-400">
               Use the 6-digit code from your authenticator app to finish signing in.
             </p>
-            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            <p className="text-sm font-medium text-stone-700 dark:text-gray-300">
               {mfaEmail}
             </p>
           </div>
@@ -266,7 +266,7 @@ export function LoginForm({ onSuccess, redirectTo = '/organizer', className }: L
           <div className="space-y-1.5">
             <label
               htmlFor="totp-code"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+              className="block text-sm font-medium text-stone-700 dark:text-gray-300"
             >
               Verification code
             </label>
@@ -286,11 +286,11 @@ export function LoginForm({ onSuccess, redirectTo = '/organizer', className }: L
               }}
               className={clsx(
                 'block min-h-11 w-full rounded-lg border px-4 py-2.5 text-sm tracking-[0.35em]',
-                'transition-colors duration-200 placeholder:text-gray-400',
+                'transition-colors duration-200 placeholder:text-stone-400',
                 'focus:outline-none focus:ring-2 focus:ring-offset-0',
                 mfaError
                   ? 'border-red-300 bg-red-50 text-red-900 focus:border-red-500 focus:ring-red-500 dark:border-red-600 dark:bg-red-900/10 dark:text-red-200'
-                  : 'border-gray-300 bg-white text-gray-900 focus:border-violet-500 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100'
+                  : 'border-[#d9cab8] bg-[#fdf9f4] text-slate-900 focus:border-violet-500 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100'
               )}
               placeholder="123456"
               disabled={isLoading}
@@ -329,7 +329,7 @@ export function LoginForm({ onSuccess, redirectTo = '/organizer', className }: L
               type="button"
               onClick={resetMfaState}
               disabled={isLoading}
-              className="flex min-h-11 flex-1 items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition-all duration-200 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+              className="flex min-h-11 flex-1 items-center justify-center rounded-lg border border-[#d9cab8] bg-[#fdf9f4] px-4 py-2.5 text-sm font-semibold text-stone-700 transition-all duration-200 hover:bg-[#f4ede4] focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
             >
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back
@@ -341,7 +341,7 @@ export function LoginForm({ onSuccess, redirectTo = '/organizer', className }: L
           <div className="space-y-1.5">
             <label
               htmlFor="email"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+              className="block text-sm font-medium text-stone-700 dark:text-gray-300"
             >
               Email
             </label>
@@ -353,10 +353,10 @@ export function LoginForm({ onSuccess, redirectTo = '/organizer', className }: L
               onChange={(e) => handleInputChange('email', e.target.value)}
               className={clsx(
                 'block min-h-11 w-full rounded-lg border px-4 py-2.5 text-sm',
-                'transition-colors duration-200 placeholder:text-gray-400',
+                'transition-colors duration-200 placeholder:text-stone-400',
                 'focus:outline-none focus:ring-2 focus:ring-offset-0',
                 {
-                  'border-gray-300 bg-white text-gray-900 focus:border-violet-500 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100':
+                  'border-[#d9cab8] bg-[#fdf9f4] text-slate-900 focus:border-violet-500 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100':
                     !errors.email,
                   'border-red-300 bg-red-50 text-red-900 focus:border-red-500 focus:ring-red-500 dark:border-red-600 dark:bg-red-900/10 dark:text-red-200':
                     errors.email,
@@ -377,7 +377,7 @@ export function LoginForm({ onSuccess, redirectTo = '/organizer', className }: L
           <div className="space-y-1.5">
             <label
               htmlFor="password"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+              className="block text-sm font-medium text-stone-700 dark:text-gray-300"
             >
               Password
             </label>
@@ -389,10 +389,10 @@ export function LoginForm({ onSuccess, redirectTo = '/organizer', className }: L
               onChange={(e) => handleInputChange('password', e.target.value)}
               className={clsx(
                 'block min-h-11 w-full rounded-lg border px-4 py-2.5 text-sm',
-                'transition-colors duration-200 placeholder:text-gray-400',
+                'transition-colors duration-200 placeholder:text-stone-400',
                 'focus:outline-none focus:ring-2 focus:ring-offset-0',
                 {
-                  'border-gray-300 bg-white text-gray-900 focus:border-violet-500 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100':
+                  'border-[#d9cab8] bg-[#fdf9f4] text-slate-900 focus:border-violet-500 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100':
                     !errors.password,
                   'border-red-300 bg-red-50 text-red-900 focus:border-red-500 focus:ring-red-500 dark:border-red-600 dark:bg-red-900/10 dark:text-red-200':
                     errors.password,
@@ -417,12 +417,12 @@ export function LoginForm({ onSuccess, redirectTo = '/organizer', className }: L
                 type="checkbox"
                 checked={formData.rememberMe}
                 onChange={(e) => handleInputChange('rememberMe', e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800"
+                className="h-4 w-4 rounded border-[#ccb9a3] bg-[#fdf9f4] text-violet-600 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800"
                 disabled={isLoading}
               />
               <label
                 htmlFor="remember-me"
-                className="ml-2 block text-sm text-gray-700 dark:text-gray-300"
+                className="ml-2 block text-sm text-stone-700 dark:text-gray-300"
               >
                 Remember me for 30 days
               </label>

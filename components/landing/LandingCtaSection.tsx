@@ -53,7 +53,7 @@ export function LandingCtaSection() {
             <h2 className="mt-3 text-3xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-5xl">
               No hidden fees, no feature walls
             </h2>
-            <p className="mt-5 text-lg text-gray-500 dark:text-gray-400">
+            <p className="mt-5 text-lg text-stone-600 dark:text-gray-400">
               Every plan includes the full feature set. You only pay for scale.
             </p>
 
@@ -69,7 +69,7 @@ export function LandingCtaSection() {
                   className="flex items-start gap-3 rounded-xl p-2"
                 >
                   <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-violet-500 dark:text-violet-400" />
-                  <span className="text-[15px] text-gray-700 dark:text-gray-300">{feature}</span>
+                  <span className="text-[15px] text-stone-700 dark:text-gray-300">{feature}</span>
                 </motion.div>
               ))}
             </div>
@@ -82,8 +82,8 @@ export function LandingCtaSection() {
             variants={slideInRightVariants}
             className="relative"
           >
-            <div className="absolute -inset-4 -z-10 rounded-[32px] bg-gradient-to-br from-violet-200/50 via-purple-200/30 to-fuchsia-200/30 blur-2xl dark:from-violet-900/20 dark:via-purple-900/10 dark:to-fuchsia-900/10" />
-            <div className="rounded-3xl border border-gray-200/80 bg-white p-10 shadow-xl dark:border-gray-800 dark:bg-gray-900">
+            <div className="absolute -inset-4 -z-10 rounded-[32px] bg-gradient-to-br from-violet-200/35 via-purple-200/20 to-fuchsia-200/20 blur-2xl dark:from-violet-900/20 dark:via-purple-900/10 dark:to-fuchsia-900/10" />
+            <div className="rounded-3xl border border-[#e5d8ca]/80 bg-[#fcf8f2] p-10 shadow-xl shadow-[#d8cab8]/30 dark:border-gray-800 dark:bg-gray-900">
               <div className="flex items-center gap-3">
                 <div className="flex -space-x-2">
                   {REVIEW_BADGES.map((color, index) => (
@@ -114,7 +114,7 @@ export function LandingCtaSection() {
                 </div>
               </div>
               <h3 className="mt-6 text-2xl font-bold text-gray-900 dark:text-white">Ready to try it?</h3>
-              <p className="mt-2 text-gray-500 dark:text-gray-400">
+              <p className="mt-2 text-stone-600 dark:text-gray-400">
                 Create an event, share the link, and watch the gallery fill itself.
               </p>
 
@@ -128,16 +128,16 @@ export function LandingCtaSection() {
                 </Link>
                 <Link
                   href="/auth/login"
-                  className="flex w-full items-center justify-center rounded-2xl border-2 border-gray-200 px-6 py-4 font-semibold text-gray-700 transition-all hover:border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:border-gray-600 dark:hover:bg-gray-800"
+                  className="flex w-full items-center justify-center rounded-2xl border-2 border-[#ddd1c3] px-6 py-4 font-semibold text-stone-700 transition-all hover:border-[#cfbeab] hover:bg-[#f4ede4] dark:border-gray-700 dark:text-gray-300 dark:hover:border-gray-600 dark:hover:bg-gray-800"
                 >
                   Sign In to Existing Account
                 </Link>
               </div>
 
-              <div className="mt-6 flex items-center justify-center gap-6 text-sm text-gray-400 dark:text-gray-500">
+              <div className="mt-6 flex items-center justify-center gap-6 text-sm text-stone-500 dark:text-gray-500">
                 <Link
                   href="/auth/admin/login"
-                  className="transition-colors hover:text-gray-600 dark:hover:text-gray-400"
+                  className="transition-colors hover:text-stone-700 dark:hover:text-gray-400"
                 >
                   Admin Login
                 </Link>

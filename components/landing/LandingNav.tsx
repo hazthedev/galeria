@@ -1,72 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { ArrowRight, Moon, Sun } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { motion } from "motion/react";
 import { BrandMark } from "@/components/landing/BrandMark";
 import { navRevealVariants } from "@/components/landing/motion-variants";
-
-type Theme = "light" | "dark";
-
-const THEME_STORAGE_KEY = "galeria-theme";
-const THEME_MEDIA_QUERY = "(prefers-color-scheme: dark)";
-
-function applyTheme(theme: Theme) {
-  const root = document.documentElement;
-  root.classList.remove("light", "dark");
-  root.classList.add(theme);
-  root.style.colorScheme = theme;
-}
-
-function getPreferredTheme(): Theme {
-  const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
-  if (storedTheme === "light" || storedTheme === "dark") {
-    return storedTheme;
-  }
-
-  return window.matchMedia(THEME_MEDIA_QUERY).matches ? "dark" : "light";
-}
+import { ThemeToggleButton } from "@/components/shared/ThemeToggleButton";
 
 export function LandingNav() {
-  const [theme, setTheme] = useState<Theme | null>(null);
-
-  useEffect(() => {
-    const mediaQuery = window.matchMedia(THEME_MEDIA_QUERY);
-
-    const syncTheme = () => {
-      const nextTheme = getPreferredTheme();
-      applyTheme(nextTheme);
-      setTheme(nextTheme);
-    };
-
-    syncTheme();
-
-    const handleSystemThemeChange = () => {
-      if (!window.localStorage.getItem(THEME_STORAGE_KEY)) {
-        syncTheme();
-      }
-    };
-
-    mediaQuery.addEventListener("change", handleSystemThemeChange);
-    return () => mediaQuery.removeEventListener("change", handleSystemThemeChange);
-  }, []);
-
-  const toggleTheme = () => {
-    const nextTheme = theme === "dark" ? "light" : "dark";
-    window.localStorage.setItem(THEME_STORAGE_KEY, nextTheme);
-    applyTheme(nextTheme);
-    setTheme(nextTheme);
-  };
-
-  const themeLabel = theme === "dark" ? "Switch to light mode" : "Switch to dark mode";
-
   return (
     <motion.nav
       initial="hidden"
       animate="visible"
       variants={navRevealVariants}
-      className="fixed top-0 z-50 w-full border-b border-gray-100/80 bg-white/80 backdrop-blur-xl dark:border-gray-800/50 dark:bg-gray-950/80"
+      className="fixed top-0 z-50 w-full border-b border-[#e6dbcf]/80 bg-[#f6f1ea]/88 backdrop-blur-xl dark:border-gray-800/50 dark:bg-gray-950/80"
     >
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <div className="flex items-center gap-2.5">
@@ -101,18 +48,10 @@ export function LandingNav() {
             </Link>
           </div>
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={toggleTheme}
-              aria-label={themeLabel}
-              title={themeLabel}
-              className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-gray-200/80 bg-white/90 text-gray-600 shadow-sm transition-colors hover:border-gray-300 hover:text-gray-900 dark:border-gray-800 dark:bg-gray-900/90 dark:text-gray-300 dark:hover:border-gray-700 dark:hover:text-white"
-            >
-              {theme === "dark" ? <Sun className="h-4.5 w-4.5" /> : <Moon className="h-4.5 w-4.5" />}
-            </button>
+            <ThemeToggleButton className="border-[#dfd2c3]/80 bg-[#fcf8f2]/90 text-stone-600 shadow-sm hover:border-[#d4c4b3] hover:text-slate-900 dark:border-gray-800 dark:bg-gray-900/90 dark:text-gray-300 dark:hover:border-gray-700 dark:hover:text-white" />
             <Link
               href="/auth/login"
-              className="hidden items-center rounded-lg px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:text-gray-900 dark:text-gray-400 dark:hover:text-white sm:inline-flex"
+              className="hidden items-center rounded-lg px-4 py-2 text-sm font-medium text-stone-600 transition-colors hover:text-slate-900 dark:text-gray-400 dark:hover:text-white sm:inline-flex"
             >
               Login
             </Link>

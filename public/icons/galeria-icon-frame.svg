@@ -1,12 +1,23 @@
-<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#131A2E"/>
-      <stop offset="100%" stop-color="#0C1220"/>
+    <linearGradient id="bg" x1="88" y1="56" x2="424" y2="456" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#171C2F"/>
+      <stop offset="1" stop-color="#0C1220"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="148" y1="144" x2="368" y2="360" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F6F1EA"/>
+      <stop offset="0.55" stop-color="#C4B5FD"/>
+      <stop offset="1" stop-color="#8B5CF6"/>
+    </linearGradient>
+    <linearGradient id="sparkle" x1="324" y1="120" x2="364" y2="184" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#DDD6FE"/>
+      <stop offset="1" stop-color="#A78BFA"/>
     </linearGradient>
   </defs>
-  <rect width="512" height="512" rx="112" fill="url(#bg)" stroke="#7C3AED" stroke-width="4"/>
-  <rect x="136" y="136" width="240" height="240" rx="20" fill="none" stroke="#8B5CF6" stroke-width="10"/>
-  <circle cx="200" cy="200" r="24" fill="#A78BFA" opacity="0.7"/>
-  <path d="M136 320 L220 248 L290 296 L376 196 L376 376 L136 376Z" fill="#7C3AED" opacity="0.45"/>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <rect x="28" y="28" width="456" height="456" rx="96" fill="rgba(255, 255, 255, 0.05)" stroke="rgba(255, 255, 255, 0.10)" stroke-width="2"/>
+  <rect x="136" y="148" width="240" height="216" rx="42" stroke="url(#accent)" stroke-width="24"/>
+  <circle cx="212" cy="220" r="24" fill="#F6F1EA"/>
+  <path d="M160 340L224 272L276 312L352 232V364H160V340Z" fill="url(#accent)" opacity="0.55"/>
+  <path d="M344 122L354 144L376 154L354 164L344 186L334 164L312 154L334 144L344 122Z" fill="url(#sparkle)"/>
 </svg>

@@ -298,7 +298,7 @@ export function RegisterForm({ onSuccess, redirectTo = '/events', className }: R
       <div className="space-y-1.5">
         <label
           htmlFor="name"
-          className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+          className="block text-sm font-medium text-stone-700 dark:text-gray-300"
         >
           Full Name
         </label>
@@ -309,12 +309,12 @@ export function RegisterForm({ onSuccess, redirectTo = '/events', className }: R
           value={formData.name}
           onChange={e => handleInputChange('name', e.target.value)}
           className={clsx(
-            'block w-full rounded-lg border px-4 py-2.5 text-sm',
+            'block min-h-11 w-full rounded-lg border px-4 py-2.5 text-sm',
             'transition-colors duration-200',
-            'placeholder:text-gray-400',
+            'placeholder:text-stone-400',
             'focus:outline-none focus:ring-2 focus:ring-offset-0',
             {
-              'border-gray-300 bg-white text-gray-900 focus:border-violet-500 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100':
+              'border-[#d9cab8] bg-[#fdf9f4] text-slate-900 focus:border-violet-500 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100':
                 !errors.name,
               'border-red-300 bg-red-50 text-red-900 focus:border-red-500 focus:ring-red-500 dark:border-red-600 dark:bg-red-900/10 dark:text-red-200':
                 errors.name,
@@ -336,7 +336,7 @@ export function RegisterForm({ onSuccess, redirectTo = '/events', className }: R
       <div className="space-y-1.5">
         <label
           htmlFor="email"
-          className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+          className="block text-sm font-medium text-stone-700 dark:text-gray-300"
         >
           Email
         </label>
@@ -347,12 +347,12 @@ export function RegisterForm({ onSuccess, redirectTo = '/events', className }: R
           value={formData.email}
           onChange={e => handleInputChange('email', e.target.value)}
           className={clsx(
-            'block w-full rounded-lg border px-4 py-2.5 text-sm',
+            'block min-h-11 w-full rounded-lg border px-4 py-2.5 text-sm',
             'transition-colors duration-200',
-            'placeholder:text-gray-400',
+            'placeholder:text-stone-400',
             'focus:outline-none focus:ring-2 focus:ring-offset-0',
             {
-              'border-gray-300 bg-white text-gray-900 focus:border-violet-500 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100':
+              'border-[#d9cab8] bg-[#fdf9f4] text-slate-900 focus:border-violet-500 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100':
                 !errors.email,
               'border-red-300 bg-red-50 text-red-900 focus:border-red-500 focus:ring-red-500 dark:border-red-600 dark:bg-red-900/10 dark:text-red-200':
                 errors.email,
@@ -374,7 +374,7 @@ export function RegisterForm({ onSuccess, redirectTo = '/events', className }: R
       <div className="space-y-1.5">
         <label
           htmlFor="password"
-          className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+          className="block text-sm font-medium text-stone-700 dark:text-gray-300"
         >
           Password
         </label>
@@ -385,12 +385,12 @@ export function RegisterForm({ onSuccess, redirectTo = '/events', className }: R
           value={formData.password}
           onChange={e => handleInputChange('password', e.target.value)}
           className={clsx(
-            'block w-full rounded-lg border px-4 py-2.5 text-sm',
+            'block min-h-11 w-full rounded-lg border px-4 py-2.5 text-sm',
             'transition-colors duration-200',
-            'placeholder:text-gray-400',
+            'placeholder:text-stone-400',
             'focus:outline-none focus:ring-2 focus:ring-offset-0',
             {
-              'border-gray-300 bg-white text-gray-900 focus:border-violet-500 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100':
+              'border-[#d9cab8] bg-[#fdf9f4] text-slate-900 focus:border-violet-500 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100':
                 !errors.password,
               'border-red-300 bg-red-50 text-red-900 focus:border-red-500 focus:ring-red-500 dark:border-red-600 dark:bg-red-900/10 dark:text-red-200':
                 errors.password,
@@ -405,14 +405,14 @@ export function RegisterForm({ onSuccess, redirectTo = '/events', className }: R
         {/* Password Strength Indicator */}
         {formData.password && (
           <div className="space-y-1">
-            <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+            <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-[#e7dbcf] dark:bg-gray-700">
               <div
                 className={clsx('h-full transition-all duration-300 ease-out', getStrengthColor())}
                 style={{ width: `${getStrengthWidth()}%` }}
               />
             </div>
             {passwordStrength && passwordStrength.valid && (
-              <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+              <div className="flex items-center gap-1 text-xs text-stone-600 dark:text-gray-400">
                 <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
                 <span>
                   Password strength: <span className="font-medium">{getStrengthLabel()}</span>
@@ -433,7 +433,7 @@ export function RegisterForm({ onSuccess, redirectTo = '/events', className }: R
       <div className="space-y-1.5">
         <label
           htmlFor="confirmPassword"
-          className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+          className="block text-sm font-medium text-stone-700 dark:text-gray-300"
         >
           Confirm Password
         </label>
@@ -444,12 +444,12 @@ export function RegisterForm({ onSuccess, redirectTo = '/events', className }: R
           value={formData.confirmPassword}
           onChange={e => handleInputChange('confirmPassword', e.target.value)}
           className={clsx(
-            'block w-full rounded-lg border px-4 py-2.5 text-sm',
+            'block min-h-11 w-full rounded-lg border px-4 py-2.5 text-sm',
             'transition-colors duration-200',
-            'placeholder:text-gray-400',
+            'placeholder:text-stone-400',
             'focus:outline-none focus:ring-2 focus:ring-offset-0',
             {
-              'border-gray-300 bg-white text-gray-900 focus:border-violet-500 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100':
+              'border-[#d9cab8] bg-[#fdf9f4] text-slate-900 focus:border-violet-500 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100':
                 !errors.confirmPassword,
               'border-red-300 bg-red-50 text-red-900 focus:border-red-500 focus:ring-red-500 dark:border-red-600 dark:bg-red-900/10 dark:text-red-200':
                 errors.confirmPassword,

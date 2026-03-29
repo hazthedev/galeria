@@ -42,7 +42,7 @@ const PROOF_CARDS: ProofCard[] = [
       "Custom event branding, colors, and themes",
       "Guest-friendly uploads without an app install",
     ],
-    accentClassName: "from-sky-50 to-white dark:from-sky-950/20 dark:to-gray-900",
+    accentClassName: "from-sky-50/90 to-[#fcf8f2] dark:from-sky-950/20 dark:to-gray-900",
     iconClassName: "bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300",
   },
   {
@@ -56,7 +56,7 @@ const PROOF_CARDS: ProofCard[] = [
       "Photo challenges with claim and verification steps",
       "Photo reactions to keep the gallery active during the event",
     ],
-    accentClassName: "from-violet-50 to-white dark:from-violet-950/20 dark:to-gray-900",
+    accentClassName: "from-violet-50/90 to-[#fcf8f2] dark:from-violet-950/20 dark:to-gray-900",
     iconClassName: "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300",
   },
   {
@@ -70,7 +70,7 @@ const PROOF_CARDS: ProofCard[] = [
       "Bulk photo export and direct download paths",
       "Organizer visibility into gallery and event activity",
     ],
-    accentClassName: "from-emerald-50 to-white dark:from-emerald-950/20 dark:to-gray-900",
+    accentClassName: "from-emerald-50/90 to-[#fcf8f2] dark:from-emerald-950/20 dark:to-gray-900",
     iconClassName: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
   },
 ];
@@ -89,7 +89,7 @@ const proofChipVariants = indexedSlideLeftVariants(0.06);
 export function ProofSection() {
   return (
     <section id="proof" className="relative py-24 sm:py-36">
-      <div className="absolute inset-0 -z-10 bg-gradient-to-b from-white via-violet-50/50 to-white dark:from-gray-950 dark:via-violet-950/20 dark:to-gray-950" />
+      <div className="absolute inset-0 -z-10 bg-gradient-to-b from-[#f6f1ea] via-[#f1e7f1]/45 to-[#f6f1ea] dark:from-gray-950 dark:via-violet-950/20 dark:to-gray-950" />
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <motion.div
           initial="hidden"
@@ -104,7 +104,7 @@ export function ProofSection() {
           <h2 className="mt-3 text-3xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-5xl">
             Built for the way events actually run
           </h2>
-          <p className="mt-5 text-lg text-gray-500 dark:text-gray-400">
+          <p className="mt-5 text-lg text-stone-600 dark:text-gray-400">
             Moderation, attendance, lucky draws, exports — these aren&apos;t roadmap
             items. They&apos;re live today.
           </p>
@@ -119,18 +119,18 @@ export function ProofSection() {
               whileInView="visible"
               viewport={landingViewport}
               variants={proofCardVariants}
-              className={`rounded-3xl border border-gray-200/70 bg-gradient-to-b ${card.accentClassName} p-8 shadow-sm dark:border-gray-800/80`}
+              className={`rounded-3xl border border-[#e5d8ca]/80 bg-gradient-to-b ${card.accentClassName} p-8 shadow-sm dark:border-gray-800/80`}
             >
               <div
                 className={`inline-flex h-12 w-12 items-center justify-center rounded-2xl ${card.iconClassName}`}
               >
                 <card.icon className="h-6 w-6" />
               </div>
-              <p className="mt-6 text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">
+              <p className="mt-6 text-xs font-semibold uppercase tracking-[0.22em] text-stone-500 dark:text-gray-400">
                 {card.eyebrow}
               </p>
               <h3 className="mt-3 text-2xl font-semibold text-gray-900 dark:text-white">{card.title}</h3>
-              <p className="mt-3 text-[15px] leading-relaxed text-gray-600 dark:text-gray-300">
+              <p className="mt-3 text-[15px] leading-relaxed text-stone-600 dark:text-gray-300">
                 {card.description}
               </p>
               <motion.div
@@ -140,7 +140,7 @@ export function ProofSection() {
                 {card.points.map((point) => (
                   <motion.div key={point} variants={bulletPointVariants} className="flex items-start gap-3">
                     <BadgeCheck className="mt-0.5 h-4.5 w-4.5 shrink-0 text-violet-500 dark:text-violet-400" />
-                    <span className="text-sm text-gray-700 dark:text-gray-300">{point}</span>
+                    <span className="text-sm text-stone-700 dark:text-gray-300">{point}</span>
                   </motion.div>
                 ))}
               </motion.div>
@@ -160,7 +160,7 @@ export function ProofSection() {
               key={chip.label}
               custom={index}
               variants={proofChipVariants}
-              className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white/90 px-4 py-2 text-sm text-gray-700 shadow-sm dark:border-gray-700 dark:bg-gray-800/90 dark:text-gray-300"
+              className="inline-flex items-center gap-2 rounded-full border border-[#e3d6c8] bg-[#fcf8f2]/90 px-4 py-2 text-sm text-stone-700 shadow-sm dark:border-gray-700 dark:bg-gray-800/90 dark:text-gray-300"
             >
               <chip.icon className="h-4 w-4 text-violet-500 dark:text-violet-400" />
               <span>{chip.label}</span>

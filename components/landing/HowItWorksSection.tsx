@@ -60,7 +60,7 @@ export function HowItWorksSection() {
           <h2 className="mt-3 text-3xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-5xl">
             Get started in 3 simple steps
           </h2>
-          <p className="mt-5 text-lg text-gray-500 dark:text-gray-400">
+          <p className="mt-5 text-lg text-stone-600 dark:text-gray-400">
             Your gallery goes live in under two minutes
           </p>
         </motion.div>
@@ -82,7 +82,7 @@ export function HowItWorksSection() {
                     custom={index}
                     variants={connectorLineVariants}
                     style={{ transformOrigin: "left center" }}
-                    className="h-full w-full border-t-2 border-dashed border-gray-200 dark:border-gray-800"
+                    className="h-full w-full border-t-2 border-dashed border-[#e3d6c8] dark:border-gray-800"
                   />
                 </div>
               )}
@@ -93,13 +93,13 @@ export function HowItWorksSection() {
                   <item.icon className="h-9 w-9" />
                   <motion.div
                     variants={stepBadgeVariants}
-                    className="absolute -right-2 -top-2 flex h-8 w-8 items-center justify-center rounded-full bg-white text-xs font-bold text-gray-900 shadow-md ring-2 ring-gray-100 dark:bg-gray-800 dark:text-white dark:ring-gray-700"
+                    className="absolute -right-2 -top-2 flex h-8 w-8 items-center justify-center rounded-full bg-[#fcf8f2] text-xs font-bold text-gray-900 shadow-md ring-2 ring-[#ece0d4] dark:bg-gray-800 dark:text-white dark:ring-gray-700"
                   >
                     {item.step}
                   </motion.div>
                 </div>
                 <h3 className="mt-6 text-xl font-semibold text-gray-900 dark:text-white">{item.title}</h3>
-                <p className="mt-3 max-w-xs text-[15px] leading-relaxed text-gray-500 dark:text-gray-400">
+                <p className="mt-3 max-w-xs text-[15px] leading-relaxed text-stone-600 dark:text-gray-400">
                   {item.desc}
                 </p>
               </div>

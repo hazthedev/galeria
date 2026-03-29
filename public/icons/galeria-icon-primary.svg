@@ -1,15 +1,28 @@
-<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#131A2E"/>
-      <stop offset="100%" stop-color="#0C1220"/>
+    <linearGradient id="bg" x1="88" y1="56" x2="424" y2="456" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#171C2F"/>
+      <stop offset="1" stop-color="#0C1220"/>
     </linearGradient>
-    <linearGradient id="shimmer" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#A78BFA"/>
-      <stop offset="50%" stop-color="#7C3AED"/>
-      <stop offset="100%" stop-color="#5B21B6"/>
+    <linearGradient id="accent" x1="144" y1="140" x2="372" y2="356" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F6F1EA"/>
+      <stop offset="0.55" stop-color="#C4B5FD"/>
+      <stop offset="1" stop-color="#8B5CF6"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(256 256) rotate(90) scale(172)">
+      <stop stop-color="rgba(139, 92, 246, 0.28)"/>
+      <stop offset="1" stop-color="rgba(255, 255, 255, 0)"/>
+    </radialGradient>
+    <linearGradient id="sparkle" x1="330" y1="130" x2="374" y2="194" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#DDD6FE"/>
+      <stop offset="1" stop-color="#A78BFA"/>
     </linearGradient>
   </defs>
   <rect width="512" height="512" rx="112" fill="url(#bg)"/>
-  <text x="256" y="310" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="280" font-weight="700" fill="#8B5CF6">G</text>
+  <rect x="28" y="28" width="456" height="456" rx="96" fill="rgba(255, 255, 255, 0.05)" stroke="rgba(255, 255, 255, 0.10)" stroke-width="2"/>
+  <circle cx="256" cy="256" r="162" fill="url(#glow)"/>
+  <path d="M372 194A120 120 0 1 0 372 318" stroke="url(#accent)" stroke-width="52" stroke-linecap="round"/>
+  <path d="M258 256H366" stroke="url(#accent)" stroke-width="52" stroke-linecap="round"/>
+  <circle cx="256" cy="256" r="28" fill="#F6F1EA"/>
+  <path d="M348 128L360 154L386 166L360 178L348 204L336 178L310 166L336 154L348 128Z" fill="url(#sparkle)"/>
 </svg>

@@ -1,5 +1,5 @@
 import { ImageResponse } from 'next/og';
-import { BrandMark } from '@/lib/brand/brand-image';
+import { BrandMark } from '@/components/landing/BrandMark';
 
 export const size = {
   width: 512,
@@ -21,7 +21,7 @@ export default function Icon() {
           width: '100%',
         }}
       >
-        <BrandMark size={512} borderRadius={112} fontSize={280} />
+        <BrandMark size={512} gradientId="gm-app-icon" />
       </div>
     ),
     size,

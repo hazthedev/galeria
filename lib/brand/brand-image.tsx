@@ -1,65 +1,13 @@
 import type { CSSProperties, ReactElement } from 'react';
+import { BrandMark } from '@/components/landing/BrandMark';
 
-const BRAND_DARK = '#131A2E';
-const BRAND_MUTED = '#475569';
-const BRAND_PURPLE = '#8B5CF6';
-const BRAND_PURPLE_DEEP = '#7C3AED';
-const BRAND_PURPLE_LIGHT = '#A78BFA';
-const BRAND_SOFT = '#F8FAFC';
-
-type BrandMarkProps = {
-  size: number;
-  borderRadius: number;
-  fontSize: number;
-};
-
-export function BrandMark({ size, borderRadius, fontSize }: BrandMarkProps): ReactElement {
-  return (
-    <div
-      style={{
-        alignItems: 'center',
-        background: `linear-gradient(180deg, ${BRAND_DARK} 0%, #0C1220 100%)`,
-        borderRadius,
-        boxShadow: '0 24px 48px rgba(124, 58, 237, 0.18)',
-        color: BRAND_PURPLE,
-        display: 'flex',
-        fontFamily: "Georgia, 'Times New Roman', serif",
-        fontSize,
-        fontWeight: 700,
-        height: size,
-        justifyContent: 'center',
-        width: size,
-      }}
-    >
-      G
-    </div>
-  );
-}
-
-export function BrandMarkGradient({ size, borderRadius, fontSize }: BrandMarkProps): ReactElement {
-  return (
-    <div
-      style={{
-        alignItems: 'center',
-        background: `linear-gradient(135deg, ${BRAND_PURPLE_LIGHT} 0%, ${BRAND_PURPLE_DEEP} 50%, #5B21B6 100%)`,
-        borderRadius,
-        boxShadow: '0 24px 48px rgba(124, 58, 237, 0.25)',
-        color: '#FFFFFF',
-        display: 'flex',
-        fontFamily: "Georgia, 'Times New Roman', serif",
-        fontSize,
-        fontWeight: 700,
-        height: size,
-        justifyContent: 'center',
-        width: size,
-      }}
-    >
-      G
-    </div>
-  );
-}
+const BRAND_DARK = '#171C2F';
+const BRAND_DARK_DEEP = '#0C1220';
+const BRAND_PURPLE_LIGHT = '#DDD6FE';
 
 export function createBrandPreview(width: number, height: number): ReactElement {
+  const large = height >= 512;
+
   const containerStyle: CSSProperties = {
     alignItems: 'center',
     background: BRAND_DARK,
@@ -75,7 +23,7 @@ export function createBrandPreview(width: number, height: number): ReactElement 
     <div style={containerStyle}>
       <div
         style={{
-          background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.12) 0%, rgba(124, 58, 237, 0.08) 100%)',
+          background: `linear-gradient(135deg, rgba(139, 92, 246, 0.14) 0%, rgba(124, 58, 237, 0.08) 100%)`,
           borderRadius: 48,
           height: height - 96,
           position: 'absolute',
@@ -86,16 +34,16 @@ export function createBrandPreview(width: number, height: number): ReactElement 
         style={{
           alignItems: 'center',
           display: 'flex',
-          gap: 40,
+          gap: large ? 40 : 24,
           position: 'relative',
         }}
       >
-        <BrandMark size={height >= 512 ? 168 : 96} borderRadius={height >= 512 ? 48 : 28} fontSize={height >= 512 ? 88 : 48} />
+        <BrandMark size={large ? 168 : 96} gradientId="gm-og-preview" />
         <div
           style={{
             display: 'flex',
             flexDirection: 'column',
-            gap: 10,
+            gap: large ? 12 : 8,
           }}
         >
           <div
@@ -103,7 +51,7 @@ export function createBrandPreview(width: number, height: number): ReactElement 
               color: '#FFFFFF',
               display: 'flex',
               fontFamily: "Georgia, 'Times New Roman', serif",
-              fontSize: height >= 512 ? 120 : 58,
+              fontSize: large ? 120 : 58,
               fontWeight: 700,
               letterSpacing: '-0.02em',
               lineHeight: 1,
@@ -115,7 +63,7 @@ export function createBrandPreview(width: number, height: number): ReactElement 
             style={{
               color: BRAND_PURPLE_LIGHT,
               display: 'flex',
-              fontSize: height >= 512 ? 40 : 22,
+              fontSize: large ? 40 : 22,
               fontWeight: 500,
             }}
           >
