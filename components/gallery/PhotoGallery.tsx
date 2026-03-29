@@ -139,51 +139,25 @@ export function PhotoGallery({
   // MODERATION ACTIONS (if moderator)
   // ============================================
 
-  const requestModerationReason = useCallback((action: 'approve' | 'reject' | 'delete') => {
-    if (!isModerator) {
-      return '';
-    }
-
-    const promptMessage = action === 'approve'
-      ? 'Optional approval note. Leave blank to continue without one.\nPress Cancel to stop.'
-      : action === 'reject'
-        ? 'Optional rejection reason. Leave blank to continue without one.\nPress Cancel to stop.'
-        : 'Optional deletion reason. Leave blank to continue without one.\nPress Cancel to stop.';
-
-    const response = window.prompt(promptMessage, '');
-    if (response === null) {
-      return null;
-    }
-
-    return response.trim();
-  }, [isModerator]);
-
   const handleApprove = useCallback(
     async (photoId: string) => {
       if (!isModerator) return;
 
       try {
-        const reason = requestModerationReason('approve');
-        if (reason === null) {
-          return;
-        }
-
         const toastId = toast.loading('Approving photo...');
         const response = await fetch(`/api/photos/${photoId}/approve`, {
           method: 'PATCH',
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(reason ? { reason } : {}),
+          body: JSON.stringify({}),
         });
 
         if (response.ok) {
-          // Update local state
           setPhotos((prev) =>
             prev.map((photo) =>
               photo.id === photoId ? { ...photo, status: 'approved' as IPhoto['status'] } : photo
             )
           );
-          // Notify parent to update its state and refetch if needed
           onPhotoUpdate?.(photoId, 'approved');
           toast.success('Photo approved', { id: toastId });
         } else {
@@ -195,7 +169,7 @@ export function PhotoGallery({
         toast.error('Failed to approve photo');
       }
     },
-    [isModerator, onPhotoUpdate, requestModerationReason]
+    [isModerator, onPhotoUpdate]
   );
 
   const handleReject = useCallback(
@@ -203,27 +177,20 @@ export function PhotoGallery({
       if (!isModerator) return;
 
       try {
-        const reason = requestModerationReason('reject');
-        if (reason === null) {
-          return;
-        }
-
         const toastId = toast.loading('Rejecting photo...');
         const response = await fetch(`/api/photos/${photoId}/reject`, {
           method: 'PATCH',
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(reason ? { reason } : {}),
+          body: JSON.stringify({}),
         });
 
         if (response.ok) {
-          // Update local state
           setPhotos((prev) =>
             prev.map((photo) =>
               photo.id === photoId ? { ...photo, status: 'rejected' as IPhoto['status'] } : photo
             )
           );
-          // Notify parent to update its state and refetch if needed
           onPhotoUpdate?.(photoId, 'rejected');
           toast.success('Photo rejected', { id: toastId });
         } else {
@@ -235,7 +202,7 @@ export function PhotoGallery({
         toast.error('Failed to reject photo');
       }
     },
-    [isModerator, onPhotoUpdate, requestModerationReason]
+    [isModerator, onPhotoUpdate]
   );
 
   // ============================================
@@ -292,37 +259,41 @@ export function PhotoGallery({
   }, [selectable, selectedSet, onSelectionChange]);
 
   const handleDelete = useCallback(async (photo: IPhoto) => {
-    const confirmed = window.confirm('Delete this photo? This cannot be undone.');
-    if (!confirmed) return;
+    toast('Delete this photo?', {
+      description: 'This cannot be undone.',
+      action: {
+        label: 'Delete',
+        onClick: async () => {
+          const toastId = toast.loading('Deleting photo...');
+          try {
+            const response = await fetch(`/api/photos/${photo.id}`, {
+              method: 'DELETE',
+              credentials: 'include',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({}),
+            });
 
-    try {
-      const reason = requestModerationReason('delete');
-      if (reason === null) {
-        return;
-      }
+            if (!response.ok) {
+              const error = await response.json().catch(() => ({}));
+              toast.error(error.error || 'Failed to delete photo', { id: toastId });
+              return;
+            }
 
-      const toastId = toast.loading('Deleting photo...');
-      const response = await fetch(`/api/photos/${photo.id}`, {
-        method: 'DELETE',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(reason ? { reason } : {}),
-      });
-
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        toast.error(error.error || 'Failed to delete photo', { id: toastId });
-        return;
-      }
-
-      setPhotos((prev) => prev.filter((item) => item.id !== photo.id));
-      onPhotoDelete?.(photo.id);
-      toast.success('Photo deleted', { id: toastId });
-    } catch (error) {
-      console.error('[Gallery] Delete failed:', error);
-      toast.error('Failed to delete photo');
-    }
-  }, [onPhotoDelete, requestModerationReason]);
+            setPhotos((prev) => prev.filter((item) => item.id !== photo.id));
+            onPhotoDelete?.(photo.id);
+            toast.success('Photo deleted', { id: toastId });
+          } catch (error) {
+            console.error('[Gallery] Delete failed:', error);
+            toast.error('Failed to delete photo', { id: toastId });
+          }
+        },
+      },
+      cancel: {
+        label: 'Cancel',
+        onClick: () => {},
+      },
+    });
+  }, [onPhotoDelete]);
 
   const renderPhotoCard = (photo: IPhoto, index: number) => {
     const photoReactions = photo.reactions;
@@ -394,13 +365,7 @@ export function PhotoGallery({
         )}
 
         {/* Overlay on hover */}
-        <div
-          className={
-            isModerator
-              ? "absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-              : "absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-          }
-        >
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200">
           <div className="p-4 text-white">
             {!isModerator && allowReactions && (
               <button
@@ -422,35 +387,36 @@ export function PhotoGallery({
             {!photo.is_anonymous && photo.contributor_name && (
               <p className="text-xs opacity-75">- {photo.contributor_name}</p>
             )}
-
-            {isModerator && photo.status === 'pending' && (
-              <div className="absolute bottom-2 left-2 flex gap-2">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleApprove(photo.id);
-                  }}
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-green-600 text-white shadow-sm hover:bg-green-700"
-                  title="Approve photo"
-                >
-                  <span className="sr-only">Approve photo</span>
-                  <Check className="h-4 w-4" />
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleReject(photo.id);
-                  }}
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-red-600 text-white shadow-sm hover:bg-red-700"
-                  title="Reject photo"
-                >
-                  <span className="sr-only">Reject photo</span>
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            )}
           </div>
         </div>
+
+        {/* Moderation approve/reject — always visible so they work on mobile */}
+        {isModerator && photo.status === 'pending' && (
+          <div className="absolute bottom-2 left-2 flex gap-2">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleApprove(photo.id);
+              }}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-green-600 text-white shadow-sm hover:bg-green-700"
+              title="Approve photo"
+            >
+              <span className="sr-only">Approve photo</span>
+              <Check className="h-4 w-4" />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleReject(photo.id);
+              }}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-red-600 text-white shadow-sm hover:bg-red-700"
+              title="Reject photo"
+            >
+              <span className="sr-only">Reject photo</span>
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
 
         {isModerator && (
           <button

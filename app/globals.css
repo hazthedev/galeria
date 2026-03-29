@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @import "yet-another-react-lightbox/styles.css";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -38,8 +40,41 @@
   --font-mono: var(--font-geist-mono);
 }
 
+html.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+
+  --color-surface: #111827;
+  --color-surface-alt: #0f172a;
+  --color-surface-raised: #1e293b;
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-border-subtle: rgba(255, 255, 255, 0.04);
+  --color-text: #f1f5f9;
+  --color-text-secondary: #94a3b8;
+  --color-text-muted: #64748b;
+  --color-primary: #a78bfa;
+  --color-primary-hover: #8b5cf6;
+  --color-accent: #f472b6;
+  --color-destructive: #ef4444;
+  --color-destructive-surface: rgba(239, 68, 68, 0.1);
+  --color-success: #34d399;
+  --color-success-surface: rgba(52, 211, 153, 0.1);
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2), 0 2px 4px rgba(0, 0, 0, 0.15);
+  --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.15), 0 4px 12px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 2px 4px rgba(0, 0, 0, 0.1), 0 8px 24px rgba(0, 0, 0, 0.25), 0 16px 48px rgba(0, 0, 0, 0.15);
+  --shadow-xl: 0 4px 8px rgba(0, 0, 0, 0.1), 0 16px 40px rgba(0, 0, 0, 0.3), 0 24px 64px rgba(0, 0, 0, 0.2);
+  --shadow-float: 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 48px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  color-scheme: dark;
+}
+
+html.light {
+  color-scheme: light;
+}
+
 @media (prefers-color-scheme: dark) {
-  :root {
+  html:not(.light):not(.dark) {
     --background: #0a0a0a;
     --foreground: #ededed;
 
@@ -65,6 +100,7 @@
     --shadow-lg: 0 2px 4px rgba(0, 0, 0, 0.1), 0 8px 24px rgba(0, 0, 0, 0.25), 0 16px 48px rgba(0, 0, 0, 0.15);
     --shadow-xl: 0 4px 8px rgba(0, 0, 0, 0.1), 0 16px 40px rgba(0, 0, 0, 0.3), 0 24px 64px rgba(0, 0, 0, 0.2);
     --shadow-float: 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 48px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.04);
+    color-scheme: dark;
   }
 }
 
@@ -127,6 +163,7 @@ input[type='number']::-webkit-outer-spin-button {
 
 /* Smooth scroll (respects reduced-motion) */
 html {
+  color-scheme: light;
   scroll-behavior: smooth;
 }
 
