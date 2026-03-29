@@ -4,6 +4,7 @@
 // User registration page
 
 import { RegisterForm } from '@/components/auth/register-form';
+import { BrandMark } from '@/components/landing/BrandMark';
 import Link from 'next/link';
 
 export default function RegisterPage() {
@@ -12,10 +13,9 @@ export default function RegisterPage() {
       <div className="w-full max-w-md space-y-8">
         {/* Header */}
         <div className="text-center">
-          <Link href="/" className="inline-block">
-            <h1 className="text-3xl font-bold text-violet-600 dark:text-violet-400">
-              Galeria
-            </h1>
+          <Link href="/" className="inline-flex items-center gap-2.5">
+            <BrandMark size={40} gradientId="gm-auth-register" />
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Galeria</h1>
           </Link>
           <h2 className="mt-6 text-2xl font-semibold text-gray-900 dark:text-gray-100">
             Create your account

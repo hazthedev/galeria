@@ -149,7 +149,7 @@ export function HeroSection() {
             <motion.div variants={fadeUpSmallVariants}>
               <Link
                 href="/auth/login"
-                className="inline-flex items-center gap-2 rounded-2xl border-2 border-gray-200 bg-white/80 px-8 py-4 text-base font-semibold text-gray-700 backdrop-blur-sm transition-all hover:border-gray-300 hover:bg-white dark:border-gray-700 dark:bg-gray-900/80 dark:text-gray-300 dark:hover:border-gray-600"
+                className="inline-flex items-center gap-2 rounded-2xl border-2 border-gray-200 bg-white/80 px-8 py-4 text-base font-semibold text-gray-700 backdrop-blur-sm transition-all hover:border-gray-300 hover:bg-white dark:border-gray-700 dark:bg-gray-900/80 dark:text-gray-300 dark:hover:border-gray-500 dark:hover:bg-gray-800/80 dark:hover:text-white"
               >
                 Sign In
               </Link>

@@ -4,6 +4,7 @@
 // Dedicated login page for superadmins
 
 import { AdminLoginForm } from '@/components/auth/admin-login-form';
+import { BrandMark } from '@/components/landing/BrandMark';
 import Link from 'next/link';
 import { ShieldAlert } from 'lucide-react';
 
@@ -13,9 +14,10 @@ export default function AdminLoginPage() {
             <div className="w-full max-w-md space-y-8">
                 {/* Header */}
                 <div className="text-center">
-                    <Link href="/" className="inline-block">
-                        <h1 className="text-3xl font-bold text-violet-900 dark:text-violet-400">
-                            Galeria <span className="text-violet-500">Admin</span>
+                    <Link href="/" className="inline-flex items-center gap-2.5">
+                        <BrandMark size={40} gradientId="gm-auth-admin" />
+                        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+                            Galeria <span className="text-violet-500 dark:text-violet-400">Admin</span>
                         </h1>
                     </Link>
                     <div className="mt-6 flex items-center justify-center space-x-2">

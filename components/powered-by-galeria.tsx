@@ -3,6 +3,8 @@
 // ============================================
 // Shows "Powered by Galeria" watermark for free tier users
 
+import { BrandMark } from '@/components/landing/BrandMark';
+
 interface PoweredByGaleriaProps {
     className?: string;
     variant?: 'footer' | 'corner' | 'inline';
@@ -26,8 +28,9 @@ export function PoweredByGaleria({
                             href="https://galeria.com"
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="font-semibold text-sm bg-gradient-to-r from-violet-600 to-pink-600 bg-clip-text text-transparent hover:opacity-80 transition-opacity"
+                            className="inline-flex items-center gap-1 font-semibold text-sm bg-gradient-to-r from-violet-600 to-pink-600 bg-clip-text text-transparent hover:opacity-80 transition-opacity"
                         >
+                            <BrandMark size={14} gradientId="gm-powered-corner" />
                             Galeria
                         </a>
                     </div>
@@ -52,8 +55,9 @@ export function PoweredByGaleria({
                     href="https://galeria.com"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="font-medium text-xs bg-gradient-to-r from-violet-600 to-pink-600 bg-clip-text text-transparent hover:opacity-80"
+                    className="inline-flex items-center gap-1 font-medium text-xs bg-gradient-to-r from-violet-600 to-pink-600 bg-clip-text text-transparent hover:opacity-80"
                 >
+                    <BrandMark size={14} gradientId="gm-powered-inline" />
                     Galeria
                 </a>
             </span>
@@ -69,8 +73,9 @@ export function PoweredByGaleria({
                     href="https://galeria.com"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="font-semibold text-sm bg-gradient-to-r from-violet-600 to-pink-600 bg-clip-text text-transparent hover:opacity-80 transition-opacity"
+                    className="inline-flex items-center gap-1.5 font-semibold text-sm bg-gradient-to-r from-violet-600 to-pink-600 bg-clip-text text-transparent hover:opacity-80 transition-opacity"
                 >
+                    <BrandMark size={16} gradientId="gm-powered-footer" />
                     Galeria
                 </a>
             </div>
