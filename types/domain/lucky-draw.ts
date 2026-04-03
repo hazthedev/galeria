@@ -52,6 +52,8 @@ export interface IWinner {
   participant_name: string;
   selfie_url: string;
   prize_tier: number;
+  prize_name?: string;
+  user_fingerprint?: string;
   drawn_at: Date;
   drawn_by: string; // admin user_id
   is_claimed: boolean;
@@ -104,6 +106,7 @@ export interface IWinnerV2 {
   id: string;
   eventId: string;
   entryId: string;
+  userFingerprint?: string;
   participantName: string;
   selfieUrl: string;
   prizeTier: PrizeTier;

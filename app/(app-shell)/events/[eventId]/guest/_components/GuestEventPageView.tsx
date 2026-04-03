@@ -281,7 +281,7 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
               <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
                 <Trophy className="h-5 w-5 flex-shrink-0 text-white" />
                 <p className="flex-1 text-sm font-semibold text-white">
-                  Congratulations! You won Prize Tier {wonPrize.prizeTier}!
+                  Congratulations! You won {wonPrize.prizeName || `Prize Tier ${wonPrize.prizeTier}`}!
                   Please see the event organizer to claim your prize.
                 </p>
                 <button

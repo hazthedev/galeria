@@ -614,7 +614,7 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
   }, [showDrawOverlay]);
 
   // Track if the current guest won a prize
-  const [wonPrize, setWonPrize] = useState<{ prizeTier: number; name: string } | null>(null);
+  const [wonPrize, setWonPrize] = useState<{ prizeTier: number; prizeName?: string; name: string } | null>(null);
 
   useEffect(() => {
     if (!winner) return;
@@ -622,19 +622,32 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
     setShowWinnerOverlay(true);
     const timeout = setTimeout(() => setShowWinnerOverlay(false), 12000);
 
-    // Check if this guest is the winner by matching entry ID or name
+    // Check if this guest is the winner
+    // Primary: fingerprint match (most reliable)
+    const guestFp = fingerprint ? `guest_${fingerprint}` : '';
+    const isWinnerByFingerprint =
+      guestFp.length > 0 &&
+      winner.user_fingerprint === guestFp;
+
+    // Fallback: entry ID match
     const winnerNumber = formatDrawNumber(winner.entry_id);
     const isWinnerByNumber = luckyDrawNumbers.includes(winnerNumber);
+
+    // Fallback: name match
     const isWinnerByName =
       guestName.trim().length > 0 &&
       winner.participant_name?.toLowerCase() === guestName.trim().toLowerCase();
 
-    if (isWinnerByNumber || isWinnerByName) {
-      setWonPrize({ prizeTier: winner.prize_tier, name: winner.participant_name });
+    if (isWinnerByFingerprint || isWinnerByNumber || isWinnerByName) {
+      setWonPrize({
+        prizeTier: winner.prize_tier,
+        prizeName: winner.prize_name,
+        name: winner.participant_name,
+      });
     }
 
     return () => clearTimeout(timeout);
-  }, [winner, luckyDrawNumbers, guestName]);
+  }, [winner, luckyDrawNumbers, guestName, fingerprint]);
 
   useEffect(() => {
     if (!moderationNotice) return;

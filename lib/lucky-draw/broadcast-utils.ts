@@ -27,9 +27,11 @@ export function mapWinnerToBroadcastPayload(
     id?: string;
     eventId?: string;
     entryId?: string;
+    userFingerprint?: string;
     participantName?: string;
     selfieUrl?: string;
     prizeTier?: string | number;
+    prizeName?: string;
     drawnAt?: Date;
     isClaimed?: boolean;
   },
@@ -41,15 +43,19 @@ export function mapWinnerToBroadcastPayload(
   const normalizedSelfie = winner.selfieUrl || '';
   const normalizedPrizeTier = mapPrizeTierToLegacy(winner.prizeTier);
   const normalizedDrawnAt = winner.drawnAt ?? new Date();
+  const normalizedFingerprint = winner.userFingerprint || '';
+  const normalizedPrizeName = winner.prizeName || '';
 
   return {
     // Legacy snake_case fields (guest page compatibility)
     id: winner.id || `winner_${Date.now()}`,
     event_id: normalizedEventId,
     entry_id: normalizedEntryId,
+    user_fingerprint: normalizedFingerprint,
     participant_name: normalizedParticipant,
     selfie_url: normalizedSelfie,
     prize_tier: normalizedPrizeTier,
+    prize_name: normalizedPrizeName,
     drawn_at: normalizedDrawnAt,
     drawn_by: 'admin',
     is_claimed: winner.isClaimed ?? false,
@@ -57,9 +63,11 @@ export function mapWinnerToBroadcastPayload(
     // V2 camelCase mirrors (additive compatibility)
     eventId: normalizedEventId,
     entryId: normalizedEntryId,
+    userFingerprint: normalizedFingerprint,
     participantName: normalizedParticipant,
     selfieUrl: normalizedSelfie,
     prizeTier: winner.prizeTier,
+    prizeName: normalizedPrizeName,
     drawnAt: normalizedDrawnAt,
     isClaimed: winner.isClaimed ?? false,
   };

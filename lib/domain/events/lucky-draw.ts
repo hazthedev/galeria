@@ -759,6 +759,7 @@ export async function executeDraw(
           id: generateUUID(),
           eventId: winnerEntry.eventId,
           entryId: winnerEntry.id,
+          userFingerprint: winnerEntry.userFingerprint,
           participantName: winnerEntry.participantName || fallbackName,
           selfieUrl: '',
           prizeTier: prizeTier.tier,
@@ -1323,6 +1324,126 @@ export async function getDrawStatistics(
     uniqueParticipants: participantCount,
     totalDraws: drawCount,
     totalWinners: winnerCount,
+  };
+}
+
+/**
+ * Preview draw eligibility before execution.
+ *
+ * Returns a breakdown of total entries, eligible entries (after photo-status
+ * and duplicate-winner filtering), prize slots requested, and any warnings
+ * the organizer should see before triggering the draw.
+ */
+export async function previewDrawEligibility(
+  tenantId: string,
+  eventId: string
+): Promise<{
+  configId: string | null;
+  status: DrawStatus | null;
+  totalEntries: number;
+  eligibleEntries: number;
+  uniqueEligibleParticipants: number;
+  totalPrizeSlots: number;
+  prizeTierBreakdown: { tier: string; name: string; count: number }[];
+  warnings: string[];
+}> {
+  const db = getTenantDb(tenantId);
+  const config = await getLatestConfig(tenantId, eventId);
+
+  if (!config || config.status !== 'scheduled') {
+    return {
+      configId: config?.id || null,
+      status: config?.status || null,
+      totalEntries: 0,
+      eligibleEntries: 0,
+      uniqueEligibleParticipants: 0,
+      totalPrizeSlots: 0,
+      prizeTierBreakdown: [],
+      warnings: config
+        ? [`Draw status is '${config.status}', not 'scheduled'`]
+        : ['No draw configuration found for this event'],
+    };
+  }
+
+  const totalResult = await db.query<{ count: bigint }>(
+    `SELECT COUNT(*) as count FROM lucky_draw_entries WHERE config_id = $1`,
+    [config.id]
+  );
+  const totalEntries = Number(totalResult.rows[0]?.count || 0);
+
+  const candidateResult = await db.query<LuckyDrawEntryCandidate>(
+    `
+      SELECT
+        ${luckyDrawEntryColumns},
+        p.status AS "photoStatus"
+      FROM lucky_draw_entries le
+      LEFT JOIN photos p ON p.id = le.photo_id
+      WHERE le.config_id = $1
+        AND le.is_winner = false
+      ORDER BY le.created_at ASC
+    `,
+    [config.id]
+  );
+
+  const eligible = filterEligibleLuckyDrawEntries(candidateResult.rows);
+
+  // Apply same duplicate-winner grouping as executeDraw
+  const userEntriesMap = new Map<string, LuckyDrawEntryCandidate[]>();
+  for (const entry of eligible) {
+    const entries = userEntriesMap.get(entry.userFingerprint) || [];
+    entries.push(entry);
+    userEntriesMap.set(entry.userFingerprint, entries);
+  }
+
+  const filteredEntries: LuckyDrawEntryCandidate[] = [];
+  for (const entries of userEntriesMap.values()) {
+    const maxCount = config.preventDuplicateWinners ? 1 : (config.maxEntriesPerUser || 1);
+    filteredEntries.push(...entries.slice(0, Math.min(entries.length, maxCount)));
+  }
+
+  const uniqueEligibleParticipants = userEntriesMap.size;
+
+  const sortedTiers = sortPrizeTiers(config.prizeTiers);
+  const totalPrizeSlots = sortedTiers.reduce((sum, t) => sum + t.count, 0);
+  const prizeTierBreakdown = sortedTiers.map((t) => ({
+    tier: t.tier,
+    name: t.name,
+    count: t.count,
+  }));
+
+  const warnings: string[] = [];
+
+  if (totalEntries === 0) {
+    warnings.push('No entries yet — draw cannot execute');
+  } else if (filteredEntries.length === 0) {
+    warnings.push('No eligible entries after filtering (photo approval + duplicate rules)');
+  }
+
+  if (filteredEntries.length > 0 && filteredEntries.length < totalPrizeSlots) {
+    const unfilled = totalPrizeSlots - filteredEntries.length;
+    warnings.push(
+      `Only ${filteredEntries.length} eligible entries for ${totalPrizeSlots} prize slots — ${unfilled} prize(s) will go unawarded`
+    );
+  }
+
+  const pendingCount = candidateResult.rows.filter(
+    (e) => e.photoId && e.photoStatus === 'pending'
+  ).length;
+  if (pendingCount > 0) {
+    warnings.push(
+      `${pendingCount} entries have photos pending moderation — they won't be eligible until approved`
+    );
+  }
+
+  return {
+    configId: config.id,
+    status: config.status,
+    totalEntries,
+    eligibleEntries: filteredEntries.length,
+    uniqueEligibleParticipants,
+    totalPrizeSlots,
+    prizeTierBreakdown,
+    warnings,
   };
 }
 

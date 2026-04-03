@@ -423,9 +423,11 @@ function normalizeWinnerPayload(payload: unknown): IWinner | null {
     const winnerPayload = payload as Record<string, unknown>;
     const eventId = winnerPayload.event_id ?? winnerPayload.eventId;
     const entryId = winnerPayload.entry_id ?? winnerPayload.entryId;
+    const userFingerprint = winnerPayload.user_fingerprint ?? winnerPayload.userFingerprint;
     const participantName = winnerPayload.participant_name ?? winnerPayload.participantName;
     const selfieUrl = winnerPayload.selfie_url ?? winnerPayload.selfieUrl;
     const prizeTierRaw = winnerPayload.prize_tier ?? winnerPayload.prizeTier;
+    const prizeName = winnerPayload.prize_name ?? winnerPayload.prizeName;
     const drawnAtRaw = winnerPayload.drawn_at ?? winnerPayload.drawnAt;
 
     if (typeof eventId !== 'string' || typeof entryId !== 'string') {
@@ -446,9 +448,11 @@ function normalizeWinnerPayload(payload: unknown): IWinner | null {
                 : `winner_${Date.now()}`,
         event_id: eventId,
         entry_id: entryId,
+        user_fingerprint: typeof userFingerprint === 'string' ? userFingerprint : undefined,
         participant_name: typeof participantName === 'string' ? participantName : 'Anonymous',
         selfie_url: typeof selfieUrl === 'string' ? selfieUrl : '',
         prize_tier: normalizePrizeTierValue(prizeTierRaw),
+        prize_name: typeof prizeName === 'string' ? prizeName : undefined,
         drawn_at: normalizedDate,
         drawn_by:
             typeof winnerPayload.drawn_by === 'string'
