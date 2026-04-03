@@ -9,6 +9,7 @@ import { Suspense, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
+import { motion } from 'motion/react';
 import { toast } from 'sonner';
 import { AuthPageShell } from '@/components/auth/AuthPageShell';
 import { LoginForm } from '@/components/auth/login-form';
@@ -43,7 +44,12 @@ function LoginPageContent() {
   return (
     <AuthPageShell>
       <div className="w-full max-w-md space-y-8">
-        <div className="text-center">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: 'easeOut' }}
+          className="text-center"
+        >
           <Link href="/" className="inline-flex items-center gap-2.5">
             <BrandMark size={40} gradientId="gm-auth-login" />
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Galeria</h1>
@@ -54,13 +60,23 @@ function LoginPageContent() {
           <p className="mt-2 text-sm text-stone-600 dark:text-gray-400">
             Sign in to your account to continue
           </p>
-        </div>
+        </motion.div>
 
-        <div className="rounded-[28px] border border-[#e5d8ca]/80 bg-[#fcf8f2] p-8 shadow-xl shadow-[#d8cab8]/20 dark:border-gray-800 dark:bg-gray-800 dark:shadow-none">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.15, ease: 'easeOut' }}
+          className="rounded-[28px] border border-[#e5d8ca]/80 bg-[#fcf8f2] p-8 shadow-xl shadow-[#d8cab8]/20 dark:border-gray-800 dark:bg-gray-800 dark:shadow-none"
+        >
           <LoginForm />
-        </div>
+        </motion.div>
 
-        <div className="text-center text-sm text-stone-600 dark:text-gray-400">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.4, delay: 0.3 }}
+          className="text-center text-sm text-stone-600 dark:text-gray-400"
+        >
           <p>
             Don&apos;t have an account?{' '}
             <Link
@@ -70,7 +86,7 @@ function LoginPageContent() {
               Sign up
             </Link>
           </p>
-        </div>
+        </motion.div>
       </div>
     </AuthPageShell>
   );

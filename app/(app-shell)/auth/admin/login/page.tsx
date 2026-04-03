@@ -3,8 +3,11 @@
 // ============================================
 // Dedicated login page for superadmins
 
+'use client';
+
 import { AdminLoginForm } from '@/components/auth/admin-login-form';
 import { BrandMark } from '@/components/landing/BrandMark';
+import { motion } from 'motion/react';
 import Link from 'next/link';
 import { ShieldAlert } from 'lucide-react';
 
@@ -12,8 +15,12 @@ export default function AdminLoginPage() {
     return (
         <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 dark:bg-gray-900">
             <div className="w-full max-w-md space-y-8">
-                {/* Header */}
-                <div className="text-center">
+                <motion.div
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, ease: 'easeOut' }}
+                    className="text-center"
+                >
                     <Link href="/" className="inline-flex items-center gap-2.5">
                         <BrandMark size={40} gradientId="gm-auth-admin" />
                         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
@@ -29,15 +36,23 @@ export default function AdminLoginPage() {
                     <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
                         Secure access for system administrators only
                     </p>
-                </div>
+                </motion.div>
 
-                {/* Login Form */}
-                <div className="rounded-xl bg-white p-8 shadow-md ring-1 ring-violet-900/10 dark:bg-gray-800 dark:ring-violet-400/20">
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: 0.15, ease: 'easeOut' }}
+                    className="rounded-xl bg-white p-8 shadow-md ring-1 ring-violet-900/10 dark:bg-gray-800 dark:ring-violet-400/20"
+                >
                     <AdminLoginForm />
-                </div>
+                </motion.div>
 
-                {/* Footer */}
-                <div className="text-center text-sm text-gray-500 dark:text-gray-500">
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.4, delay: 0.3 }}
+                    className="text-center text-sm text-gray-500 dark:text-gray-500"
+                >
                     <p>
                         Unauthorized access is prohibited and monitored.
                     </p>
@@ -49,7 +64,7 @@ export default function AdminLoginPage() {
                             Back to regular login
                         </Link>
                     </p>
-                </div>
+                </motion.div>
             </div>
         </div>
     );
