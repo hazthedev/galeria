@@ -20,6 +20,7 @@ import { getEffectiveEntitlementsForTier, resolveUserTier } from '@/lib/tenant';
 import { applyCacheHeaders, CACHE_PROFILES } from '@/lib/cache/strategy';
 import { publishEventBroadcast } from '@/lib/realtime/server';
 import { resolveOptionalAuth, resolveRequiredTenantId, resolveTenantId } from '@/lib/api-request-context';
+import { normalizePhotoReactions } from '@/lib/shared/photo-reactions';
 
 function isDbSessionPoolExhausted(error: unknown): boolean {
   const code = typeof error === 'object' && error && 'code' in error ? String(error.code || '') : '';
@@ -89,6 +90,7 @@ interface UploadCreatedPhoto {
   contributor_name: IPhoto['contributor_name'];
   is_anonymous: IPhoto['is_anonymous'];
   status: IPhoto['status'];
+  reactions: IPhoto['reactions'];
   created_at: IPhoto['created_at'];
   lucky_draw_entry_id: string | null;
 }
@@ -156,6 +158,7 @@ function buildCreatedPhotoPayload(photo: IPhoto, luckyDrawEntryId: string | null
     contributor_name: photo.contributor_name,
     is_anonymous: photo.is_anonymous,
     status: photo.status,
+    reactions: normalizePhotoReactions(photo.reactions),
     created_at: photo.created_at,
     lucky_draw_entry_id: luckyDrawEntryId,
   };
@@ -1350,6 +1353,10 @@ export async function handleEventPhotoList(request: NextRequest, eventId: string
     } else if (filter.status === 'rejected' && photos.length > 0) {
       photos = redactRejectedPhotosForGuest(photos);
     }
+    photos = photos.map((photo) => ({
+      ...photo,
+      reactions: normalizePhotoReactions(photo.reactions),
+    }));
     let total = listResult.rows.length > 0 ? Number(listResult.rows[0].total_count || 0) : 0;
 
     if (total === 0 && offset > 0) {

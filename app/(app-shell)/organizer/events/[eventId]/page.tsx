@@ -28,6 +28,7 @@ import clsx from 'clsx';
 import type { IEvent, IPhoto } from '@/lib/types';
 import { usePhotoGallery } from '@/lib/realtime/client';
 import { getClientFingerprint } from '@/lib/rate-limit';
+import { normalizePhotoReactions } from '@/lib/shared/photo-reactions';
 import { OrganizerEventDetailSkeleton } from '@/components/events/page-skeletons';
 
 interface ReactionButtonsProps {
@@ -36,7 +37,7 @@ interface ReactionButtonsProps {
 }
 
 function ReactionButtons({ photo, onReaction }: ReactionButtonsProps) {
-  const heartCount = photo.reactions.heart || 0;
+  const heartCount = normalizePhotoReactions(photo.reactions).heart;
 
   return (
     <div className="flex items-center gap-1">
@@ -175,8 +176,8 @@ export default function EventDetailPage() {
               return {
                 ...p,
                 reactions: {
-                  ...p.reactions,
-                  [type]: data.data?.count ?? (p.reactions[type] || 0),
+                  ...normalizePhotoReactions(p.reactions),
+                  [type]: data.data?.count ?? (p.reactions?.[type] || 0),
                 },
               };
             }

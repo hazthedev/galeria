@@ -12,6 +12,7 @@ import { RealtimeChannel, RealtimePresenceState } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import type { IEventStats, IPhoto, IWinner, ILuckyDrawEntry, ILuckyDrawConfig } from '@/lib/types';
 import { getClientFingerprint } from '@/lib/rate-limit';
+import { normalizePhotoReactions } from '@/lib/shared/photo-reactions';
 
 // ============================================
 // TYPES
@@ -154,8 +155,12 @@ export function usePhotoGallery(eventId: string, handlers?: PhotoGalleryHandlers
         // Listen for new photos
         channel.on('broadcast', { event: 'new_photo' }, ({ payload }) => {
             const nextPhoto = payload as IPhoto;
-            setPhotos((prev) => [nextPhoto, ...prev]);
-            handlersRef.current?.onNewPhoto?.(nextPhoto);
+            const normalizedPhoto = {
+                ...nextPhoto,
+                reactions: normalizePhotoReactions(nextPhoto.reactions),
+            };
+            setPhotos((prev) => [normalizedPhoto, ...prev]);
+            handlersRef.current?.onNewPhoto?.(normalizedPhoto);
         });
 
         // Listen for photo updates
@@ -180,7 +185,7 @@ export function usePhotoGallery(eventId: string, handlers?: PhotoGalleryHandlers
                         ? {
                             ...photo,
                             reactions: {
-                                ...photo.reactions,
+                                ...normalizePhotoReactions(photo.reactions),
                                 [nextPayload.emoji]: nextPayload.count,
                             },
                         }

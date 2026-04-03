@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import clsx from 'clsx';
 import { VirtuosoGrid } from 'react-virtuoso';
 import type { IPhoto } from '@/lib/types';
+import { normalizePhotoReactions } from '@/lib/shared/photo-reactions';
 
 // ============================================
 // TYPES
@@ -118,8 +119,8 @@ export function PhotoGallery({
                 ? {
                     ...photo,
                     reactions: {
-                      ...photo.reactions,
-                      heart: data.data?.count ?? (photo.reactions.heart || 0) + 1,
+                      ...normalizePhotoReactions(photo.reactions),
+                      heart: data.data?.count ?? (photo.reactions?.heart || 0) + 1,
                     },
                   }
                 : photo
@@ -296,7 +297,7 @@ export function PhotoGallery({
   }, [onPhotoDelete]);
 
   const renderPhotoCard = (photo: IPhoto, index: number) => {
-    const photoReactions = photo.reactions;
+    const photoReactions = normalizePhotoReactions(photo.reactions);
 
     return (
       <div

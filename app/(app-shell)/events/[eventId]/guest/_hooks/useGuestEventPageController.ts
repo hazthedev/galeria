@@ -9,6 +9,7 @@ import type { IEvent, IPhoto, IPhotoChallenge, IGuestPhotoProgress } from '@/lib
 import { getClientFingerprint } from '@/lib/rate-limit';
 import { getImageDimensions } from '@/lib/utils';
 import { useLuckyDraw, usePhotoGallery } from '@/lib/realtime/client';
+import { normalizePhotoReactions } from '@/lib/shared/photo-reactions';
 import { useGuestTheme } from './useGuestTheme';
 import {
   formatDrawNumber,
@@ -567,11 +568,15 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
   usePhotoGallery(resolvedEventId || '', {
     onNewPhoto: (photo) => {
       if (photo.status !== 'approved') return;
+      const normalizedPhoto = {
+        ...photo,
+        reactions: normalizePhotoReactions(photo.reactions),
+      };
       setApprovedPhotos((prev) => {
-        if (prev.some((item) => item.id === photo.id)) {
+        if (prev.some((item) => item.id === normalizedPhoto.id)) {
           return prev;
         }
-        return [photo, ...prev];
+        return [normalizedPhoto, ...prev];
       });
       setApprovedTotal((prev) => (prev === null ? prev : prev + 1));
     },
@@ -588,7 +593,7 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
       updatePhotoById(photo_id, (photo) => ({
         ...photo,
         reactions: {
-          ...photo.reactions,
+          ...normalizePhotoReactions(photo.reactions),
           heart: count,
         },
       }));
@@ -700,8 +705,8 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
     updatePhotoById(photoId, (photo) => ({
       ...photo,
       reactions: {
-        ...photo.reactions,
-        heart: (photo.reactions.heart || 0) + 1,
+        ...normalizePhotoReactions(photo.reactions),
+        heart: (photo.reactions?.heart || 0) + 1,
       },
     }));
 
@@ -735,7 +740,10 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
           if (data.data.count != null) {
             updatePhotoById(photoId, (photo) => ({
               ...photo,
-              reactions: { ...photo.reactions, heart: data.data.count },
+              reactions: {
+                ...normalizePhotoReactions(photo.reactions),
+                heart: data.data.count,
+              },
             }));
           }
         } else {
@@ -744,8 +752,8 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
           updatePhotoById(photoId, (photo) => ({
             ...photo,
             reactions: {
-              ...photo.reactions,
-              heart: Math.max((photo.reactions.heart || 1) - 1, 0),
+              ...normalizePhotoReactions(photo.reactions),
+              heart: Math.max((photo.reactions?.heart || 1) - 1, 0),
             },
           }));
         }
@@ -757,8 +765,8 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
       updatePhotoById(photoId, (photo) => ({
         ...photo,
         reactions: {
-          ...photo.reactions,
-          heart: Math.max((photo.reactions.heart || 1) - 1, 0),
+          ...normalizePhotoReactions(photo.reactions),
+          heart: Math.max((photo.reactions?.heart || 1) - 1, 0),
         },
       }));
     }
@@ -1030,9 +1038,18 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
         }
 
         // Process all results
-        const approvedList = approvedData.data || [];
-        const pendingList = pendingData.data || [];
-        const rejectedList = rejectedData.data || [];
+        const approvedList = (approvedData.data || []).map((photo: IPhoto) => ({
+          ...photo,
+          reactions: normalizePhotoReactions(photo.reactions),
+        }));
+        const pendingList = (pendingData.data || []).map((photo: IPhoto) => ({
+          ...photo,
+          reactions: normalizePhotoReactions(photo.reactions),
+        }));
+        const rejectedList = (rejectedData.data || []).map((photo: IPhoto) => ({
+          ...photo,
+          reactions: normalizePhotoReactions(photo.reactions),
+        }));
         const nextTotal = approvedData.pagination?.total ?? approvedList.length;
 
         setApprovedPhotos(approvedList);
@@ -1092,7 +1109,10 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
         throw new Error(data.error || 'Failed to load more photos');
       }
 
-      const incoming = data.data || [];
+      const incoming = (data.data || []).map((photo: IPhoto) => ({
+        ...photo,
+        reactions: normalizePhotoReactions(photo.reactions),
+      }));
       const nextTotal = data.pagination?.total ?? approvedTotal ?? offset + incoming.length;
       setApprovedTotal(nextTotal);
       setApprovedPhotos((prev) => {
@@ -1488,11 +1508,16 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
               throw new Error(finalizeData?.error || 'Failed to finalize photo upload');
             }
 
-            const uploadedBatch = Array.isArray(finalizeData?.data)
-              ? finalizeData.data
-              : finalizeData?.data
-                ? [finalizeData.data]
-                : [];
+            const uploadedBatch = (
+              Array.isArray(finalizeData?.data)
+                ? finalizeData.data
+                : finalizeData?.data
+                  ? [finalizeData.data]
+                  : []
+            ).map((photo: IPhoto) => ({
+              ...photo,
+              reactions: normalizePhotoReactions(photo.reactions),
+            }));
 
             uploadedPhotos.push(...uploadedBatch);
           }
