@@ -12,6 +12,7 @@ import clsx from 'clsx';
 import type { IEvent, IEventTheme, IEventFeatures } from '@/lib/types';
 import { UpgradePrompt } from '@/components/upgrade-prompt';
 import { useOrganizerEntitlements } from '@/lib/use-organizer-entitlements';
+import { findMatchingPresetId } from '@/components/settings/utils';
 
 const PHOTO_CARD_STYLES = [
     { id: 'vacation', label: 'Vacation', description: 'Bright, airy, postcard vibe' },
@@ -111,6 +112,12 @@ export function EventSettingsForm({
         event.settings?.theme?.background || '#F9FAFB'
     );
     const [showPreview, setShowPreview] = useState(false);
+    const activePresetId = findMatchingPresetId(
+        THEME_PRESETS,
+        primaryColor,
+        secondaryColor,
+        backgroundColor
+    );
 
     // Feature toggles
     const [guestDownloadEnabled, setGuestDownloadEnabled] = useState(
@@ -381,10 +388,7 @@ export function EventSettingsForm({
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                     {THEME_PRESETS.map((preset) => {
-                        const isActive =
-                            preset.primary === primaryColor &&
-                            preset.secondary === secondaryColor &&
-                            preset.background === backgroundColor;
+                        const isActive = activePresetId === preset.id;
                         return (
                             <button
                                 key={preset.id}

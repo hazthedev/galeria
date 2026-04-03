@@ -1,16 +1,33 @@
 import type { ThemePreset } from './constants';
 
+function normalizeThemeValue(value: string): string {
+  return value.replace(/\s+/g, '').toLowerCase();
+}
+
 export function findMatchingPresetId(
   presets: ThemePreset[],
   primaryColor: string,
   secondaryColor: string,
   backgroundColor: string,
 ): string | null {
-  const matchingPreset = presets.find((preset) =>
-    preset.primary === primaryColor &&
-    preset.secondary === secondaryColor &&
-    preset.background === backgroundColor
+  const normalizedPrimary = normalizeThemeValue(primaryColor);
+  const normalizedSecondary = normalizeThemeValue(secondaryColor);
+  const normalizedBackground = normalizeThemeValue(backgroundColor);
+
+  const exactMatch = presets.find((preset) =>
+    normalizeThemeValue(preset.primary) === normalizedPrimary &&
+    normalizeThemeValue(preset.secondary) === normalizedSecondary &&
+    normalizeThemeValue(preset.background) === normalizedBackground
   );
 
-  return matchingPreset?.id || null;
+  if (exactMatch) {
+    return exactMatch.id;
+  }
+
+  const primarySecondaryMatch = presets.find((preset) =>
+    normalizeThemeValue(preset.primary) === normalizedPrimary &&
+    normalizeThemeValue(preset.secondary) === normalizedSecondary
+  );
+
+  return primarySecondaryMatch?.id || null;
 }
