@@ -20,48 +20,64 @@ export async function GET(
   request: NextRequest,
   context: { params: Promise<Record<string, string>> }
 ) {
-  const auth = await requireSuperAdmin(request);
-  if (auth instanceof NextResponse) return auth;
+  try {
+    const auth = await requireSuperAdmin(request);
+    if (auth instanceof NextResponse) return auth;
 
-  const params = await context.params;
-  const tenantId = params['tenantId'];
-  const db = getTenantDb(SYSTEM_TENANT_ID);
+    const params = await context.params;
+    const tenantId = params['tenantId'];
+    const db = getTenantDb(SYSTEM_TENANT_ID);
 
-  // Get tenant details with statistics
-  const tenantResult = await db.query(
-    `SELECT
-      t.*,
-      COUNT(DISTINCT e.id) FILTER (WHERE e.id IS NOT NULL) as event_count,
-      COUNT(DISTINCT u.id) FILTER (WHERE u.id IS NOT NULL) as user_count,
-      COUNT(DISTINCT p.id) FILTER (WHERE p.id IS NOT NULL) as photo_count,
-      (
-        SELECT COUNT(*) FROM events WHERE tenant_id = $1 AND status = 'active'
-      ) as active_events_count,
-      (
-        SELECT COUNT(*) FROM users WHERE tenant_id = $1 AND role = 'organizer'
-      ) as organizer_count,
-      (
-        SELECT COUNT(*) FROM users WHERE tenant_id = $1 AND role = 'guest'
-      ) as guest_count
-    FROM tenants t
-    LEFT JOIN events e ON e.tenant_id = t.id
-    LEFT JOIN users u ON u.tenant_id = t.id
-    LEFT JOIN photos p ON p.tenant_id = t.id
-    WHERE t.id = $1
-    GROUP BY t.id`,
-    [tenantId]
-  );
+    const tenantResult = await db.query(
+      `SELECT
+        t.*,
+        COUNT(DISTINCT e.id) FILTER (WHERE e.id IS NOT NULL) as event_count,
+        COUNT(DISTINCT u.id) FILTER (WHERE u.id IS NOT NULL) as user_count,
+        (
+          SELECT COUNT(*)
+          FROM photos p
+          WHERE p.event_id IN (SELECT id FROM events WHERE tenant_id = t.id)
+        ) as photo_count,
+        (
+          SELECT COUNT(*)
+          FROM events
+          WHERE tenant_id = $1 AND status = 'active'
+        ) as active_events_count,
+        (
+          SELECT COUNT(*)
+          FROM users
+          WHERE tenant_id = $1 AND role = 'organizer'
+        ) as organizer_count,
+        (
+          SELECT COUNT(*)
+          FROM attendances a
+          WHERE a.event_id IN (SELECT id FROM events WHERE tenant_id = t.id)
+        ) as guest_count
+      FROM tenants t
+      LEFT JOIN events e ON e.tenant_id = t.id
+      LEFT JOIN users u ON u.tenant_id = t.id
+      WHERE t.id = $1
+      GROUP BY t.id`,
+      [tenantId]
+    );
 
-  const tenant = tenantResult.rows[0];
+    const tenant = tenantResult.rows[0];
 
-  if (!tenant) {
+    if (!tenant) {
+      return NextResponse.json(
+        { error: 'Tenant not found', code: 'NOT_FOUND' },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({ data: tenant });
+  } catch (error) {
+    console.error('[Admin Tenant Detail API] Failed to load tenant:', error);
     return NextResponse.json(
-      { error: 'Tenant not found', code: 'NOT_FOUND' },
-      { status: 404 }
+      { error: 'Failed to load tenant', code: 'INTERNAL_ERROR' },
+      { status: 500 }
     );
   }
-
-  return NextResponse.json({ data: tenant });
 }
 
 /**

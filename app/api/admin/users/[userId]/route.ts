@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSuperAdmin } from '@/middleware/auth';
 import { getTenantDb } from '@/lib/infrastructure/database/db';
+import { SYSTEM_TENANT_ID } from '@/lib/constants/tenants';
 import type { SubscriptionTier } from '@/lib/types';
 import { getTierConfig } from '@/lib/tenant';
 import { logSimpleAdminAction } from '@/lib/audit/middleware';
@@ -72,7 +73,7 @@ export async function PATCH(
             );
         }
 
-        const db = getTenantDb(auth.user.tenant_id);
+        const db = getTenantDb(SYSTEM_TENANT_ID);
         const targetUser = await db.findOne<UserTenantLookup>('users', { id: userId });
         if (!targetUser) {
             return NextResponse.json(
@@ -168,7 +169,7 @@ export async function DELETE(
         }
 
         const { userId } = await params;
-        const db = getTenantDb(auth.user.tenant_id);
+        const db = getTenantDb(SYSTEM_TENANT_ID);
 
         // Prevent self-deletion
         if (userId === auth.user.id) {

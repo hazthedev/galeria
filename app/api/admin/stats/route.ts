@@ -7,8 +7,6 @@ import { requireSuperAdmin } from '@/middleware/auth';
 import { getTenantDb } from '@/lib/infrastructure/database/db';
 import { SYSTEM_TENANT_ID } from '@/lib/constants/tenants';
 
-const isMissingTableError = (error: unknown) =>
-    (error as { code?: string })?.code === '42P01';
 const isDatabaseError = (error: unknown) =>
     Boolean((error as { code?: string })?.code) ||
     (error instanceof Error && /ECONNREFUSED|ECONNRESET|EHOSTUNREACH|ENOTFOUND/i.test(error.message));
@@ -23,52 +21,44 @@ export async function GET(request: NextRequest) {
 
         const db = getTenantDb(SYSTEM_TENANT_ID);
 
-        const safeCount = async (query: string) => {
-            try {
-                const result = await db.query(query);
-                return Number(result.rows[0]?.count || 0);
-            } catch (error) {
-                if (isMissingTableError(error)) return 0;
-                throw error;
-            }
-        };
+        // Single query to avoid pool exhaustion (session-mode pool_size=1)
+        // Core tables only — no optional columns that may not exist yet
+        const result = await db.query(`
+            SELECT
+                (SELECT COUNT(*) FROM users) AS "totalUsers",
+                (SELECT COUNT(*) FROM events) AS "totalEvents",
+                (SELECT COUNT(*) FROM photos) AS "totalPhotos",
+                (SELECT COUNT(*) FROM tenants) AS "totalTenants",
+                (SELECT COUNT(*) FROM events WHERE status = 'active') AS "activeEvents",
+                (SELECT COUNT(*) FROM users WHERE created_at > NOW() - INTERVAL '7 days') AS "recentUsers",
+                (SELECT COUNT(*) FROM lucky_draw_configs) AS "totalLuckyDraws",
+                (SELECT COUNT(*) FROM winners) AS "totalWinners",
+                (SELECT COUNT(*) FROM photos WHERE status = 'pending') AS "pendingPhotos"
+        `);
 
-        const [
-            totalUsers,
-            totalEvents,
-            totalPhotos,
-            totalTenants,
-            activeEvents,
-            recentUsers,
-            mfaEnabledUsers,
-            totalLuckyDraws,
-            totalWinners,
-            pendingPhotos,
-        ] = await Promise.all([
-            safeCount('SELECT COUNT(*) as count FROM users'),
-            safeCount('SELECT COUNT(*) as count FROM events'),
-            safeCount('SELECT COUNT(*) as count FROM photos'),
-            safeCount('SELECT COUNT(*) as count FROM tenants'),
-            safeCount("SELECT COUNT(*) as count FROM events WHERE status = 'active'"),
-            safeCount("SELECT COUNT(*) as count FROM users WHERE created_at > NOW() - INTERVAL '7 days'"),
-            safeCount("SELECT COUNT(*) as count FROM users WHERE totp_enabled = true"),
-            safeCount('SELECT COUNT(*) as count FROM lucky_draw_configs'),
-            safeCount('SELECT COUNT(*) as count FROM lucky_draw_winners'),
-            safeCount("SELECT COUNT(*) as count FROM photos WHERE moderation_status = 'pending'"),
-        ]);
+        const row = result.rows[0] || {};
+
+        // MFA count uses totp_enabled column which may not exist on older schemas
+        let mfaEnabledUsers = 0;
+        try {
+            const mfaResult = await db.query(`SELECT COUNT(*) AS count FROM users WHERE totp_enabled = true`);
+            mfaEnabledUsers = Number(mfaResult.rows[0]?.count || 0);
+        } catch {
+            // Column doesn't exist yet — ignore
+        }
 
         return NextResponse.json({
             data: {
-                totalUsers,
-                totalEvents,
-                totalPhotos,
-                totalTenants,
-                activeEvents,
-                recentUsers,
+                totalUsers: Number(row.totalUsers || 0),
+                totalEvents: Number(row.totalEvents || 0),
+                totalPhotos: Number(row.totalPhotos || 0),
+                totalTenants: Number(row.totalTenants || 0),
+                activeEvents: Number(row.activeEvents || 0),
+                recentUsers: Number(row.recentUsers || 0),
                 mfaEnabledUsers,
-                totalLuckyDraws,
-                totalWinners,
-                pendingPhotos,
+                totalLuckyDraws: Number(row.totalLuckyDraws || 0),
+                totalWinners: Number(row.totalWinners || 0),
+                pendingPhotos: Number(row.pendingPhotos || 0),
             },
         });
     } catch (error) {

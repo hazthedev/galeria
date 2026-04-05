@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSuperAdmin } from '@/middleware/auth';
 import { getTenantDb } from '@/lib/infrastructure/database/db';
+import { SYSTEM_TENANT_ID } from '@/lib/constants/tenants';
 import { logSimpleAdminAction } from '@/lib/audit/middleware';
 
 export async function GET(request: NextRequest) {
@@ -21,7 +22,7 @@ export async function GET(request: NextRequest) {
         const search = searchParams.get('search');
 
         const offset = (page - 1) * limit;
-        const db = getTenantDb(auth.user.tenant_id);
+        const db = getTenantDb(SYSTEM_TENANT_ID);
 
         // Build query conditions
         let whereClause = '1=1';
@@ -54,6 +55,7 @@ export async function GET(request: NextRequest) {
          END AS subscription_tier,
          u.subscription_tier AS user_subscription_tier,
          t.subscription_tier AS tenant_subscription_tier,
+         t.company_name AS tenant_name,
          u.created_at,
          u.last_login_at
        FROM users u
@@ -118,7 +120,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const db = getTenantDb(auth.user.tenant_id);
+        const db = getTenantDb(SYSTEM_TENANT_ID);
 
         // Prevent self-modification in bulk operations
         const selfIndex = userIds.indexOf(auth.user.id);
