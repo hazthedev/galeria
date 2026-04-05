@@ -15,6 +15,7 @@ import {
   useRef,
 } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import { toast } from 'sonner';
 import type { IUser, ISessionData } from '@/lib/types';
 
 // ============================================
@@ -47,6 +48,7 @@ const SESSION_EXPIRY_EXEMPT_PATHS = new Set([
   '/api/auth/register',
   '/api/auth/reset-password',
   '/api/auth/mfa/verify',
+  '/api/auth/logout',
 ]);
 
 function shouldTriggerSessionExpiry(requestUrl: string, origin: string): boolean {
@@ -195,11 +197,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       const response = await originalFetch(input, init);
 
-      if (
-        response.status === 401 &&
-        userRef.current &&
-        !sessionExpiredRef.current
-      ) {
+      if (response.status === 401 && userRef.current) {
         const requestUrl = typeof input === 'string'
           ? input
           : input instanceof URL
@@ -207,8 +205,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
             : input.url;
 
         if (shouldTriggerSessionExpiry(requestUrl, window.location.origin)) {
-          sessionExpiredRef.current = true;
-          setSessionExpired(true);
+          if (!sessionExpiredRef.current) {
+            sessionExpiredRef.current = true;
+            toast.dismiss();
+            setSessionExpired(true);
+          }
+
+          return new Promise<Response>(() => {});
         }
       }
 

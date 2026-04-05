@@ -4,16 +4,21 @@
 
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
-import { Upload, X, Image as ImageIcon, Loader2, AlertCircle, Camera } from 'lucide-react';
-import { validateImageFile, formatFileSize, getImageDimensions } from '@/lib/utils';
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { getImageDimensions } from '@/lib/utils';
 import { getClientFingerprint } from '@/lib/rate-limit';
 import { usePhotoGallery } from '@/lib/realtime/client';
 import type { IPhoto } from '@/lib/types';
-
-// ============================================
-// TYPES
-// ============================================
+import { PhotoUploadDropzone } from './PhotoUploadDropzone';
+import { PhotoUploadQueue } from './PhotoUploadQueue';
+import {
+  DEFAULT_UPLOAD_SETTINGS,
+  formatUploadConstraintLabel,
+  getUploadAcceptValue,
+  normalizeUploadSettings,
+  validateFileAgainstUploadSettings,
+  type UploadSettingsSummary,
+} from '@/lib/shared/upload-settings';
 
 interface PhotoUploadProps {
   eventId: string;
@@ -39,9 +44,9 @@ async function uploadFileToPresignedUrl(uploadUrl: string, file: File, onProgres
   await new Promise<void>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
 
-    xhr.upload.onprogress = (e) => {
-      if (e.lengthComputable) {
-        onProgress(Math.round((e.loaded / e.total) * 100));
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        onProgress(Math.round((event.loaded / event.total) * 100));
       }
     };
 
@@ -61,10 +66,6 @@ async function uploadFileToPresignedUrl(uploadUrl: string, file: File, onProgres
   });
 }
 
-// ============================================
-// COMPONENT
-// ============================================
-
 export function PhotoUpload({
   eventId,
   onSuccess,
@@ -76,65 +77,33 @@ export function PhotoUpload({
   const [files, setFiles] = useState<UploadFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadSettings, setUploadSettings] = useState<UploadSettingsSummary>(DEFAULT_UPLOAD_SETTINGS);
   const inputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const { broadcastNewPhoto } = usePhotoGallery(eventId);
 
-  const remainingSlots = maxFiles - files.filter(f => f.status !== 'error').length;
+  const remainingSlots = maxFiles - files.filter((file) => file.status !== 'error').length;
+  const acceptValue = getUploadAcceptValue(uploadSettings.allowed_types);
+  const uploadConstraintLabel = formatUploadConstraintLabel(uploadSettings);
 
-  // ============================================
-  // DRAG & DROP HANDLERS
-  // ============================================
+  useEffect(() => {
+    const fetchUploadSettings = async () => {
+      try {
+        const response = await fetch('/api/upload-settings', { cache: 'no-store' });
+        const data = await response.json();
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(true);
-  }, []);
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to load upload settings');
+        }
 
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-  }, []);
-
-  const handleDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setIsDragging(false);
-
-      if (disabled || isUploading) return;
-
-      const droppedFiles = Array.from(e.dataTransfer.files);
-      addFiles(droppedFiles);
-    },
-    [disabled, isUploading, files.length, maxFiles]
-  );
-
-  // ============================================
-  // FILE INPUT HANDLERS
-  // ============================================
-
-  const handleFileInput = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const selectedFiles = Array.from(e.target.files || []);
-      addFiles(selectedFiles);
-
-      // Reset both inputs
-      if (inputRef.current) {
-        inputRef.current.value = '';
+        setUploadSettings(normalizeUploadSettings(data.data));
+      } catch {
+        setUploadSettings(DEFAULT_UPLOAD_SETTINGS);
       }
-      if (cameraInputRef.current) {
-        cameraInputRef.current.value = '';
-      }
-    },
-    [disabled, isUploading, files.length, maxFiles]
-  );
+    };
 
-  // ============================================
-  // ADD FILES TO QUEUE
-  // ============================================
+    void fetchUploadSettings();
+  }, []);
 
   const addFiles = useCallback(
     (newFiles: File[]) => {
@@ -142,26 +111,21 @@ export function PhotoUpload({
       const errors: string[] = [];
 
       newFiles.forEach((file) => {
-        // Check if we have room
-        if (validFiles.length + files.filter(f => f.status !== 'error').length >= maxFiles) {
+        if (validFiles.length + files.filter((queuedFile) => queuedFile.status !== 'error').length >= maxFiles) {
           errors.push(`${file.name}: Maximum ${maxFiles} files allowed`);
           return;
         }
 
-        // Validate file
-        const validation = validateImageFile(file);
+        const validation = validateFileAgainstUploadSettings(file, uploadSettings);
         if (!validation.valid) {
           errors.push(`${file.name}: ${validation.error}`);
           return;
         }
 
-        // Create preview
-        const preview = URL.createObjectURL(file);
-
         validFiles.push({
           file,
           id: Math.random().toString(36).substring(7),
-          preview,
+          preview: URL.createObjectURL(file),
           progress: 0,
           status: 'pending',
         });
@@ -173,29 +137,71 @@ export function PhotoUpload({
 
       setFiles((prev) => [...prev, ...validFiles]);
     },
-    [files.length, maxFiles, onError]
+    [files, maxFiles, onError, uploadSettings]
   );
 
-  // ============================================
-  // REMOVE FILE FROM QUEUE
-  // ============================================
+  const handleDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsDragging(false);
+  }, []);
+
+  const handleDrop = useCallback(
+    (event: React.DragEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      event.stopPropagation();
+      setIsDragging(false);
+
+      if (disabled || isUploading) return;
+
+      addFiles(Array.from(event.dataTransfer.files));
+    },
+    [addFiles, disabled, isUploading]
+  );
+
+  const handleFileInput = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      addFiles(Array.from(event.target.files || []));
+
+      if (inputRef.current) {
+        inputRef.current.value = '';
+      }
+      if (cameraInputRef.current) {
+        cameraInputRef.current.value = '';
+      }
+    },
+    [addFiles]
+  );
 
   const removeFile = useCallback((id: string) => {
     setFiles((prev) => {
-      const file = prev.find((f) => f.id === id);
+      const file = prev.find((queuedFile) => queuedFile.id === id);
       if (file) {
         URL.revokeObjectURL(file.preview);
       }
-      return prev.filter((f) => f.id !== id);
+
+      return prev.filter((queuedFile) => queuedFile.id !== id);
     });
   }, []);
 
-  // ============================================
-  // UPLOAD FILES
-  // ============================================
+  const retryFile = useCallback((id: string) => {
+    setFiles((prev) =>
+      prev.map((file) =>
+        file.id === id
+          ? { ...file, status: 'pending', progress: 0, error: undefined }
+          : file
+      )
+    );
+  }, []);
 
   const uploadFiles = useCallback(async () => {
-    const pendingFiles = files.filter((f) => f.status === 'pending');
+    const pendingFiles = files.filter((file) => file.status === 'pending');
     if (pendingFiles.length === 0) return;
 
     setIsUploading(true);
@@ -203,8 +209,8 @@ export function PhotoUpload({
     for (const fileData of pendingFiles) {
       try {
         setFiles((prev) =>
-          prev.map((f) =>
-            f.id === fileData.id ? { ...f, status: 'uploading', progress: 0 } : f
+          prev.map((file) =>
+            file.id === fileData.id ? { ...file, status: 'uploading', progress: 0 } : file
           )
         );
 
@@ -237,13 +243,13 @@ export function PhotoUpload({
         let response: { data?: unknown };
 
         const fallbackToMultipartUpload = async () => {
-          const fallbackFormData = new FormData();
-          fallbackFormData.append('file', fileData.file);
+          const formData = new FormData();
+          formData.append('file', fileData.file);
 
           const fallbackRes = await fetch(`/api/events/${eventId}/photos`, {
             method: 'POST',
             headers: fingerprint ? { 'x-fingerprint': fingerprint } : {},
-            body: fallbackFormData,
+            body: formData,
           });
 
           if (!fallbackRes.ok) {
@@ -260,13 +266,12 @@ export function PhotoUpload({
           try {
             await uploadFileToPresignedUrl(uploadUrl, fileData.file, (progress) => {
               setFiles((prev) =>
-                prev.map((f) =>
-                  f.id === fileData.id ? { ...f, progress } : f
+                prev.map((file) =>
+                  file.id === fileData.id ? { ...file, progress } : file
                 )
               );
             });
 
-            // Finalize upload (store metadata in DB)
             const dimensions = await getImageDimensions(fileData.file);
             const finalizeRes = await fetch(`/api/events/${eventId}/photos`, {
               method: 'POST',
@@ -303,262 +308,70 @@ export function PhotoUpload({
         }
 
         setFiles((prev) =>
-          prev.map((f) =>
-            f.id === fileData.id ? { ...f, status: 'success', progress: 100 } : f
+          prev.map((file) =>
+            file.id === fileData.id ? { ...file, status: 'success', progress: 100 } : file
           )
         );
+
         const payload = response.data;
         const uploaded = Array.isArray(payload) ? payload : payload ? [payload] : [];
         uploaded.forEach((photo) => {
-          onSuccess?.(photo);
-          broadcastNewPhoto(photo);
+          onSuccess?.(photo as IPhoto);
+          broadcastNewPhoto(photo as IPhoto);
         });
       } catch (error) {
         setFiles((prev) =>
-          prev.map((f) =>
-            f.id === fileData.id ? { ...f, status: 'error', error: error instanceof Error ? error.message : 'Unknown error' } : f
+          prev.map((file) =>
+            file.id === fileData.id
+              ? { ...file, status: 'error', error: error instanceof Error ? error.message : 'Unknown error' }
+              : file
           )
         );
       }
     }
 
     setIsUploading(false);
-  }, [files, eventId, onSuccess]);
-
-  // ============================================
-  // CLEAR COMPLETED FILES
-  // ============================================
+  }, [broadcastNewPhoto, eventId, files, onSuccess]);
 
   const clearCompleted = useCallback(() => {
-    setFiles((prev) => prev.filter((f) => f.status !== 'success'));
+    setFiles((prev) => prev.filter((file) => file.status !== 'success'));
   }, []);
 
-  // ============================================
-  // CLEAR ALL FILES
-  // ============================================
-
   const clearAll = useCallback(() => {
-    files.forEach((f) => URL.revokeObjectURL(f.preview));
+    files.forEach((file) => URL.revokeObjectURL(file.preview));
     setFiles([]);
   }, [files]);
 
-  // ============================================
-  // RENDER
-  // ============================================
-
   return (
     <div className={className}>
-      {/* Drag & Drop Zone */}
       {!disabled && (
-        <div
-          onDragOver={handleDragOver}
+        <PhotoUploadDropzone
+          acceptValue={acceptValue}
+          cameraInputRef={cameraInputRef}
+          disabled={disabled}
+          inputRef={inputRef}
+          isDragging={isDragging}
+          isUploading={isUploading}
+          maxFiles={maxFiles}
+          remainingSlots={remainingSlots}
+          uploadConstraintLabel={uploadConstraintLabel}
           onDragLeave={handleDragLeave}
+          onDragOver={handleDragOver}
           onDrop={handleDrop}
-          className={`
-            relative border-2 border-dashed rounded-lg p-6 text-center
-            transition-colors duration-200
-            ${isDragging ? 'border-violet-500 bg-violet-50 dark:bg-violet-950' : 'border-gray-300 dark:border-gray-700'}
-            ${isUploading ? 'pointer-events-none opacity-50' : ''}
-          `}
-        >
-          {/* Hidden file inputs */}
-          <input
-            ref={inputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/heic,image/webp"
-            multiple
-            max={maxFiles}
-            onChange={handleFileInput}
-            className="hidden"
-            disabled={disabled || isUploading}
-          />
-          <input
-            ref={cameraInputRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            onChange={handleFileInput}
-            className="hidden"
-            disabled={disabled || isUploading}
-          />
-
-          {/* Upload buttons */}
-          <div className="flex flex-col sm:flex-row gap-3 justify-center mb-4">
-            <button
-              onClick={() => cameraInputRef.current?.click()}
-              disabled={isUploading || remainingSlots <= 0}
-              className={`
-                flex items-center gap-2 px-4 py-3 rounded-lg border-2 transition-all
-                disabled:opacity-50 disabled:cursor-not-allowed
-                bg-gradient-to-br from-violet-500 to-pink-500 border-transparent hover:from-violet-600 hover:to-pink-600
-                text-white shadow-md hover:shadow-lg
-              `}
-            >
-              <Camera className="h-5 w-5" />
-              <span className="font-medium">Take Photo</span>
-            </button>
-
-            <button
-              onClick={() => inputRef.current?.click()}
-              disabled={isUploading || remainingSlots <= 0}
-              className={`
-                flex items-center gap-2 px-4 py-3 rounded-lg border-2 transition-all
-                disabled:opacity-50 disabled:cursor-not-allowed
-                bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600
-                hover:border-violet-400 hover:bg-gray-50 dark:hover:bg-gray-700
-                text-gray-900 dark:text-gray-100
-              `}
-            >
-              <ImageIcon className="h-5 w-5 text-violet-600" />
-              <span className="font-medium">Choose Files</span>
-            </button>
-          </div>
-
-          {/* Drag-drop hint */}
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            {isDragging ? 'Drop photos here' : 'Or drag and drop files'}
-          </p>
-
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-            {remainingSlots > 0
-              ? `${remainingSlots} file${remainingSlots > 1 ? 's' : ''} remaining (max ${maxFiles})`
-              : 'Maximum files reached'}
-          </p>
-
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
-            JPEG, PNG, HEIC, WebP • Max 10MB
-          </p>
-        </div>
+          onFileInput={handleFileInput}
+        />
       )}
 
-      {/* File List */}
-      {files.length > 0 && (
-        <div className="mt-4 space-y-3">
-          {files.map((file) => (
-            <div
-              key={file.id}
-              className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800"
-            >
-              {/* Thumbnail */}
-              <div className="relative w-16 h-16 flex-shrink-0">
-                {file.preview ? (
-                  <img
-                    src={file.preview}
-                    alt={file.file.name}
-                    className="w-full h-full object-cover rounded"
-                  />
-                ) : (
-                  <div className="w-full h-full bg-gray-200 dark:bg-gray-800 rounded flex items-center justify-center">
-                    <ImageIcon className="w-8 h-8 text-gray-400" />
-                  </div>
-                )}
-
-                {/* Status Icon */}
-                {file.status === 'success' && (
-                  <div className="absolute inset-0 bg-green-500/20 rounded flex items-center justify-center">
-                    <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
-                      <span className="text-white text-sm">✓</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* File Info */}
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                  {file.file.name}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {formatFileSize(file.file.size)}
-                </p>
-
-                {/* Progress Bar */}
-                {file.status === 'uploading' && (
-                  <div className="mt-1">
-                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
-                      <div
-                        className="bg-blue-500 h-1.5 rounded-full transition-all duration-300"
-                        style={{ width: `${file.progress}%` }}
-                      />
-                    </div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                      {file.progress}%
-                    </p>
-                  </div>
-                )}
-
-                {/* Error Message */}
-                {file.status === 'error' && file.error && (
-                  <p className="text-xs text-red-600 dark:text-red-400 mt-1 flex items-center gap-1">
-                    <AlertCircle className="w-3 h-3" />
-                    {file.error}
-                  </p>
-                )}
-              </div>
-
-              {/* Actions */}
-              <div className="flex items-center gap-2">
-                {file.status === 'uploading' && (
-                  <Loader2 className="w-5 h-5 text-blue-500 animate-spin" />
-                )}
-
-                {(file.status === 'pending' || file.status === 'error') && (
-                  <button
-                    onClick={() => removeFile(file.id)}
-                    className="p-1.5 text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950 rounded transition-colors"
-                    disabled={isUploading}
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
-
-          {/* Action Buttons */}
-          <div className="flex gap-3 pt-2">
-            {files.some((f) => f.status === 'pending') && (
-              <button
-                onClick={uploadFiles}
-                disabled={isUploading || disabled}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors"
-              >
-                {isUploading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Uploading...
-                  </>
-                ) : (
-                  <>
-                    <Upload className="w-4 h-4" />
-                    Upload Photos
-                  </>
-                )}
-              </button>
-            )}
-
-            {files.some((f) => f.status === 'success') && (
-              <button
-                onClick={clearCompleted}
-                disabled={isUploading}
-                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium transition-colors"
-              >
-                Clear Completed
-              </button>
-            )}
-
-            {files.length > 0 && (
-              <button
-                onClick={clearAll}
-                disabled={isUploading}
-                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium transition-colors"
-              >
-                Clear All
-              </button>
-            )}
-          </div>
-        </div>
-      )}
+      <PhotoUploadQueue
+        disabled={disabled}
+        files={files}
+        isUploading={isUploading}
+        onClearAll={clearAll}
+        onClearCompleted={clearCompleted}
+        onRemoveFile={removeFile}
+        onRetryFile={retryFile}
+        onUploadFiles={uploadFiles}
+      />
     </div>
   );
 }

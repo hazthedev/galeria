@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import Image from 'next/image';
 import {
   X,
@@ -16,6 +16,14 @@ import { PhotoChallengeProgressBar } from '@/components/photo-challenge/progress
 import { Recaptcha } from '@/components/auth/Recaptcha';
 import type { IEvent, IPhotoChallenge, IGuestPhotoProgress, IPhoto } from '@/lib/types';
 import type { SelectedFile } from '../_hooks/useGuestEventPageController';
+import {
+  DEFAULT_UPLOAD_SETTINGS,
+  formatUploadConstraintLabel,
+  getUploadAcceptValue,
+  isHeicLikeFile,
+  normalizeUploadSettings,
+  type UploadSettingsSummary,
+} from '@/lib/shared/upload-settings';
 import {
   modalBackdropVariants,
   modalContentVariants,
@@ -114,6 +122,7 @@ export function UploadModal({
   onRecaptchaError,
 }: UploadModalProps) {
   const [isDragOver, setIsDragOver] = useState(false);
+  const [uploadSettings, setUploadSettings] = useState<UploadSettingsSummary>(DEFAULT_UPLOAD_SETTINGS);
   const dragCounter = useCallback(() => {
     let count = 0;
     return {
@@ -148,6 +157,28 @@ export function UploadModal({
     const files = e.dataTransfer.files;
     if (files?.length) onFileSelect(files);
   }, [onFileSelect, dragCounter]);
+
+  useEffect(() => {
+    const fetchUploadSettings = async () => {
+      try {
+        const response = await fetch('/api/upload-settings', { cache: 'no-store' });
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to load upload settings');
+        }
+
+        setUploadSettings(normalizeUploadSettings(data.data));
+      } catch {
+        setUploadSettings(DEFAULT_UPLOAD_SETTINGS);
+      }
+    };
+
+    void fetchUploadSettings();
+  }, []);
+
+  const acceptValue = getUploadAcceptValue(uploadSettings.allowed_types);
+  const uploadConstraintLabel = formatUploadConstraintLabel(uploadSettings);
 
   return (
     <AnimatePresence>
@@ -195,7 +226,18 @@ export function UploadModal({
               {/* Error Message */}
               {uploadError && (
                 <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/20 dark:text-red-300">
-                  {uploadError}
+                  <div className="flex items-start justify-between gap-3">
+                    <p>{uploadError}</p>
+                    {selectedFiles.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={onUpload}
+                        className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700"
+                      >
+                        Retry upload
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -247,12 +289,24 @@ export function UploadModal({
                               className="relative aspect-square rounded-lg overflow-hidden"
                               style={{ backgroundColor: inputBackground }}
                             >
-                              <Image
-                                src={file.preview}
-                                alt={file.name}
-                                fill
-                                className="object-cover"
-                              />
+                              {isHeicLikeFile(file.file) ? (
+                                <div className="flex h-full w-full flex-col items-center justify-center gap-2 px-2 text-center">
+                                  <ImageIcon className="h-7 w-7" style={{ color: surfaceMuted }} />
+                                  <p className="text-[11px] font-medium leading-tight" style={{ color: surfaceText }}>
+                                    Preview not available
+                                  </p>
+                                  <p className="text-[10px] leading-tight" style={{ color: surfaceMuted }}>
+                                    HEIC will be converted on upload
+                                  </p>
+                                </div>
+                              ) : (
+                                <Image
+                                  src={file.preview}
+                                  alt={file.name}
+                                  fill
+                                  className="object-cover"
+                                />
+                              )}
                               <button
                                 onClick={() => onRemoveFile(index)}
                                 className="absolute top-1 right-1 flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-white hover:bg-red-600"
@@ -294,7 +348,7 @@ export function UploadModal({
                           <label className="flex cursor-pointer flex-col items-center gap-2 rounded-lg p-3 transition-colors duration-150 ease-out hover:opacity-80">
                             <input
                               type="file"
-                              accept="image/*"
+                              accept={acceptValue}
                               capture="environment"
                               onChange={(e) => onFileSelect(e.target.files)}
                               className="hidden"
@@ -308,7 +362,7 @@ export function UploadModal({
                           <label className="flex cursor-pointer flex-col items-center gap-2 rounded-lg p-3 transition-colors duration-150 ease-out hover:opacity-80">
                             <input
                               type="file"
-                              accept="image/*"
+                              accept={acceptValue}
                               multiple
                               onChange={(e) => onFileSelect(e.target.files)}
                               className="hidden"
@@ -324,7 +378,8 @@ export function UploadModal({
                   )}
 
                   <p className="text-xs leading-relaxed text-center" style={{ color: surfaceMuted }}>
-                    {selectedFiles.length < 5 ? 'Drag & drop or tap to select — ' : ''}large photos are optimized automatically
+                    {selectedFiles.length < 5 ? 'Drag & drop or tap to select — ' : ''}
+                    {uploadConstraintLabel}. Large photos are optimized automatically.
                   </p>
 
                   {/* Caption */}

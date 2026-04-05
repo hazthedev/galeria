@@ -77,6 +77,13 @@ function getMutationErrorResponse(
   );
 }
 
+function getInvalidGoalResponse() {
+  return NextResponse.json(
+    { error: 'goal_photos must be at least 1', code: 'INVALID_GOAL' },
+    { status: 400 }
+  );
+}
+
 /**
  * GET /api/events/[eventId]/photo-challenge
  * Get photo challenge configuration for an event
@@ -131,6 +138,14 @@ export async function POST(req: NextRequest, context: RouteContext) {
     const { eventId } = await context.params;
     const body = await req.json();
     const { db } = await requirePhotoChallengeManageAccess(req, eventId);
+
+    if (
+      typeof body.goal_photos !== 'number' ||
+      !Number.isFinite(body.goal_photos) ||
+      body.goal_photos < 1
+    ) {
+      return getInvalidGoalResponse();
+    }
 
     // Check if challenge already exists
     const existing = await db.findOne('photo_challenges', { event_id: eventId });
@@ -240,6 +255,15 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
     const { eventId } = await context.params;
     const body = await req.json();
     const { db } = await requirePhotoChallengeManageAccess(req, eventId);
+
+    if (
+      body.goal_photos !== undefined &&
+      (typeof body.goal_photos !== 'number' ||
+        !Number.isFinite(body.goal_photos) ||
+        body.goal_photos < 1)
+    ) {
+      return getInvalidGoalResponse();
+    }
 
     // Update challenge
     await db.update(

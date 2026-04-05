@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import {
   Calendar,
   MapPin,
@@ -26,8 +27,10 @@ import { HeaderActions } from './HeaderActions';
 import { GalleryGrid } from './GalleryGrid';
 import { PhotoLightbox } from './PhotoLightbox';
 import { UploadModal } from './UploadModal';
+import { SectionErrorBoundary } from '@/components/ui/SectionErrorBoundary';
 import { useGuestEventPageController } from '../_hooks/useGuestEventPageController';
 import { GuestEventPageSkeleton } from './GuestEventPageSkeleton';
+import { useRealtime } from '@/lib/realtime/client';
 
 type GuestEventPageViewProps = {
   controller: ReturnType<typeof useGuestEventPageController>;
@@ -45,11 +48,13 @@ const v = {
 } as const;
 
 export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
+  const { connected } = useRealtime();
+  const [hadRealtimeConnection, setHadRealtimeConnection] = useState(false);
   const {
     resolvedEventId, event, isLoading, error, showShareModal, showUploadModal, showCheckInModal,
     hasCheckedIn, isUploading, isOptimizing, uploadProgress, uploadError, uploadSuccess, uploadSuccessMessage,
     moderationNotice, moderationNoticeType, joinLuckyDraw, hasJoinedDraw, luckyDrawNumbers, hasActiveLuckyDrawConfig,
-    photoChallenge, challengeProgress, showPrizeModal, fingerprint, recaptchaToken, recaptchaError, isRecaptchaConfigured, winner, wonPrize,
+    photoChallenge, challengeProgress, showPrizeModal, fingerprint, recaptchaToken, recaptchaError, isRecaptchaConfigured, winnerAnnouncement, wonPrize,
     showDrawOverlay, showWinnerOverlay, mergedPhotos, guestName, isAnonymous, browseOnly, showGuestModal, allowAnonymous,
     luckyDrawEnabled, reactionsEnabled, attendanceEnabled, canUpload, photoCardStyle, themePrimary, themeSecondary, themeBackground, themeSurface,
     themeGradient, surfaceText, surfaceMuted, surfaceBorder, inputBackground, inputBorder, headerBackground,
@@ -63,8 +68,14 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
     loadMoreApproved, setShowShareModal, shareUrl, handleShare, copyToClipboard, handleFileSelect,
     removeSelectedFile, handleUpload, openUploadModal, setShowUploadModal, setRecaptchaToken, setRecaptchaError, setCaption,
     setJoinLuckyDraw, setSelectedFiles, setUploadError, setUploadSuccess, setUploadSuccessMessage, setOptimizedCount,
-    setShowCheckInModal, setHasCheckedIn, setIsAnonymous, setShowPrizeModal, setShowDrawOverlay, setShowWinnerOverlay, setWonPrize,
+    setShowCheckInModal, setHasCheckedIn, setIsAnonymous, setShowPrizeModal, setShowDrawOverlay, dismissWinnerOverlay, setWonPrize,
   } = controller;
+
+  useEffect(() => {
+    if (connected) {
+      setHadRealtimeConnection(true);
+    }
+  }, [connected]);
 
   // Loading state
   if (isLoading) {
@@ -98,6 +109,18 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
     day: 'numeric',
   });
   const eventIsActive = event.status === 'active';
+  const photoUploadsEnabled = event?.settings?.features?.photo_upload_enabled !== false;
+  const showUploadActions = !browseOnly && canUpload && photoUploadsEnabled;
+  const showUploadsClosedState = !browseOnly && !canUpload && photoUploadsEnabled;
+  const showReconnectBanner = hadRealtimeConnection && !connected;
+  const uploadsClosedMessage =
+    event.status === 'ended'
+      ? 'Uploads are closed because this event has ended.'
+      : event.status === 'draft'
+        ? 'Uploads will open once the organizer activates this event.'
+        : event.status === 'archived'
+          ? 'Uploads are closed because this event is archived.'
+          : 'Uploads are currently unavailable for this event.';
 
   return (
     <div
@@ -180,7 +203,7 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
         </div>
       )}
 
-      {showWinnerOverlay && winner && (
+      {showWinnerOverlay && winnerAnnouncement && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
           <motion.div
             initial={{ scale: 0.95, opacity: 0, y: 12 }}
@@ -194,7 +217,7 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
               style={{ backgroundImage: `linear-gradient(135deg, var(--g-primary), var(--g-secondary))` }}
             >
               <button
-                onClick={() => setShowWinnerOverlay(false)}
+                onClick={dismissWinnerOverlay}
                 className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-white/90 backdrop-blur-sm transition-colors hover:bg-white/30"
               >
                 <X className="h-4 w-4" />
@@ -212,10 +235,10 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
             <div className="px-6 py-6">
               <SlotMachineAnimation
                 durationSeconds={5}
-                numberString={formatDrawNumber(winner.entry_id)}
-                participantName={winner.participant_name || 'Anonymous'}
-                photoUrl={winner.selfie_url}
-                prizeName={`Prize Tier ${winner.prize_tier}`}
+                numberString={formatDrawNumber(winnerAnnouncement.entry_id)}
+                participantName={winnerAnnouncement.participant_name || 'Anonymous'}
+                photoUrl={winnerAnnouncement.selfie_url}
+                prizeName={`Prize Tier ${winnerAnnouncement.prize_tier}`}
                 showSelfie
                 showFullName
               />
@@ -261,6 +284,26 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
           </div>
         </div>
       </header>
+
+      <AnimatePresence>
+        {showReconnectBanner && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+            className="overflow-hidden border-b"
+            style={{ borderColor: v.border, backgroundColor: v.inputBg }}
+          >
+            <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-2.5 text-sm sm:px-6 lg:px-8">
+              <Loader2 className="h-4 w-4 animate-spin" style={{ color: v.secondary }} />
+              <p style={{ color: v.muted }}>
+                Reconnecting... Live photo updates are temporarily paused.
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Winner Banner — persistent until dismissed */}
       <AnimatePresence>
@@ -318,7 +361,21 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
             variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }}
             transition={{ duration: 0.3, ease: 'easeOut' }}
           >
-            This event has ended.
+            <div className="flex items-center justify-between gap-3">
+              <span>
+                {event.status === 'ended'
+                  ? 'This event has ended.'
+                  : event.status === 'draft'
+                    ? 'This event is not live yet.'
+                    : 'This event is archived.'}
+              </span>
+              <span
+                className="rounded-full px-2.5 py-1 text-xs font-semibold"
+                style={{ backgroundColor: themeSurface, color: v.text }}
+              >
+                Uploads closed
+              </span>
+            </div>
           </motion.div>
         )}
 
@@ -358,61 +415,66 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
 
         {/* Lucky Draw Section — compact when empty, expanded when has numbers */}
         {luckyDrawEnabled && (
-          <motion.section
-            id="lucky-draw"
-            className="mb-6 scroll-mt-24"
-            variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }}
-            transition={{ duration: 0.3, ease: 'easeOut' }}
+          <SectionErrorBoundary
+            title="Lucky draw unavailable"
+            message="The lucky draw panel hit a rendering issue. Retry this section without leaving the event."
           >
-            {luckyDrawNumbers.length > 0 ? (
-              <div
-                className="rounded-2xl border p-5 shadow-sm sm:p-6"
-                style={{ backgroundColor: v.surface, borderColor: v.border }}
-              >
-                <div className="mb-4 flex items-center gap-2">
-                  <Trophy className="h-4 w-4" style={{ color: v.secondary }} />
-                  <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: v.secondary }}>
-                    Your Lucky Draw Numbers
-                  </span>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {luckyDrawNumbers.map((number, index) => (
-                    <motion.span
-                      key={`${number}-${index}`}
-                      custom={index}
-                      variants={luckyNumberVariants}
-                      initial="hidden"
-                      animate="visible"
-                      className="rounded-full px-4 py-2 text-sm font-bold shadow-sm"
-                      style={{
-                        backgroundColor: themeSecondary,
-                        color: secondaryText,
-                      }}
-                    >
-                      #{number}
-                    </motion.span>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div
-                className="flex items-center gap-3 rounded-xl border px-4 py-3"
-                style={{ backgroundColor: v.inputBg, borderColor: v.border }}
-              >
+            <motion.section
+              id="lucky-draw"
+              className="mb-6 scroll-mt-24"
+              variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }}
+              transition={{ duration: 0.3, ease: 'easeOut' }}
+            >
+              {luckyDrawNumbers.length > 0 ? (
                 <div
-                  className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full"
-                  style={{ backgroundColor: themeSecondary, color: secondaryText }}
+                  className="rounded-2xl border p-5 shadow-sm sm:p-6"
+                  style={{ backgroundColor: v.surface, borderColor: v.border }}
                 >
-                  <Trophy className="h-4 w-4" />
+                  <div className="mb-4 flex items-center gap-2">
+                    <Trophy className="h-4 w-4" style={{ color: v.secondary }} />
+                    <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: v.secondary }}>
+                      Your Lucky Draw Numbers
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {luckyDrawNumbers.map((number, index) => (
+                      <motion.span
+                        key={`${number}-${index}`}
+                        custom={index}
+                        variants={luckyNumberVariants}
+                        initial="hidden"
+                        animate="visible"
+                        className="rounded-full px-4 py-2 text-sm font-bold shadow-sm"
+                        style={{
+                          backgroundColor: themeSecondary,
+                          color: secondaryText,
+                        }}
+                      >
+                        #{number}
+                      </motion.span>
+                    ))}
+                  </div>
                 </div>
-                <p className="text-sm" style={{ color: v.muted }}>
-                  {hasJoinedDraw
-                    ? 'You\'re in the draw! Your number will appear shortly.'
-                    : 'Upload a photo to enter the lucky draw and win prizes.'}
-                </p>
-              </div>
-            )}
-          </motion.section>
+              ) : (
+                <div
+                  className="flex items-center gap-3 rounded-xl border px-4 py-3"
+                  style={{ backgroundColor: v.inputBg, borderColor: v.border }}
+                >
+                  <div
+                    className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full"
+                    style={{ backgroundColor: themeSecondary, color: secondaryText }}
+                  >
+                    <Trophy className="h-4 w-4" />
+                  </div>
+                  <p className="text-sm" style={{ color: v.muted }}>
+                    {hasJoinedDraw
+                      ? 'You\'re in the draw! Your number will appear shortly.'
+                      : 'Upload a photo to enter the lucky draw and win prizes.'}
+                  </p>
+                </div>
+              )}
+            </motion.section>
+          </SectionErrorBoundary>
         )}
 
         {/* Upload CTA */}
@@ -428,7 +490,7 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
             {moderationNotice}
           </div>
         )}
-        {!browseOnly && canUpload && event?.settings?.features?.photo_upload_enabled !== false && (
+        {showUploadActions && (
           <motion.div
             className="mb-8"
             variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }}
@@ -463,6 +525,53 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
           </motion.div>
         )}
 
+        {showUploadsClosedState && (
+          <motion.div
+            className="mb-8"
+            variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+          >
+            <div
+              className="w-full rounded-2xl border border-dashed p-6 text-left sm:p-8"
+              style={{
+                backgroundColor: v.inputBg,
+                borderColor: v.border,
+                color: v.text,
+                opacity: 0.72,
+                filter: 'grayscale(0.2)',
+              }}
+            >
+              <div className="flex items-start gap-4">
+                <div
+                  className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl"
+                  style={{ backgroundColor: themeSurface }}
+                >
+                  <Camera className="h-6 w-6" style={{ color: v.muted }} />
+                </div>
+                <div className="space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-base font-semibold leading-snug tracking-tight sm:text-lg">
+                      Uploads closed
+                    </h3>
+                    <span
+                      className="rounded-full px-2.5 py-1 text-xs font-semibold"
+                      style={{ backgroundColor: themeSurface, color: v.muted }}
+                    >
+                      {event.status}
+                    </span>
+                  </div>
+                  <p className="text-sm leading-relaxed" style={{ color: v.muted }}>
+                    {uploadsClosedMessage}
+                  </p>
+                  <p className="text-xs leading-relaxed" style={{ color: v.muted }}>
+                    You can still browse the gallery and download shared photos.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
         {/* Gallery Filter Pills */}
         {mergedPhotos.length > 0 && (
           <div className="mb-4 flex items-center gap-2">
@@ -493,41 +602,51 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
         )}
 
         {/* Photo Gallery */}
-        <GalleryGrid
-          photos={filteredPhotos}
-          userLoves={userLoves}
-          animatingPhotos={animatingPhotos}
-          selectedPhotoIds={selectedPhotoIds}
-          canDownload={canDownload}
-          reactionsEnabled={reactionsEnabled}
-          photoCardStyle={photoCardStyle}
-          hasMoreApproved={hasMoreApproved}
-          isLoadingMore={isLoadingMore}
-          loadMoreRef={loadMoreRef}
-          onLoveReaction={handleLoveReaction}
-          onDownloadPhoto={handleDownloadPhoto}
-          onToggleSelect={toggleSelectedPhoto}
-          onOpenLightbox={openLightbox}
-          lightboxEnabled={lightboxEnabled}
-          onLoadMore={loadMoreApproved}
-        />
+        <SectionErrorBoundary
+          title="Gallery unavailable"
+          message="The gallery hit a rendering issue. Retry this section to continue browsing photos."
+        >
+          <GalleryGrid
+            photos={filteredPhotos}
+            userLoves={userLoves}
+            animatingPhotos={animatingPhotos}
+            selectedPhotoIds={selectedPhotoIds}
+            canDownload={canDownload}
+            reactionsEnabled={reactionsEnabled}
+            photoCardStyle={photoCardStyle}
+            hasMoreApproved={hasMoreApproved}
+            isLoadingMore={isLoadingMore}
+            loadMoreRef={loadMoreRef}
+            onLoveReaction={handleLoveReaction}
+            onDownloadPhoto={handleDownloadPhoto}
+            onToggleSelect={toggleSelectedPhoto}
+            onOpenLightbox={openLightbox}
+            lightboxEnabled={lightboxEnabled}
+            onLoadMore={loadMoreApproved}
+          />
+        </SectionErrorBoundary>
       </motion.div>
 
       {lightboxEnabled && (
-        <PhotoLightbox
-          open={lightboxOpen}
-          index={lightboxIndex}
-          photos={mergedPhotos}
-          userLoves={userLoves}
-          reactionsEnabled={reactionsEnabled}
-          canDownload={canDownload}
-          themeSecondary={themeSecondary}
-          secondaryText={secondaryText}
-          onClose={() => setLightboxOpen(false)}
-          onIndexChange={setLightboxIndex}
-          onLoveReaction={handleLoveReaction}
-          onDownload={handleDownloadPhoto}
-        />
+        <SectionErrorBoundary
+          title="Photo preview unavailable"
+          message="The lightbox hit a rendering issue. Retry this section to reopen full-screen preview."
+        >
+          <PhotoLightbox
+            open={lightboxOpen}
+            index={lightboxIndex}
+            photos={mergedPhotos}
+            userLoves={userLoves}
+            reactionsEnabled={reactionsEnabled}
+            canDownload={canDownload}
+            themeSecondary={themeSecondary}
+            secondaryText={secondaryText}
+            onClose={() => setLightboxOpen(false)}
+            onIndexChange={setLightboxIndex}
+            onLoveReaction={handleLoveReaction}
+            onDownload={handleDownloadPhoto}
+          />
+        </SectionErrorBoundary>
       )}
 
       <GuestShareModal
@@ -543,67 +662,72 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
       />
 
       {/* Upload Modal */}
-      <UploadModal
-        isOpen={showUploadModal}
-        event={event}
-        mergedPhotos={mergedPhotos}
-        fingerprint={fingerprint}
-        isUploading={isUploading}
-        isOptimizing={isOptimizing}
-        uploadProgress={uploadProgress}
-        uploadError={uploadError}
-        uploadSuccess={uploadSuccess}
-        uploadSuccessMessage={uploadSuccessMessage}
-        selectedFiles={selectedFiles}
-        caption={caption}
-        luckyDrawEnabled={luckyDrawEnabled}
-        isAnonymous={isAnonymous}
-        joinLuckyDraw={joinLuckyDraw}
-        hasJoinedDraw={hasJoinedDraw}
-        hasActiveLuckyDrawConfig={hasActiveLuckyDrawConfig}
-        photoChallenge={photoChallenge}
-        challengeProgress={challengeProgress}
-        guestName={guestName}
-        recaptchaToken={recaptchaToken}
-        recaptchaError={recaptchaError}
-        isRecaptchaConfigured={isRecaptchaConfigured}
-        allowAnonymous={allowAnonymous}
-        uploadUsageUser={uploadUsageUser}
-        themePrimary={themePrimary}
-        themeSecondary={themeSecondary}
-        themeSurface={themeSurface}
-        surfaceText={surfaceText}
-        surfaceMuted={surfaceMuted}
-        surfaceBorder={surfaceBorder}
-        inputBackground={inputBackground}
-        inputBorder={inputBorder}
-        secondaryText={secondaryText}
-        onClose={() => {
-          setShowUploadModal(false);
-          setSelectedFiles([]);
-          setUploadError(null);
-          setUploadSuccess(false);
-          setUploadSuccessMessage('Photo uploaded successfully!');
-          setCaption('');
-          setOptimizedCount(0);
-          setRecaptchaToken(null);
-          setRecaptchaError(null);
-        }}
-        onFileSelect={handleFileSelect}
-        onRemoveFile={removeSelectedFile}
-        onUpload={handleUpload}
-        onCaptionChange={setCaption}
-        onJoinLuckyDrawChange={setJoinLuckyDraw}
-        onRecaptchaVerified={(token) => {
-          setRecaptchaToken(token);
-          setRecaptchaError(null);
-        }}
-        onRecaptchaExpired={() => setRecaptchaToken(null)}
-        onRecaptchaError={(err) => setRecaptchaError(err)}
-      />
+      <SectionErrorBoundary
+        title="Upload modal unavailable"
+        message="The upload modal hit a rendering issue. Retry this section to reopen photo uploads."
+      >
+        <UploadModal
+          isOpen={showUploadModal}
+          event={event}
+          mergedPhotos={mergedPhotos}
+          fingerprint={fingerprint}
+          isUploading={isUploading}
+          isOptimizing={isOptimizing}
+          uploadProgress={uploadProgress}
+          uploadError={uploadError}
+          uploadSuccess={uploadSuccess}
+          uploadSuccessMessage={uploadSuccessMessage}
+          selectedFiles={selectedFiles}
+          caption={caption}
+          luckyDrawEnabled={luckyDrawEnabled}
+          isAnonymous={isAnonymous}
+          joinLuckyDraw={joinLuckyDraw}
+          hasJoinedDraw={hasJoinedDraw}
+          hasActiveLuckyDrawConfig={hasActiveLuckyDrawConfig}
+          photoChallenge={photoChallenge}
+          challengeProgress={challengeProgress}
+          guestName={guestName}
+          recaptchaToken={recaptchaToken}
+          recaptchaError={recaptchaError}
+          isRecaptchaConfigured={isRecaptchaConfigured}
+          allowAnonymous={allowAnonymous}
+          uploadUsageUser={uploadUsageUser}
+          themePrimary={themePrimary}
+          themeSecondary={themeSecondary}
+          themeSurface={themeSurface}
+          surfaceText={surfaceText}
+          surfaceMuted={surfaceMuted}
+          surfaceBorder={surfaceBorder}
+          inputBackground={inputBackground}
+          inputBorder={inputBorder}
+          secondaryText={secondaryText}
+          onClose={() => {
+            setShowUploadModal(false);
+            setSelectedFiles([]);
+            setUploadError(null);
+            setUploadSuccess(false);
+            setUploadSuccessMessage('Photo uploaded successfully!');
+            setCaption('');
+            setOptimizedCount(0);
+            setRecaptchaToken(null);
+            setRecaptchaError(null);
+          }}
+          onFileSelect={handleFileSelect}
+          onRemoveFile={removeSelectedFile}
+          onUpload={handleUpload}
+          onCaptionChange={setCaption}
+          onJoinLuckyDrawChange={setJoinLuckyDraw}
+          onRecaptchaVerified={(token) => {
+            setRecaptchaToken(token);
+            setRecaptchaError(null);
+          }}
+          onRecaptchaExpired={() => setRecaptchaToken(null)}
+          onRecaptchaError={(err) => setRecaptchaError(err)}
+        />
+      </SectionErrorBoundary>
 
       {/* Floating Camera Button */}
-      {!browseOnly && canUpload && event?.settings?.features?.photo_upload_enabled !== false && (
+      {showUploadActions && (
         <motion.button
           onClick={openUploadModal}
           animate="idle"
@@ -645,37 +769,47 @@ export function GuestEventPageView({ controller }: GuestEventPageViewProps) {
       {/* Check-in Modal */}
       <AnimatePresence>
         {showCheckInModal && (
-          <CheckInModal
-            eventId={resolvedEventId || ''}
-            onClose={() => setShowCheckInModal(false)}
-            onSuccess={() => {
-              setHasCheckedIn(true);
-              setShowCheckInModal(false);
-              setIsAnonymous(false);
-              if (typeof window !== 'undefined') {
-                localStorage.setItem(`event_${resolvedEventId}_checked_in`, 'true');
-              }
-            }}
-          />
+          <SectionErrorBoundary
+            title="Check-in unavailable"
+            message="The check-in panel hit a rendering issue. Retry this section to try again."
+          >
+            <CheckInModal
+              eventId={resolvedEventId || ''}
+              onClose={() => setShowCheckInModal(false)}
+              onSuccess={() => {
+                setHasCheckedIn(true);
+                setShowCheckInModal(false);
+                setIsAnonymous(false);
+                if (typeof window !== 'undefined') {
+                  localStorage.setItem(`event_${resolvedEventId}_checked_in`, 'true');
+                }
+              }}
+            />
+          </SectionErrorBoundary>
         )}
       </AnimatePresence>
 
       {/* Photo Challenge Prize Modal */}
       <AnimatePresence>
         {showPrizeModal && photoChallenge && challengeProgress && resolvedEventId && (
-          <PhotoChallengePrizeModal
-            isOpen={showPrizeModal}
-            onClose={() => setShowPrizeModal(false)}
-            challenge={photoChallenge}
-            progress={challengeProgress}
-            eventId={resolvedEventId}
-            tenantId={event?.tenant_id}
-            themePrimary={themePrimary}
-            themeSecondary={themeSecondary}
-            themeSurface={themeSurface}
-            surfaceText={surfaceText}
-            surfaceMuted={surfaceMuted}
-          />
+          <SectionErrorBoundary
+            title="Prize claim unavailable"
+            message="The prize claim panel hit a rendering issue. Retry this section to try again."
+          >
+            <PhotoChallengePrizeModal
+              isOpen={showPrizeModal}
+              onClose={() => setShowPrizeModal(false)}
+              challenge={photoChallenge}
+              progress={challengeProgress}
+              eventId={resolvedEventId}
+              tenantId={event?.tenant_id}
+              themePrimary={themePrimary}
+              themeSecondary={themeSecondary}
+              themeSurface={themeSurface}
+              surfaceText={surfaceText}
+              surfaceMuted={surfaceMuted}
+            />
+          </SectionErrorBoundary>
         )}
       </AnimatePresence>
     </div>

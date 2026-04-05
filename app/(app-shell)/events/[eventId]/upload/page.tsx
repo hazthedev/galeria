@@ -8,11 +8,20 @@ import { useState, useCallback, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Upload, X, Check, AlertCircle, Loader2, Image as ImageIcon, Camera } from 'lucide-react';
-import { validateImageFile, formatFileSize, cn } from '@/lib/utils';
+import { formatFileSize, cn } from '@/lib/utils';
 import type { IEvent, IPhoto } from '@/lib/types';
 import { getClientFingerprint } from '@/lib/rate-limit';
 import { usePhotoGallery } from '@/lib/realtime/client';
 import { useAuth } from '@/lib/auth';
+import {
+  DEFAULT_UPLOAD_SETTINGS,
+  formatUploadConstraintLabel,
+  getUploadAcceptValue,
+  isHeicLikeFile,
+  normalizeUploadSettings,
+  validateFileAgainstUploadSettings,
+  type UploadSettingsSummary,
+} from '@/lib/shared/upload-settings';
 
 interface PhotoPreview {
   file: File;
@@ -34,6 +43,7 @@ export default function PhotoUploadPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadedCount, setUploadedCount] = useState(0);
   const [errors, setErrors] = useState<string[]>([]);
+  const [uploadSettings, setUploadSettings] = useState<UploadSettingsSummary>(DEFAULT_UPLOAD_SETTINGS);
   const [caption, setCaption] = useState('');
   const [contributorName, setContributorName] = useState('');
   const [isAnonymous, setIsAnonymous] = useState(false);
@@ -66,6 +76,25 @@ export default function PhotoUploadPage() {
 
     fetchEvent();
   }, [eventId]);
+
+  useEffect(() => {
+    const fetchUploadSettings = async () => {
+      try {
+        const response = await fetch('/api/upload-settings', { cache: 'no-store' });
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to load upload settings');
+        }
+
+        setUploadSettings(normalizeUploadSettings(data.data));
+      } catch (error) {
+        setUploadSettings(DEFAULT_UPLOAD_SETTINGS);
+      }
+    };
+
+    void fetchUploadSettings();
+  }, []);
 
   // Cleanup previews on unmount
   useEffect(() => {
@@ -113,7 +142,7 @@ export default function PhotoUploadPage() {
     const validPreviews: PhotoPreview[] = [];
 
     for (const file of newFiles) {
-      const validation = validateImageFile(file);
+      const validation = validateFileAgainstUploadSettings(file, uploadSettings);
       if (!validation.valid) {
         setErrors(prev => [...prev, validation.error || 'Invalid file']);
         continue;
@@ -131,6 +160,9 @@ export default function PhotoUploadPage() {
 
     setFiles(prev => [...prev, ...validPreviews]);
   };
+
+  const acceptValue = getUploadAcceptValue(uploadSettings.allowed_types);
+  const uploadConstraintLabel = formatUploadConstraintLabel(uploadSettings);
 
   const removeFile = (index: number) => {
     URL.revokeObjectURL(files[index].preview);
@@ -261,7 +293,7 @@ export default function PhotoUploadPage() {
             id="file-input"
             type="file"
             multiple
-            accept="image/jpeg,image/png,image/webp"
+            accept={acceptValue}
             onChange={handleFileInput}
             className="hidden"
             disabled={isUploading || files.length >= 5}
@@ -269,7 +301,7 @@ export default function PhotoUploadPage() {
           <input
             id="camera-input"
             type="file"
-            accept="image/*"
+            accept={acceptValue}
             capture="environment"
             onChange={handleFileInput}
             className="hidden"
@@ -315,7 +347,7 @@ export default function PhotoUploadPage() {
             {isDragging ? 'Drop photos here' : 'Or drag and drop files here'}
           </p>
           <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
-            Up to 5 photos, max 10MB each (JPEG, PNG, WebP)
+            Up to 5 photos per upload • {uploadConstraintLabel}
           </p>
         </div>
 
@@ -324,11 +356,23 @@ export default function PhotoUploadPage() {
           <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
             {files.map((item, index) => (
               <div key={index} className="relative aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800">
-                <img
-                  src={item.preview}
-                  alt={item.name}
-                  className="w-full h-full object-cover"
-                />
+                {isHeicLikeFile(item.file) ? (
+                  <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-gray-200 px-3 text-center dark:bg-gray-800">
+                    <ImageIcon className="h-8 w-8 text-gray-500 dark:text-gray-400" />
+                    <p className="text-[11px] font-medium leading-tight text-gray-700 dark:text-gray-300">
+                      Preview not available
+                    </p>
+                    <p className="text-[10px] leading-tight text-gray-500 dark:text-gray-400">
+                      HEIC will be converted on upload
+                    </p>
+                  </div>
+                ) : (
+                  <img
+                    src={item.preview}
+                    alt={item.name}
+                    className="w-full h-full object-cover"
+                  />
+                )}
                 <button
                   onClick={() => removeFile(index)}
                   disabled={isUploading}
@@ -419,6 +463,16 @@ export default function PhotoUploadPage() {
                   ))}
                 </ul>
               </div>
+              {files.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleUpload}
+                  disabled={isUploading}
+                  className="rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+                >
+                  Retry upload
+                </button>
+              )}
             </div>
           </div>
         )}

@@ -25,6 +25,7 @@ export function DrawTab({
 }: DrawTabProps) {
   const totalPrizes = config?.prizeTiers.reduce((sum, tier) => sum + tier.count, 0) || 0;
   const isAdmin = userRole === 'super_admin' || userRole === 'organizer';
+  const hasEntries = entriesTotal > 0;
 
   return (
     <div className="space-y-6">
@@ -67,6 +68,11 @@ export function DrawTab({
               <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                 Once you execute the draw, winners will be selected randomly and cannot be undone.
               </p>
+              {!hasEntries && (
+                <p className="text-sm text-amber-600 dark:text-amber-400 mb-4">
+                  No entries yet — share the event to get participants.
+                </p>
+              )}
               {entriesTotal < totalPrizes && entriesTotal > 0 && (
                 <p className="text-sm text-orange-600 dark:text-orange-400 mb-4">
                   Warning: Only {entriesTotal} entries available for {totalPrizes} prizes
@@ -74,7 +80,7 @@ export function DrawTab({
               )}
               <button
                 onClick={onExecuteDraw}
-                disabled={drawInProgress}
+                disabled={drawInProgress || !hasEntries}
                 className={clsx(
                   'w-full flex items-center justify-center gap-2 rounded-lg px-6 py-3 text-base font-semibold transition-colors',
                   'bg-gradient-to-r from-violet-600 to-pink-600 text-white',

@@ -57,6 +57,9 @@ const initialFormData: EventFormData = {
   status: 'active',
 };
 
+const EVENT_NAME_MAX_LENGTH = 100;
+const EVENT_NAME_COUNTER_WARNING_THRESHOLD = 80;
+
 export function EventForm({
   event,
   onSuccess,
@@ -92,6 +95,8 @@ export function EventForm({
 
     if (!formData.name.trim()) {
       newErrors.name = 'Event name is required';
+    } else if (formData.name.trim().length > EVENT_NAME_MAX_LENGTH) {
+      newErrors.name = `Event name must be ${EVENT_NAME_MAX_LENGTH} characters or fewer`;
     }
 
     if (!formData.event_date) {
@@ -161,7 +166,11 @@ export function EventForm({
       const data = await response.json();
 
       if (!response.ok) {
-        setApiError(data.error || data.message || 'Failed to save event');
+        if (data.code === 'DUPLICATE_SHORT_CODE' || data.code === 'SHORT_CODE_TAKEN') {
+          setApiError('This URL code is already taken — please choose another');
+        } else {
+          setApiError(data.error || data.message || 'Failed to save event');
+        }
         setIsLoading(false);
         return;
       }
@@ -204,6 +213,8 @@ export function EventForm({
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const eventDateValue = formData.event_date ? new Date(`${formData.event_date}T00:00:00`) : null;
+  const eventNameLength = formData.name.length;
+  const showNameCounter = eventNameLength >= EVENT_NAME_COUNTER_WARNING_THRESHOLD;
   const showPastDateWarning =
     Boolean(eventDateValue) &&
     !errors.event_date &&
@@ -237,6 +248,7 @@ export function EventForm({
         <input
           id="name"
           type="text"
+          maxLength={EVENT_NAME_MAX_LENGTH}
           value={formData.name}
           onChange={e => handleInputChange('name', e.target.value)}
           className={clsx(
@@ -254,7 +266,25 @@ export function EventForm({
           placeholder="My Amazing Event"
           disabled={isLoading}
         />
-        {errors.name && <p className="text-sm text-red-600 dark:text-red-400">{errors.name}</p>}
+        {(errors.name || showNameCounter) && (
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm text-red-600 dark:text-red-400">
+              {errors.name || ''}
+            </p>
+            {showNameCounter && (
+              <p
+                className={clsx(
+                  'text-xs',
+                  eventNameLength >= EVENT_NAME_MAX_LENGTH
+                    ? 'text-red-600 dark:text-red-400'
+                    : 'text-gray-500 dark:text-gray-400'
+                )}
+              >
+                {eventNameLength}/{EVENT_NAME_MAX_LENGTH}
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Event Type */}

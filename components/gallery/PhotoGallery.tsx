@@ -8,17 +8,14 @@
 import { useState, useCallback, useEffect, useMemo, forwardRef } from 'react';
 import type { HTMLAttributes } from 'react';
 import Image from 'next/image';
-import Lightbox from 'yet-another-react-lightbox';
 import { Check, Heart, X } from 'lucide-react';
 import { toast } from 'sonner';
 import clsx from 'clsx';
 import { VirtuosoGrid } from 'react-virtuoso';
 import type { IPhoto } from '@/lib/types';
 import { normalizePhotoReactions } from '@/lib/shared/photo-reactions';
-
-// ============================================
-// TYPES
-// ============================================
+import { PhotoGalleryEmptyState } from './PhotoGalleryEmptyState';
+import { PhotoGalleryLightbox } from './PhotoGalleryLightbox';
 
 interface PhotoGalleryProps {
   isModerator?: boolean;
@@ -33,10 +30,6 @@ interface PhotoGalleryProps {
   onSelectionChange?: (selectedIds: string[]) => void;
   virtualize?: boolean;
 }
-
-// ============================================
-// COMPONENT
-// ============================================
 
 export function PhotoGallery({
   isModerator = false,
@@ -87,14 +80,9 @@ export function PhotoGallery({
     return Item;
   }, []);
 
-  // Sync local state when props change (e.g., when switching status tabs)
   useEffect(() => {
     setPhotos(initialPhotos);
   }, [initialPhotos]);
-
-  // ============================================
-  // REACTION HANDLERS
-  // ============================================
 
   const handleReaction = useCallback(
     async (photoId: string) => {
@@ -135,10 +123,6 @@ export function PhotoGallery({
     },
     [allowReactions, onReaction]
   );
-
-  // ============================================
-  // MODERATION ACTIONS (if moderator)
-  // ============================================
 
   const handleApprove = useCallback(
     async (photoId: string) => {
@@ -206,10 +190,6 @@ export function PhotoGallery({
     [isModerator, onPhotoUpdate]
   );
 
-  // ============================================
-  // LIGHTBOX HANDLERS
-  // ============================================
-
   const openLightbox = useCallback((index: number) => {
     if (!canOpenLightbox) return;
     setLightboxIndex(index);
@@ -219,10 +199,6 @@ export function PhotoGallery({
   const closeLightbox = useCallback(() => {
     setLightboxOpen(false);
   }, []);
-
-  // ============================================
-  // DOWNLOAD HANDLER
-  // ============================================
 
   const handleDownload = useCallback(async (photo: IPhoto) => {
     try {
@@ -458,10 +434,6 @@ export function PhotoGallery({
     );
   };
 
-  // ============================================
-  // RENDER
-  // ============================================
-
   return (
     <div className="w-full">
       {/* Gallery Grid */}
@@ -479,46 +451,18 @@ export function PhotoGallery({
       )}
 
       {/* No photos message */}
-      {photos.length === 0 && (
-        <div className="text-center py-12">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="mx-auto h-16 w-16 text-gray-400 mb-4"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M12 3v12" />
-            <path d="M7 8l5-5 5 5" />
-            <rect x="4" y="15" width="16" height="6" rx="2" />
-          </svg>
-          <p className="text-gray-500">No photos yet</p>
-          <p className="text-sm text-gray-400">Be the first to share a moment!</p>
-        </div>
-      )}
+      {photos.length === 0 && <PhotoGalleryEmptyState />}
 
       {/* Lightbox */}
-      {photos.length > 0 && canOpenLightbox && (
-        <Lightbox
-          open={lightboxOpen}
-          close={closeLightbox}
-          index={lightboxIndex}
-          slides={photos.map((photo) => ({
-            src: photo.images.full_url,
-            alt: photo.caption || 'Event photo',
-            caption: photo.caption,
-          }))}
-        />
-      )}
+      <PhotoGalleryLightbox
+        canOpenLightbox={canOpenLightbox}
+        close={closeLightbox}
+        index={lightboxIndex}
+        open={lightboxOpen}
+        photos={photos}
+      />
     </div>
   );
 }
-
-// ============================================
-// EXPORTS
-// ============================================
 
 export default PhotoGallery;

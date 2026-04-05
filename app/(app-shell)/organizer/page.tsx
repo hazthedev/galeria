@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import clsx from 'clsx';
 import { toast } from 'sonner';
+import { ConfirmDialog, useConfirmDialog } from '@/components/admin/ConfirmDialog';
 
 interface EventsResponse {
     data: Array<IEvent & { photo_count?: number }>;
@@ -39,8 +40,9 @@ const statusOptions: { value: EventStatus | 'all'; label: string }[] = [
 ];
 
 export default function DashboardPage() {
-    const { user, isLoading: isAuthLoading } = useAuth();
-    const [events, setEvents] = useState<Array<IEvent & { photo_count?: number }>>([]);
+  const { user, isLoading: isAuthLoading } = useAuth();
+  const confirm = useConfirmDialog();
+  const [events, setEvents] = useState<Array<IEvent & { photo_count?: number }>>([]);
     const [stats, setStats] = useState({
         totalEvents: 0,
         totalPhotos: 0,
@@ -116,31 +118,51 @@ export default function DashboardPage() {
         return () => clearTimeout(timer);
     }, [searchQuery]);
 
-    const handleDeleteEvent = async (eventId: string) => {
-        if (!confirm('Are you sure you want to delete this event? This action cannot be undone.')) {
-            return;
-        }
+    const handleDeleteEvent = (eventId: string) => {
+        const targetEvent = events.find((event) => event.id === eventId);
+        const photoCount = targetEvent?.photo_count || 0;
 
-        try {
-            const response = await fetch(`/api/events/${eventId}`, {
-                method: 'DELETE',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            });
+        confirm.show({
+            title: 'Delete Event',
+            description: (
+                <>
+                  This will permanently delete this event and its <strong>{photoCount} photo{photoCount === 1 ? '' : 's'}</strong>.
+                  <br />
+                  <span className="text-xs text-gray-500">
+                    This cannot be undone.
+                  </span>
+                </>
+            ),
+            confirmLabel: 'Delete',
+            cancelLabel: 'Cancel',
+            variant: 'danger',
+            onConfirm: async () => {
+                try {
+                    const response = await fetch(`/api/events/${eventId}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                    });
 
-            if (!response.ok) {
-                const data = await response.json();
-                throw new Error(data.error || 'Failed to delete event');
-            }
+                    if (!response.ok) {
+                        const data = await response.json();
+                        throw new Error(data.error || 'Failed to delete event');
+                    }
 
-            setEvents(prev => prev.filter(e => e.id !== eventId));
-            setStats(prev => ({ ...prev, totalEvents: prev.totalEvents - 1 }));
-            toast.success('Event deleted successfully');
-        } catch (err) {
-            console.error('Delete error:', err);
-            toast.error(err instanceof Error ? err.message : 'Failed to delete event');
-        }
+                    setEvents(prev => prev.filter(e => e.id !== eventId));
+                    setStats(prev => ({
+                        ...prev,
+                        totalEvents: Math.max(0, prev.totalEvents - 1),
+                        totalPhotos: Math.max(0, prev.totalPhotos - photoCount),
+                    }));
+                    toast.success('Event deleted successfully');
+                } catch (err) {
+                    console.error('Delete error:', err);
+                    toast.error(err instanceof Error ? err.message : 'Failed to delete event');
+                }
+            },
+        });
     };
 
     if (isLoading && events.length === 0) {
@@ -342,6 +364,7 @@ export default function DashboardPage() {
                     </>
                 )}
             </div>
+            <ConfirmDialog {...confirm.dialog} />
         </div>
     );
 }

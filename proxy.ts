@@ -1,7 +1,12 @@
 // ============================================
-// Galeria - Next.js Middleware
+// Galeria - Next.js Proxy
 // ============================================
-// Tenant resolution and authentication
+// Active request-time tenant resolution for App Router requests.
+//
+// This file is intentionally named `proxy.ts` because Next.js 16 renamed
+// the old `middleware.ts` interception point to `proxy.ts`. It is still live
+// in production and is responsible for attaching tenant headers before the
+// request reaches route handlers, layouts, or pages.
 
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
@@ -101,8 +106,13 @@ function createTenantUnavailableResponse(request: NextRequest) {
 }
 
 /**
- * Next.js proxy
- * Runs on every request (except static files)
+ * Resolve the current tenant context and inject it into request headers.
+ *
+ * Request flow:
+ * 1. Local dev and master-host requests get the built-in Galeria tenant.
+ * 2. Custom domains call `/api/internal/tenant-context` once per request.
+ * 3. The resolved tenant metadata is written to `x-tenant-*` headers so the
+ *    rest of the app can stay header-driven and tenant-aware.
  */
 export async function proxy(request: NextRequest) {
   const hostname = (request.headers.get('host') || '').split(':')[0].toLowerCase();

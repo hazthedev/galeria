@@ -368,7 +368,7 @@ export async function handleEventCreate(request: NextRequest) {
       const existingShortCode = await db.findOne<IEvent>('events', { short_code: requestedShortCode });
       if (existingShortCode) {
         return NextResponse.json(
-          { error: 'Short code already in use', code: 'SHORT_CODE_TAKEN' },
+          { error: 'Short code already in use', code: 'DUPLICATE_SHORT_CODE' },
           { status: 409 }
         );
       }

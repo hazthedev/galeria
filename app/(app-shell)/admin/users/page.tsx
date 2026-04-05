@@ -122,24 +122,39 @@ export default function SupervisorUsersPage() {
         }
     };
 
-    const handleDeleteUser = async (userId: string) => {
-        if (!window.confirm('Are you sure you want to delete this user?')) return;
+    const handleDeleteUser = (userId: string, userName: string) => {
+        confirm.show({
+            title: 'Delete User',
+            description: (
+                <>
+                  Are you sure you want to delete <strong>{userName}</strong>?
+                  <br />
+                  <span className="text-xs text-gray-500">
+                    This action cannot be undone.
+                  </span>
+                </>
+            ),
+            confirmLabel: 'Delete',
+            cancelLabel: 'Cancel',
+            variant: 'danger',
+            onConfirm: async () => {
+                try {
+                    const response = await fetch(`/api/admin/users/${userId}`, {
+                        method: 'DELETE',
+                        credentials: 'include',
+                    });
 
-        try {
-            const response = await fetch(`/api/admin/users/${userId}`, {
-                method: 'DELETE',
-                credentials: 'include',
-            });
-
-            if (response.ok) {
-                toast.success('User deleted');
-                fetchUsers();
-            } else {
-                toast.error('Failed to delete user');
-            }
-        } catch (error) {
-            toast.error('Failed to delete user');
-        }
+                    if (response.ok) {
+                        toast.success('User deleted');
+                        fetchUsers();
+                    } else {
+                        toast.error('Failed to delete user');
+                    }
+                } catch (error) {
+                    toast.error('Failed to delete user');
+                }
+            },
+        });
     };
 
     const handleSearch = (e: React.FormEvent) => {
@@ -391,7 +406,7 @@ export default function SupervisorUsersPage() {
                                                 </p>
                                             </div>
                                             <button
-                                                onClick={() => handleDeleteUser(user.id)}
+                                                onClick={() => handleDeleteUser(user.id, user.name)}
                                                 className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
                                                 aria-label={`Delete ${user.name}`}
                                             >
@@ -565,7 +580,7 @@ export default function SupervisorUsersPage() {
                                             </td>
                                             <td className="px-4 py-3 text-right">
                                                 <button
-                                                    onClick={() => handleDeleteUser(user.id)}
+                                                    onClick={() => handleDeleteUser(user.id, user.name)}
                                                     className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
                                                     title="Delete user"
                                                     aria-label={`Delete ${user.name}`}

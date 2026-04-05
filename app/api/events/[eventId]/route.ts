@@ -171,7 +171,7 @@ export async function PATCH(
         const shortCodeExists = await db.findOne<IEvent>('events', { short_code: shortCode });
         if (shortCodeExists && shortCodeExists.id !== id) {
           return NextResponse.json(
-            { error: 'Short code already in use', code: 'SHORT_CODE_TAKEN' },
+            { error: 'Short code already in use', code: 'DUPLICATE_SHORT_CODE' },
             { status: 409 }
           );
         }

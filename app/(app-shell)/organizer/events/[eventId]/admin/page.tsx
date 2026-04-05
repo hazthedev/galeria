@@ -23,6 +23,7 @@ import dynamic from 'next/dynamic';
 import { EventStats } from '@/components/events/event-stats';
 import QRCodeDisplay from '@/components/events/qr-code-display';
 import { UpgradePrompt } from '@/components/upgrade-prompt';
+import { SectionErrorBoundary } from '@/components/ui/SectionErrorBoundary';
 
 const LuckyDrawAdminTab = dynamic(
   () => import('@/components/lucky-draw/admin/LuckyDrawAdminTab').then(mod => ({ default: mod.LuckyDrawAdminTab })),
@@ -241,7 +242,11 @@ export default function EventAdminPage() {
         {/* Tab Content */}
         <div className="min-w-0 overflow-hidden rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-6 lg:p-8">
           {activeTab === 'lucky_draw' && (
-            <div>
+            <SectionErrorBoundary
+              title="Lucky draw tools unavailable"
+              message="The lucky draw admin tab hit a rendering issue. Retry this section to continue."
+            >
+              <div>
               <h2 className="mb-2 text-lg font-semibold text-gray-900 dark:text-gray-100 sm:text-xl">
                 Lucky Draw Management
               </h2>
@@ -267,11 +272,16 @@ export default function EventAdminPage() {
                   </p>
                 </div>
               )}
-            </div>
+              </div>
+            </SectionErrorBoundary>
           )}
 
           {activeTab === 'attendance' && (
-            <div>
+            <SectionErrorBoundary
+              title="Attendance tools unavailable"
+              message="The attendance admin tab hit a rendering issue. Retry this section to continue."
+            >
+              <div>
               <h2 className="mb-2 text-lg font-semibold text-gray-900 dark:text-gray-100 sm:text-xl">
                 Attendance Management
               </h2>
@@ -283,11 +293,16 @@ export default function EventAdminPage() {
                 eventId={eventId}
                 attendanceEnabled={attendanceEnabled}
               />
-            </div>
+              </div>
+            </SectionErrorBoundary>
           )}
 
           {activeTab === 'photo_challenge' && (
-            <div>
+            <SectionErrorBoundary
+              title="Photo challenge tools unavailable"
+              message="The photo challenge admin tab hit a rendering issue. Retry this section to continue."
+            >
+              <div>
               <h2 className="mb-2 text-lg font-semibold text-gray-900 dark:text-gray-100 sm:text-xl">
                 Photo Challenge Management
               </h2>
@@ -304,11 +319,16 @@ export default function EventAdminPage() {
                   </p>
                 </div>
               )}
-            </div>
+              </div>
+            </SectionErrorBoundary>
           )}
 
           {activeTab === 'overview' && (
-            <div>
+            <SectionErrorBoundary
+              title="Overview unavailable"
+              message="The event overview hit a rendering issue. Retry this section to continue."
+            >
+              <div>
               <h2 className="mb-6 text-lg font-semibold text-gray-900 dark:text-gray-100 sm:text-xl">
                 Event Overview
               </h2>
@@ -319,11 +339,16 @@ export default function EventAdminPage() {
                 allowReactions={reactionsEnabled}
                 currentTier={organizerTier}
               />
-            </div>
+              </div>
+            </SectionErrorBoundary>
           )}
 
           {activeTab === 'qr' && (
-            <div>
+            <SectionErrorBoundary
+              title="QR tools unavailable"
+              message="The event sharing tools hit a rendering issue. Retry this section to continue."
+            >
+              <div>
               <h2 className="mb-2 text-lg font-semibold text-gray-900 dark:text-gray-100 sm:text-xl">
                 QR Code for Event Sharing
               </h2>
@@ -360,11 +385,16 @@ export default function EventAdminPage() {
                   </div>
                 </div>
               </div>
-            </div>
+              </div>
+            </SectionErrorBoundary>
           )}
 
           {activeTab === 'settings' && (
-            <div>
+            <SectionErrorBoundary
+              title="Settings unavailable"
+              message="The event settings tab hit a rendering issue. Retry this section to continue."
+            >
+              <div>
               <h2 className="mb-2 text-lg font-semibold text-gray-900 dark:text-gray-100 sm:text-xl">
                 Event Settings
               </h2>
@@ -378,11 +408,16 @@ export default function EventAdminPage() {
                 currentTier={organizerTier}
                 entitlementsLoading={entitlementsLoading}
               />
-            </div>
+              </div>
+            </SectionErrorBoundary>
           )}
 
           {activeTab === 'moderation' && (
-            <div>
+            <SectionErrorBoundary
+              title="Moderation tools unavailable"
+              message="The moderation tab hit a rendering issue. Retry this section to continue."
+            >
+              <div>
               <h2 className="mb-2 text-lg font-semibold text-gray-900 dark:text-gray-100 sm:text-xl">
                 Photo Moderation
               </h2>
@@ -469,7 +504,8 @@ export default function EventAdminPage() {
                   </p>
                 </div>
               )}
-            </div>
+              </div>
+            </SectionErrorBoundary>
           )}
         </div>
       </div>

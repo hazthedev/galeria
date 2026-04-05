@@ -5,7 +5,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import type { IEvent, IPhoto, IPhotoChallenge, IGuestPhotoProgress } from '@/lib/types';
+import type { IEvent, IPhoto, IPhotoChallenge, IGuestPhotoProgress, IWinner } from '@/lib/types';
 import { getClientFingerprint } from '@/lib/rate-limit';
 import { getImageDimensions } from '@/lib/utils';
 import { useLuckyDraw, usePhotoGallery } from '@/lib/realtime/client';
@@ -32,6 +32,11 @@ interface UploadUsageUser {
   used: number;
   limit: number;
   remaining: number;
+}
+
+interface PersistedRecentWin {
+  winner: IWinner;
+  expiresAt: number;
 }
 
 const GUEST_MAX_DIMENSION = 4000;
@@ -79,6 +84,7 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
   const { winner, isDrawing } = useLuckyDraw(resolvedEventId || '');
   const [showDrawOverlay, setShowDrawOverlay] = useState(false);
   const [showWinnerOverlay, setShowWinnerOverlay] = useState(false);
+  const [winnerAnnouncement, setWinnerAnnouncement] = useState<IWinner | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [displayProgress, setDisplayProgress] = useState(0);
   const displayProgressRef = useRef(0);
@@ -113,6 +119,7 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
   const rejectedIdsRef = useRef<Set<string>>(new Set());
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const approvedPhotosRef = useRef<IPhoto[]>([]);
+  const winnerOverlayTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const realtimeReconcileInFlightRef = useRef(false);
   const realtimeReconcileQueuedRef = useRef(false);
   const offsetRef = useRef(0);
@@ -172,6 +179,7 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
   const selectedCount = selectedPhotoIds.size;
   const [galleryFilter, setGalleryFilter] = useState<'all' | 'mine' | 'most_loved'>('all');
   const guestFingerprintId = fingerprint ? `guest_${fingerprint}` : null;
+  const recentWinStorageKey = resolvedEventId ? `lucky_draw_recent_win_${resolvedEventId}` : null;
 
   const filteredPhotos = useMemo(() => {
     if (galleryFilter === 'mine') {
@@ -401,6 +409,11 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
   };
 
   const openUploadModal = () => {
+    if (!canUpload) {
+      setShowUploadModal(false);
+      return;
+    }
+
     if (browseOnly) {
       setPendingUploadAfterName(true);
       setShowGuestModal(true);
@@ -604,6 +617,7 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
     if (isDrawing) {
       setShowDrawOverlay(true);
       setShowWinnerOverlay(false);
+      setWinnerAnnouncement(null);
     } else {
       // draw_cancelled or draw finished — dismiss "starting..." overlay
       setShowDrawOverlay(false);
@@ -621,11 +635,77 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
   // Track if the current guest won a prize
   const [wonPrize, setWonPrize] = useState<{ prizeTier: number; prizeName?: string; name: string } | null>(null);
 
+  const clearWinnerOverlayTimeout = useCallback(() => {
+    if (winnerOverlayTimeoutRef.current) {
+      clearTimeout(winnerOverlayTimeoutRef.current);
+      winnerOverlayTimeoutRef.current = null;
+    }
+  }, []);
+
+  const clearRecentWinStorage = useCallback(() => {
+    if (typeof window === 'undefined' || !recentWinStorageKey) {
+      return;
+    }
+
+    localStorage.removeItem(recentWinStorageKey);
+  }, [recentWinStorageKey]);
+
+  const dismissWinnerOverlay = useCallback(() => {
+    clearWinnerOverlayTimeout();
+    setShowWinnerOverlay(false);
+    clearRecentWinStorage();
+  }, [clearRecentWinStorage, clearWinnerOverlayTimeout]);
+
+  const scheduleWinnerOverlayDismiss = useCallback((durationMs: number) => {
+    clearWinnerOverlayTimeout();
+    winnerOverlayTimeoutRef.current = setTimeout(() => {
+      setShowWinnerOverlay(false);
+      clearRecentWinStorage();
+      winnerOverlayTimeoutRef.current = null;
+    }, durationMs);
+  }, [clearRecentWinStorage, clearWinnerOverlayTimeout]);
+
+  useEffect(() => {
+    if (!recentWinStorageKey || typeof window === 'undefined') {
+      return;
+    }
+
+    const savedWin = localStorage.getItem(recentWinStorageKey);
+    if (!savedWin) {
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(savedWin) as PersistedRecentWin;
+      if (!parsed?.winner || typeof parsed.expiresAt !== 'number') {
+        localStorage.removeItem(recentWinStorageKey);
+        return;
+      }
+
+      const remainingMs = parsed.expiresAt - Date.now();
+      if (remainingMs <= 0) {
+        localStorage.removeItem(recentWinStorageKey);
+        return;
+      }
+
+      setWinnerAnnouncement(parsed.winner);
+      setWonPrize({
+        prizeTier: parsed.winner.prize_tier,
+        prizeName: parsed.winner.prize_name,
+        name: parsed.winner.participant_name,
+      });
+      setShowWinnerOverlay(true);
+      scheduleWinnerOverlayDismiss(remainingMs);
+    } catch {
+      localStorage.removeItem(recentWinStorageKey);
+    }
+  }, [recentWinStorageKey, scheduleWinnerOverlayDismiss]);
+
   useEffect(() => {
     if (!winner) return;
     setShowDrawOverlay(false);
+    setWinnerAnnouncement(winner);
     setShowWinnerOverlay(true);
-    const timeout = setTimeout(() => setShowWinnerOverlay(false), 12000);
 
     // Check if this guest is the winner
     // Primary: fingerprint match (most reliable)
@@ -644,15 +724,25 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
       winner.participant_name?.toLowerCase() === guestName.trim().toLowerCase();
 
     if (isWinnerByFingerprint || isWinnerByNumber || isWinnerByName) {
-      setWonPrize({
+      const nextWonPrize = {
         prizeTier: winner.prize_tier,
         prizeName: winner.prize_name,
         name: winner.participant_name,
-      });
-    }
+      };
+      setWonPrize(nextWonPrize);
 
-    return () => clearTimeout(timeout);
-  }, [winner, luckyDrawNumbers, guestName, fingerprint]);
+      if (typeof window !== 'undefined' && recentWinStorageKey) {
+        const payload: PersistedRecentWin = {
+          winner,
+          expiresAt: Date.now() + 12_000,
+        };
+        localStorage.setItem(recentWinStorageKey, JSON.stringify(payload));
+      }
+    } else {
+      clearRecentWinStorage();
+    }
+    scheduleWinnerOverlayDismiss(12_000);
+  }, [winner, luckyDrawNumbers, guestName, fingerprint, recentWinStorageKey, clearRecentWinStorage, scheduleWinnerOverlayDismiss]);
 
   useEffect(() => {
     if (!moderationNotice) return;
@@ -1391,6 +1481,11 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
 
   // Handle actual upload
   const handleUpload = async () => {
+    if (!canUpload) {
+      setUploadError('Uploads are closed for this event.');
+      return;
+    }
+
     if (selectedFiles.length === 0) {
       setUploadError('Please select at least one photo');
       return;
@@ -1623,6 +1718,9 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
   useEffect(() => {
     return () => {
       selectedFiles.forEach(f => URL.revokeObjectURL(f.preview));
+      if (winnerOverlayTimeoutRef.current) {
+        clearTimeout(winnerOverlayTimeoutRef.current);
+      }
       if (reconcileTimerRef.current) {
         clearTimeout(reconcileTimerRef.current);
       }
@@ -1667,6 +1765,7 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
     recaptchaError,
     isRecaptchaConfigured,
     winner,
+    winnerAnnouncement,
     wonPrize,
     isDrawing,
     showDrawOverlay,
@@ -1747,6 +1846,7 @@ export function useGuestEventPageController(eventId: string, serverResolvedEvent
     setShowPrizeModal,
     setShowDrawOverlay,
     setShowWinnerOverlay,
+    dismissWinnerOverlay,
     setWonPrize,
   };
 }

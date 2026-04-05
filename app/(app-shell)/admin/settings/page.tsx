@@ -4,81 +4,200 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useReducer, useState, type Dispatch } from 'react';
 import { Save, RefreshCcw, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { SectionErrorBoundary } from '@/components/ui/SectionErrorBoundary';
+import {
+  adminSettingsReducer,
+  ALLOWED_UPLOAD_TYPE_OPTIONS,
+  DEFAULT_ADMIN_SETTINGS,
+  mergeSystemSettings,
+  type AdminSettingsAction,
+} from '@/lib/domain/system/admin-settings-state';
 import type { ISystemSettings } from '@/lib/types';
 
-const DEFAULT_SETTINGS: ISystemSettings = {
-  uploads: {
-    max_file_mb: 10,
-    allowed_types: ['image/jpeg', 'image/png', 'image/heic', 'image/webp'],
-  },
-  moderation: undefined,
-  events: {
-    default_settings: {
-      theme: {
-        primary_color: '#8B5CF6',
-        secondary_color: '#EC4899',
-        background: '#F9FAFB',
-        logo_url: undefined,
-        frame_template: 'polaroid',
-        photo_card_style: 'vacation',
-      },
-      features: {
-        photo_upload_enabled: true,
-        lucky_draw_enabled: true,
-        reactions_enabled: true,
-        moderation_required: false,
-        anonymous_allowed: true,
-        guest_download_enabled: true,
-        photo_challenge_enabled: false,
-        attendance_enabled: false,
-      },
-    },
-  },
-};
+interface SettingsSectionProps {
+  settings: ISystemSettings;
+  dispatch: Dispatch<AdminSettingsAction>;
+}
 
-const ALLOWED_TYPE_OPTIONS = [
-  { label: 'JPEG', value: 'image/jpeg' },
-  { label: 'PNG', value: 'image/png' },
-  { label: 'HEIC', value: 'image/heic' },
-  { label: 'WEBP', value: 'image/webp' },
-];
+function UploadSettingsSection({ settings, dispatch }: SettingsSectionProps) {
+  return (
+    <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-6">
+      <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Uploads</h2>
+      <p className="mt-1 text-sm text-gray-500">Limits enforced on direct browser uploads.</p>
+      <div className="mt-4 space-y-4 text-sm">
+        <label className="flex flex-col gap-2 text-gray-600 dark:text-gray-300">
+          <span>Max file size (MB)</span>
+          <input
+            type="number"
+            min={1}
+            value={settings.uploads.max_file_mb}
+            onChange={(event) => {
+              const nextValue = Number.parseInt(event.target.value || '0', 10);
+              dispatch({
+                type: 'set-upload-max-file-mb',
+                value: Number.isNaN(nextValue) ? 0 : nextValue,
+              });
+            }}
+            className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900 sm:w-40"
+          />
+        </label>
+        <div>
+          <p className="text-sm text-gray-600 dark:text-gray-300">Allowed file types</p>
+          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+            {ALLOWED_UPLOAD_TYPE_OPTIONS.map((option) => (
+              <label key={option.value} className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
+                <input
+                  type="checkbox"
+                  checked={settings.uploads.allowed_types.includes(option.value)}
+                  onChange={(event) =>
+                    dispatch({
+                      type: 'toggle-upload-type',
+                      value: option.value,
+                      checked: event.target.checked,
+                    })
+                  }
+                />
+                {option.label}
+              </label>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
 
-const mergeSettings = (
-  base: ISystemSettings,
-  patch?: Partial<ISystemSettings>
-): ISystemSettings => {
-  if (!patch) return base;
+function DefaultEventThemeSection({ settings, dispatch }: SettingsSectionProps) {
+  const theme = settings.events.default_settings.theme;
 
-  return {
-    uploads: {
-      ...base.uploads,
-      ...(patch.uploads || {}),
-      allowed_types: patch.uploads?.allowed_types || base.uploads.allowed_types,
-    },
-    moderation: patch.moderation ?? base.moderation,
-    events: {
-      default_settings: {
-        theme: {
-          ...base.events.default_settings.theme,
-          ...(patch.events?.default_settings?.theme || {}),
-        },
-        features: {
-          ...base.events.default_settings.features,
-          ...(patch.events?.default_settings?.features || {}),
-        },
-      },
-    },
-  };
-};
+  return (
+    <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-6">
+      <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Default Event Theme</h2>
+      <p className="mt-1 text-sm text-gray-500">Applied when organizers create new events.</p>
+      <div className="mt-4 grid gap-4 text-sm sm:grid-cols-2">
+        <label className="flex flex-col gap-2 text-gray-600 dark:text-gray-300">
+          <span>Primary color</span>
+          <input
+            type="text"
+            value={theme.primary_color}
+            onChange={(event) =>
+              dispatch({
+                type: 'set-theme-field',
+                field: 'primary_color',
+                value: event.target.value,
+              })
+            }
+            className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900"
+          />
+        </label>
+        <label className="flex flex-col gap-2 text-gray-600 dark:text-gray-300">
+          <span>Secondary color</span>
+          <input
+            type="text"
+            value={theme.secondary_color}
+            onChange={(event) =>
+              dispatch({
+                type: 'set-theme-field',
+                field: 'secondary_color',
+                value: event.target.value,
+              })
+            }
+            className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900"
+          />
+        </label>
+        <label className="flex flex-col gap-2 text-gray-600 dark:text-gray-300">
+          <span>Background</span>
+          <input
+            type="text"
+            value={theme.background}
+            onChange={(event) =>
+              dispatch({
+                type: 'set-theme-field',
+                field: 'background',
+                value: event.target.value,
+              })
+            }
+            className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900"
+          />
+        </label>
+        <label className="flex flex-col gap-2 text-gray-600 dark:text-gray-300">
+          <span>Frame template</span>
+          <select
+            value={theme.frame_template}
+            onChange={(event) =>
+              dispatch({
+                type: 'set-theme-field',
+                field: 'frame_template',
+                value: event.target.value,
+              })
+            }
+            className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900"
+          >
+            <option value="polaroid">Polaroid</option>
+            <option value="filmstrip">Filmstrip</option>
+            <option value="classic">Classic</option>
+            <option value="minimal">Minimal</option>
+          </select>
+        </label>
+        <label className="flex flex-col gap-2 text-gray-600 dark:text-gray-300">
+          <span>Photo card style</span>
+          <select
+            value={theme.photo_card_style || 'vacation'}
+            onChange={(event) =>
+              dispatch({
+                type: 'set-theme-field',
+                field: 'photo_card_style',
+                value: event.target.value,
+              })
+            }
+            className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900"
+          >
+            <option value="vacation">Vacation</option>
+            <option value="brutalist">Brutalist minimal</option>
+            <option value="wedding">Wedding</option>
+            <option value="celebration">Celebration</option>
+            <option value="futuristic">Futuristic</option>
+          </select>
+        </label>
+      </div>
+    </section>
+  );
+}
+
+function DefaultEventFeaturesSection({ settings, dispatch }: SettingsSectionProps) {
+  return (
+    <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-6">
+      <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Default Event Features</h2>
+      <p className="mt-1 text-sm text-gray-500">Feature toggles applied to newly created events.</p>
+      <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+        {Object.entries(settings.events.default_settings.features).map(([key, value]) => (
+          <label key={key} className="flex items-center gap-2 text-xs capitalize text-gray-600 dark:text-gray-300">
+            <input
+              type="checkbox"
+              checked={value}
+              onChange={(event) =>
+                dispatch({
+                  type: 'set-feature-field',
+                  field: key as keyof ISystemSettings['events']['default_settings']['features'],
+                  value: event.target.checked,
+                })
+              }
+            />
+            {key.replace(/_/g, ' ')}
+          </label>
+        ))}
+      </div>
+    </section>
+  );
+}
 
 export default function SupervisorSettingsPage() {
-  const [settings, setSettings] = useState<ISystemSettings>(DEFAULT_SETTINGS);
+  const [settings, dispatch] = useReducer(adminSettingsReducer, DEFAULT_ADMIN_SETTINGS);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-
 
   const fetchSettings = async () => {
     setIsLoading(true);
@@ -90,7 +209,10 @@ export default function SupervisorSettingsPage() {
         throw new Error(data.error || 'Failed to load settings');
       }
 
-      setSettings(mergeSettings(DEFAULT_SETTINGS, data.data));
+      dispatch({
+        type: 'replace',
+        value: mergeSystemSettings(DEFAULT_ADMIN_SETTINGS, data.data),
+      });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to load settings');
     } finally {
@@ -99,7 +221,7 @@ export default function SupervisorSettingsPage() {
   };
 
   useEffect(() => {
-    fetchSettings();
+    void fetchSettings();
   }, []);
 
   const saveSettings = async () => {
@@ -118,25 +240,15 @@ export default function SupervisorSettingsPage() {
       }
 
       toast.success('System settings updated');
-      setSettings(mergeSettings(DEFAULT_SETTINGS, data.data));
+      dispatch({
+        type: 'replace',
+        value: mergeSystemSettings(DEFAULT_ADMIN_SETTINGS, data.data),
+      });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to save settings');
     } finally {
       setIsSaving(false);
     }
-  };
-
-  const updateAllowedTypes = (value: string, checked: boolean) => {
-    const next = new Set(settings.uploads.allowed_types || []);
-    if (checked) {
-      next.add(value);
-    } else {
-      next.delete(value);
-    }
-    setSettings((prev) => ({
-      ...prev,
-      uploads: { ...prev.uploads, allowed_types: Array.from(next) },
-    }));
   };
 
   if (isLoading) {
@@ -164,6 +276,7 @@ export default function SupervisorSettingsPage() {
         </div>
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
           <button
+            type="button"
             onClick={fetchSettings}
             className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 sm:w-auto"
           >
@@ -171,6 +284,7 @@ export default function SupervisorSettingsPage() {
             Refresh
           </button>
           <button
+            type="button"
             onClick={saveSettings}
             disabled={isSaving}
             className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-50 sm:w-auto"
@@ -182,184 +296,27 @@ export default function SupervisorSettingsPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Uploads</h2>
-          <p className="mt-1 text-sm text-gray-500">Limits enforced on direct browser uploads.</p>
-          <div className="mt-4 space-y-4 text-sm">
-            <label className="flex flex-col gap-2 text-gray-600 dark:text-gray-300">
-              <span>Max file size (MB)</span>
-              <input
-                type="number"
-                min={1}
-                value={settings.uploads.max_file_mb}
-                onChange={(e) =>
-                  setSettings((prev) => ({
-                    ...prev,
-                    uploads: { ...prev.uploads, max_file_mb: parseInt(e.target.value || '0', 10) },
-                  }))
-                }
-                className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900 sm:w-40"
-              />
-            </label>
-            <div>
-              <p className="text-sm text-gray-600 dark:text-gray-300">Allowed file types</p>
-              <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                {ALLOWED_TYPE_OPTIONS.map((option) => (
-                  <label key={option.value} className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
-                    <input
-                      type="checkbox"
-                      checked={settings.uploads.allowed_types.includes(option.value)}
-                      onChange={(e) => updateAllowedTypes(option.value, e.target.checked)}
-                    />
-                    {option.label}
-                  </label>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
+        <SectionErrorBoundary
+          title="Upload settings unavailable"
+          message="The upload settings form crashed. You can retry just this section."
+        >
+          <UploadSettingsSection settings={settings} dispatch={dispatch} />
+        </SectionErrorBoundary>
 
-        <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Default Event Theme</h2>
-          <p className="mt-1 text-sm text-gray-500">Applied when organizers create new events.</p>
-          <div className="mt-4 grid gap-4 text-sm sm:grid-cols-2">
-            <label className="flex flex-col gap-2 text-gray-600 dark:text-gray-300">
-              <span>Primary color</span>
-              <input
-                type="text"
-                value={settings.events.default_settings.theme.primary_color}
-                onChange={(e) =>
-                  setSettings((prev) => ({
-                    ...prev,
-                    events: {
-                      default_settings: {
-                        ...prev.events.default_settings,
-                        theme: { ...prev.events.default_settings.theme, primary_color: e.target.value },
-                      },
-                    },
-                  }))
-                }
-                className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900"
-              />
-            </label>
-            <label className="flex flex-col gap-2 text-gray-600 dark:text-gray-300">
-              <span>Secondary color</span>
-              <input
-                type="text"
-                value={settings.events.default_settings.theme.secondary_color}
-                onChange={(e) =>
-                  setSettings((prev) => ({
-                    ...prev,
-                    events: {
-                      default_settings: {
-                        ...prev.events.default_settings,
-                        theme: { ...prev.events.default_settings.theme, secondary_color: e.target.value },
-                      },
-                    },
-                  }))
-                }
-                className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900"
-              />
-            </label>
-            <label className="flex flex-col gap-2 text-gray-600 dark:text-gray-300">
-              <span>Background</span>
-              <input
-                type="text"
-                value={settings.events.default_settings.theme.background}
-                onChange={(e) =>
-                  setSettings((prev) => ({
-                    ...prev,
-                    events: {
-                      default_settings: {
-                        ...prev.events.default_settings,
-                        theme: { ...prev.events.default_settings.theme, background: e.target.value },
-                      },
-                    },
-                  }))
-                }
-                className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900"
-              />
-            </label>
-            <label className="flex flex-col gap-2 text-gray-600 dark:text-gray-300">
-              <span>Frame template</span>
-              <select
-                value={settings.events.default_settings.theme.frame_template}
-                onChange={(e) =>
-                  setSettings((prev) => ({
-                    ...prev,
-                    events: {
-                      default_settings: {
-                        ...prev.events.default_settings,
-                        theme: { ...prev.events.default_settings.theme, frame_template: e.target.value },
-                      },
-                    },
-                  }))
-                }
-                className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900"
-              >
-                <option value="polaroid">Polaroid</option>
-                <option value="filmstrip">Filmstrip</option>
-                <option value="classic">Classic</option>
-                <option value="minimal">Minimal</option>
-              </select>
-            </label>
-            <label className="flex flex-col gap-2 text-gray-600 dark:text-gray-300">
-              <span>Photo card style</span>
-              <select
-                value={settings.events.default_settings.theme.photo_card_style || 'vacation'}
-                onChange={(e) =>
-                  setSettings((prev) => ({
-                    ...prev,
-                    events: {
-                      default_settings: {
-                        ...prev.events.default_settings,
-                        theme: { ...prev.events.default_settings.theme, photo_card_style: e.target.value },
-                      },
-                    },
-                  }))
-                }
-                className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900"
-              >
-                <option value="vacation">Vacation</option>
-                <option value="brutalist">Brutalist minimal</option>
-                <option value="wedding">Wedding</option>
-                <option value="celebration">Celebration</option>
-                <option value="futuristic">Futuristic</option>
-              </select>
-            </label>
-          </div>
-        </section>
+        <SectionErrorBoundary
+          title="Theme settings unavailable"
+          message="The default event theme form crashed. You can retry just this section."
+        >
+          <DefaultEventThemeSection settings={settings} dispatch={dispatch} />
+        </SectionErrorBoundary>
 
-        <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Default Event Features</h2>
-          <p className="mt-1 text-sm text-gray-500">Feature toggles applied to newly created events.</p>
-          <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-            {Object.entries(settings.events.default_settings.features).map(([key, value]) => (
-              <label key={key} className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
-                <input
-                  type="checkbox"
-                  checked={value}
-                  onChange={(e) =>
-                    setSettings((prev) => ({
-                      ...prev,
-                      events: {
-                        default_settings: {
-                          ...prev.events.default_settings,
-                          features: {
-                            ...prev.events.default_settings.features,
-                            [key]: e.target.checked,
-                          },
-                        },
-                      },
-                    }))
-                  }
-                />
-                {key.replace(/_/g, ' ')}
-              </label>
-            ))}
-          </div>
-        </section>
-
+        <SectionErrorBoundary
+          title="Feature settings unavailable"
+          message="The default event features form crashed. You can retry just this section."
+          className="lg:col-span-2"
+        >
+          <DefaultEventFeaturesSection settings={settings} dispatch={dispatch} />
+        </SectionErrorBoundary>
       </div>
     </div>
   );
