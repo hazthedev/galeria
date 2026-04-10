@@ -1,348 +1,353 @@
-// ============================================
-// Galeria - Supervisor Dashboard Overview
-// ============================================
-
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
-    Users,
-    Calendar,
-    Image as ImageIcon,
-    TrendingUp,
-    ArrowRight,
-    Loader2,
-    Shield,
-    Building2,
-    Gift,
-    Trophy,
-    Clock,
+  ArrowUpRight,
+  Building2,
+  Calendar,
+  Clock3,
+  Gift,
+  Image as ImageIcon,
+  Shield,
+  Trophy,
+  Users,
+  Waves,
 } from 'lucide-react';
 import {
-    EMPTY_ADMIN_OVERVIEW_STATS,
-    type AdminActivityItem,
-    type AdminOverviewData,
-    type AdminOverviewStats,
+  EMPTY_ADMIN_OVERVIEW_STATS,
+  type AdminActivityItem,
+  type AdminOverviewData,
+  type AdminOverviewStats,
 } from '@/lib/domain/admin/types';
+import {
+  AdminActionButton,
+  AdminLoadingState,
+  AdminPage,
+  AdminPageHeader,
+  AdminPanel,
+  AdminStatCard,
+} from '@/components/admin/control-plane';
+
+const QUICK_ACTIONS = [
+  {
+    href: '/admin/users',
+    title: 'Review identity and roles',
+    description: 'Handle support escalations, role edits, and access checks.',
+  },
+  {
+    href: '/admin/moderation',
+    title: 'Clear moderation pressure',
+    description: 'Move pending uploads toward approval or rejection.',
+  },
+  {
+    href: '/admin/incidents',
+    title: 'Watch platform signals',
+    description: 'Scan warnings, service health, and failed actions.',
+  },
+];
+
+function formatActivityDate(value: string) {
+  return new Date(value).toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
 
 export default function SupervisorDashboardPage() {
-    const [stats, setStats] = useState<AdminOverviewStats>(EMPTY_ADMIN_OVERVIEW_STATS);
-    const [isLoading, setIsLoading] = useState(true);
-    const [recentActivity, setRecentActivity] = useState<AdminActivityItem[]>([]);
-    const [activityLoading, setActivityLoading] = useState(true);
+  const [stats, setStats] = useState<AdminOverviewStats>(EMPTY_ADMIN_OVERVIEW_STATS);
+  const [isLoading, setIsLoading] = useState(true);
+  const [recentActivity, setRecentActivity] = useState<AdminActivityItem[]>([]);
+  const [activityLoading, setActivityLoading] = useState(true);
 
-    useEffect(() => {
-        const fetchOverview = async () => {
-            try {
-                const response = await fetch('/api/admin/overview?activityLimit=10', {
-                    credentials: 'include',
-                });
+  useEffect(() => {
+    const fetchOverview = async () => {
+      try {
+        const response = await fetch('/api/admin/overview?activityLimit=10', {
+          credentials: 'include',
+        });
 
-                if (response.ok) {
-                    const payload = await response.json();
-                    const data: AdminOverviewData | undefined = payload.data;
-                    setStats(data?.stats || EMPTY_ADMIN_OVERVIEW_STATS);
-                    setRecentActivity(data?.recentActivity || []);
-                } else {
-                    setStats(EMPTY_ADMIN_OVERVIEW_STATS);
-                    setRecentActivity([]);
-                }
-            } catch (error) {
-                console.error('Failed to fetch supervisor overview:', error);
-                setStats(EMPTY_ADMIN_OVERVIEW_STATS);
-                setRecentActivity([]);
-            } finally {
-                setIsLoading(false);
-                setActivityLoading(false);
-            }
+        if (response.ok) {
+          const payload = await response.json();
+          const data: AdminOverviewData | undefined = payload.data;
+          setStats(data?.stats || EMPTY_ADMIN_OVERVIEW_STATS);
+          setRecentActivity(data?.recentActivity || []);
+        } else {
+          setStats(EMPTY_ADMIN_OVERVIEW_STATS);
+          setRecentActivity([]);
+        }
+      } catch (error) {
+        console.error('Failed to fetch supervisor overview:', error);
+        setStats(EMPTY_ADMIN_OVERVIEW_STATS);
+        setRecentActivity([]);
+      } finally {
+        setIsLoading(false);
+        setActivityLoading(false);
+      }
+    };
+
+    void fetchOverview();
+  }, []);
+
+  const statCards = [
+    {
+      label: 'Total Users',
+      value: stats.totalUsers.toLocaleString(),
+      detail: 'People currently inside the platform graph.',
+      icon: Users,
+      href: '/admin/users',
+      tone: 'signal' as const,
+    },
+    {
+      label: 'Active Events',
+      value: stats.activeEvents.toLocaleString(),
+      detail: 'Live galleries that still need operational awareness.',
+      icon: Calendar,
+      href: '/admin/events',
+      tone: 'mint' as const,
+    },
+    {
+      label: 'Pending Photos',
+      value: stats.pendingPhotos.toLocaleString(),
+      detail: 'Content waiting for moderation decisions right now.',
+      icon: Clock3,
+      href: '/admin/moderation',
+    },
+    {
+      label: 'Tenants',
+      value: stats.totalTenants.toLocaleString(),
+      detail: 'Accounts, plans, and status across the whole estate.',
+      icon: Building2,
+      href: '/admin/tenants',
+    },
+    {
+      label: 'MFA Enabled',
+      value: stats.mfaEnabledUsers.toLocaleString(),
+      detail: 'Admin and organizer accounts protected with MFA.',
+      icon: Shield,
+      href: '/admin/incidents',
+      tone: 'mint' as const,
+    },
+    {
+      label: 'Lucky Draw Winners',
+      value: stats.totalWinners.toLocaleString(),
+      detail: 'Prize moments recorded across all tenant campaigns.',
+      icon: Trophy,
+      href: '/admin/events',
+    },
+  ];
+
+  const getActivityDetails = (item: AdminActivityItem) => {
+    switch (item.type) {
+      case 'user':
+        return {
+          title: 'Identity change',
+          detail: `${item.userName || 'Unknown user'}${item.userEmail ? ` · ${item.userEmail}` : ''}`,
+          tone: 'signal',
         };
-
-        fetchOverview();
-    }, []);
-
-    const statCards = [
-        {
-            label: 'Total Users',
-            value: stats.totalUsers,
-            icon: Users,
-            color: 'bg-blue-500',
-            href: '/admin/users'
-        },
-        {
-            label: 'Total Events',
-            value: stats.totalEvents,
-            icon: Calendar,
-            color: 'bg-violet-500',
-            href: '/admin/events'
-        },
-        {
-            label: 'Total Photos',
-            value: stats.totalPhotos,
-            icon: ImageIcon,
-            color: 'bg-pink-500',
-            href: null
-        },
-        {
-            label: 'Tenants',
-            value: stats.totalTenants,
-            icon: Building2,
-            color: 'bg-emerald-500',
-            href: '/admin/tenants'
-        },
-        {
-            label: 'MFA Enabled',
-            value: stats.mfaEnabledUsers,
-            icon: Shield,
-            color: 'bg-indigo-500',
-            href: null
-        },
-        {
-            label: 'Lucky Draws',
-            value: stats.totalLuckyDraws,
-            icon: Gift,
-            color: 'bg-amber-500',
-            href: null
-        },
-        {
-            label: 'Winners',
-            value: stats.totalWinners,
-            icon: Trophy,
-            color: 'bg-yellow-500',
-            href: null
-        },
-        {
-            label: 'Pending Photos',
-            value: stats.pendingPhotos,
-            icon: Clock,
-            color: 'bg-orange-500',
-            href: '/admin/moderation'
-        },
-        {
-            label: 'Active Events',
-            value: stats.activeEvents,
-            icon: Calendar,
-            color: 'bg-green-500',
-            href: '/admin/events'
-        },
-    ];
-
-    if (isLoading) {
-        return (
-            <div className="flex h-64 items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
-            </div>
-        );
+      case 'event':
+        return {
+          title: 'Event movement',
+          detail: `${item.eventName || 'Untitled event'}${item.organizerName ? ` · ${item.organizerName}` : ''}`,
+          tone: 'mint',
+        };
+      case 'photo':
+        return {
+          title: 'Gallery activity',
+          detail: `${item.contributorName || 'Anonymous'}${item.eventName ? ` · ${item.eventName}` : ''}`,
+          tone: 'default',
+        };
+      case 'moderation':
+        return {
+          title: 'Moderation decision',
+          detail: `${item.moderatorName || item.moderatorEmail || 'Moderator'}${item.eventName ? ` · ${item.eventName}` : ''}`,
+          tone: 'signal',
+        };
+      default:
+        return {
+          title: 'Platform update',
+          detail: 'System activity logged',
+          tone: 'default',
+        };
     }
+  };
 
-    const getActivityDetails = (item: AdminActivityItem) => {
-        switch (item.type) {
-            case 'user':
-                return {
-                    title: 'New user registered',
-                    detail: `${item.userName || 'Unknown user'}${item.userEmail ? ` (${item.userEmail})` : ''}`,
-                };
-            case 'event':
-                return {
-                    title: 'New event created',
-                    detail: `${item.eventName || 'Untitled event'}${item.organizerName ? ` - Organizer: ${item.organizerName}` : ''}`,
-                };
-            case 'photo':
-                return {
-                    title: 'Photo uploaded',
-                    detail: `${item.contributorName || 'Anonymous'}${item.eventName ? ` - ${item.eventName}` : ''}`,
-                };
-            case 'moderation':
-                return {
-                    title: `Photo ${item.action || 'moderated'}`,
-                    detail: `${item.moderatorName || item.moderatorEmail || 'Moderator'}${item.eventName ? ` - ${item.eventName}` : ''}`,
-                };
-            default:
-                return {
-                    title: 'Activity update',
-                    detail: 'System activity logged',
-                };
+  if (isLoading) {
+    return <AdminLoadingState label="Loading control plane" />;
+  }
+
+  return (
+    <AdminPage>
+      <AdminPageHeader
+        eyebrow="Platform command"
+        title="Super Admin Dashboard"
+        description="A guided view of the platform’s live pressure points: access, content, tenant health, and the signals that need human judgment."
+        actions={
+          <>
+            <AdminActionButton href="/admin/search">Find anything</AdminActionButton>
+            <AdminActionButton href="/admin/incidents" variant="primary">
+              Review incidents
+            </AdminActionButton>
+          </>
         }
-    };
+      />
 
-    const getStatusBadge = (item: AdminActivityItem) => {
-        if (item.type === 'event' && item.eventStatus) {
-            return (
-                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-200">
-                    {item.eventStatus}
-                </span>
-            );
-        }
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {statCards.map((card, index) => (
+          <div
+            key={card.label}
+            className={index > 2 ? 'admin-reveal admin-reveal-delay-2' : 'admin-reveal admin-reveal-delay-1'}
+          >
+            <AdminStatCard {...card} />
+          </div>
+        ))}
+      </section>
 
-        if (item.type === 'photo' && item.photoStatus) {
-            return (
-                <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/40 dark:text-blue-200">
-                    {item.photoStatus}
-                </span>
-            );
-        }
-
-        if (item.type === 'moderation' && item.action) {
-            return (
-                <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200">
-                    {item.action}
-                </span>
-            );
-        }
-
-        return null;
-    };
-
-    return (
-        <div className="space-y-6 sm:space-y-8">
-            {/* Header */}
-            <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white sm:text-3xl">
-                    Super Admin Dashboard
-                </h1>
-                <p className="mt-1 text-gray-600 dark:text-gray-400">
-                    System-wide overview and management
+      <section className="grid gap-6 xl:grid-cols-[1.3fr_0.9fr]">
+        <AdminPanel
+          title="Control rhythm"
+          description="The fastest sequence for keeping the platform stable and support-ready."
+          className="admin-reveal admin-reveal-delay-2"
+        >
+          <div className="grid gap-4 lg:grid-cols-3">
+            {QUICK_ACTIONS.map((action, index) => (
+              <Link
+                key={action.href}
+                href={action.href}
+                className={`group rounded-[24px] border border-white/10 bg-white/[0.03] p-5 transition hover:-translate-y-1 hover:border-[rgba(177,140,255,0.22)] hover:bg-white/[0.05] ${index === 1 ? 'lg:-mt-3' : ''}`}
+              >
+                <p className="text-[0.68rem] font-semibold uppercase tracking-[0.26em] text-[var(--admin-text-muted)]">
+                  Step 0{index + 1}
                 </p>
-            </div>
+                <h3 className="mt-4 text-lg font-semibold text-[var(--admin-text)]">{action.title}</h3>
+                <p className="mt-3 text-sm leading-6 text-[var(--admin-text-soft)]">
+                  {action.description}
+                </p>
+                <div className="mt-6 inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--admin-signal)] transition group-hover:text-[#dacbff]">
+                  Enter workspace
+                  <ArrowUpRight className="h-4 w-4" />
+                </div>
+              </Link>
+            ))}
+          </div>
+        </AdminPanel>
 
-            {/* Stats Grid */}
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {statCards.map((stat) => (
-                    <div
-                        key={stat.label}
-                        className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-6"
-                    >
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                                    {stat.label}
-                                </p>
-                                <p className="mt-1 text-3xl font-bold text-gray-900 dark:text-white">
-                                    {stat.value.toLocaleString()}
-                                </p>
-                            </div>
-                            <div className={`rounded-lg ${stat.color} p-3`}>
-                                <stat.icon className="h-6 w-6 text-white" />
-                            </div>
+        <AdminPanel
+          title="What to remember"
+          description="A small operational compass for this session."
+          className="admin-reveal admin-reveal-delay-3"
+        >
+          <div className="space-y-4">
+            <div className="rounded-[22px] border border-[rgba(102,223,212,0.16)] bg-[rgba(102,223,212,0.08)] p-4">
+              <p className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-[#9ce7dd]">
+                Live volume
+              </p>
+              <p className="mt-2 text-sm leading-6 text-[var(--admin-text)]">
+                {stats.totalPhotos.toLocaleString()} photos are currently in the network, with {stats.pendingPhotos.toLocaleString()} waiting on decisions.
+              </p>
+            </div>
+            <div className="rounded-[22px] border border-white/10 bg-white/[0.03] p-4">
+              <p className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-[var(--admin-signal-3)]">
+                Tenant spread
+              </p>
+              <p className="mt-2 text-sm leading-6 text-[var(--admin-text-soft)]">
+                {stats.totalEvents.toLocaleString()} events are distributed across {stats.totalTenants.toLocaleString()} tenant workspaces.
+              </p>
+            </div>
+            <div className="rounded-[22px] border border-white/10 bg-white/[0.03] p-4">
+              <p className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-[var(--admin-signal)]">
+                Prize layer
+              </p>
+              <p className="mt-2 text-sm leading-6 text-[var(--admin-text-soft)]">
+                {stats.totalLuckyDraws.toLocaleString()} lucky draws and {stats.totalWinners.toLocaleString()} winners are already in circulation.
+              </p>
+            </div>
+          </div>
+        </AdminPanel>
+      </section>
+
+      <AdminPanel
+        title="Recent activity"
+        description="The latest human and system actions moving across the platform."
+        aside={
+          <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-[var(--admin-text-muted)]">
+            <Waves className="h-3.5 w-3.5 text-[var(--admin-signal-2)]" />
+            Activity feed
+          </div>
+        }
+        className="admin-reveal admin-reveal-delay-3"
+      >
+        {activityLoading ? (
+          <AdminLoadingState label="Loading activity" />
+        ) : recentActivity.length === 0 ? (
+          <div className="rounded-[24px] border border-dashed border-white/10 bg-black/10 px-6 py-10 text-center text-sm text-[var(--admin-text-soft)]">
+            No recent activity yet.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {recentActivity.map((item) => {
+              const details = getActivityDetails(item);
+
+              return (
+                <div
+                  key={item.id}
+                  className="group flex flex-col gap-4 rounded-[24px] border border-white/10 bg-white/[0.03] p-4 transition hover:border-white/16 hover:bg-white/[0.05] md:flex-row md:items-center"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-[18px] border border-white/10 bg-black/20">
+                      {item.imageUrl ? (
+                        <img
+                          src={item.imageUrl}
+                          alt="Activity preview"
+                          className="h-full w-full object-cover"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="rounded-full bg-[rgba(177,140,255,0.18)] p-2.5 text-[#d8c8ff]">
+                          {item.type === 'event' ? (
+                            <Calendar className="h-5 w-5" />
+                          ) : item.type === 'photo' ? (
+                            <ImageIcon className="h-5 w-5" />
+                          ) : item.type === 'moderation' ? (
+                            <Shield className="h-5 w-5" />
+                          ) : (
+                            <Users className="h-5 w-5" />
+                          )}
                         </div>
-                        {stat.href && (
-                            <Link
-                                href={stat.href}
-                                className="mt-4 inline-flex min-h-11 items-center gap-1 text-sm font-medium text-violet-600 hover:text-violet-700 dark:text-violet-400"
-                            >
-                                View all <ArrowRight className="h-4 w-4" />
-                            </Link>
-                        )}
+                      )}
                     </div>
-                ))}
-            </div>
-
-            {/* Quick Actions */}
-            <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-6">
-                <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
-                    Quick Actions
-                </h2>
-                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                    <Link
-                        href="/admin/users"
-                        className="flex min-h-11 items-center gap-3 rounded-lg border border-gray-200 p-4 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700"
-                    >
-                        <Users className="h-5 w-5 text-blue-500" />
-                        <span className="font-medium text-gray-900 dark:text-white">
-                            Manage Users
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-base font-semibold text-[var(--admin-text)]">{details.title}</p>
+                        <span
+                          className="admin-pill rounded-full px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.18em]"
+                          data-tone={details.tone === 'mint' ? 'mint' : details.tone === 'signal' ? 'signal' : 'default'}
+                        >
+                          {item.type}
                         </span>
-                    </Link>
-                    <Link
-                        href="/admin/events"
-                        className="flex min-h-11 items-center gap-3 rounded-lg border border-gray-200 p-4 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700"
-                    >
-                        <Calendar className="h-5 w-5 text-violet-500" />
-                        <span className="font-medium text-gray-900 dark:text-white">
-                            Manage Events
-                        </span>
-                    </Link>
-                    <Link
-                        href="/admin/settings"
-                        className="flex min-h-11 items-center gap-3 rounded-lg border border-gray-200 p-4 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700"
-                    >
-                        <Shield className="h-5 w-5 text-emerald-500" />
-                        <span className="font-medium text-gray-900 dark:text-white">
-                            Platform Settings
-                        </span>
-                    </Link>
+                      </div>
+                      <p className="mt-1 text-sm leading-6 text-[var(--admin-text-soft)]">{details.detail}</p>
+                      {item.reason ? (
+                        <p className="mt-1 text-xs uppercase tracking-[0.22em] text-[var(--admin-text-muted)]">
+                          Reason · {item.reason}
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+                  <div className="md:ml-auto md:text-right">
+                    <p className="text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-[var(--admin-text-muted)]">
+                      Captured
+                    </p>
+                    <p className="mt-1 text-sm text-[var(--admin-text)]">{formatActivityDate(item.createdAt)}</p>
+                  </div>
                 </div>
-            </div>
-
-            {/* Recent Activity Placeholder */}
-            <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-6">
-                <div className="flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5 text-green-500" />
-                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                        Recent Activity
-                    </h2>
-                </div>
-                <div className="mt-4 space-y-3">
-                    {activityLoading ? (
-                        <div className="flex h-28 items-center justify-center">
-                            <Loader2 className="h-6 w-6 animate-spin text-violet-600" />
-                        </div>
-                    ) : recentActivity.length === 0 ? (
-                        <div className="rounded-lg border border-dashed border-gray-200 p-6 text-center text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
-                            No recent activity yet.
-                        </div>
-                    ) : (
-                        recentActivity.map((item) => {
-                            const Icon = item.type === 'moderation'
-                                ? Shield
-                                : item.type === 'photo'
-                                    ? ImageIcon
-                                    : item.type === 'event'
-                                        ? Calendar
-                                        : Users;
-                            const details = getActivityDetails(item);
-
-                            return (
-                                <div
-                                    key={item.id}
-                                    className="flex items-start gap-3 rounded-lg border border-gray-100 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-900/40"
-                                >
-                                    <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg bg-gray-50 dark:bg-gray-700/60">
-                                        {item.imageUrl ? (
-                                            <img
-                                                src={item.imageUrl}
-                                                alt="Activity preview"
-                                                className="h-full w-full object-cover"
-                                                loading="lazy"
-                                            />
-                                        ) : (
-                                            <Icon className="h-5 w-5 text-gray-500 dark:text-gray-300" />
-                                        )}
-                                    </div>
-                                    <div className="flex-1 space-y-1">
-                                        <div className="flex flex-wrap items-center justify-between gap-2">
-                                            <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                                                {details.title}
-                                            </p>
-                                            <span className="text-xs text-gray-500 dark:text-gray-400">
-                                                {new Date(item.createdAt).toLocaleString()}
-                                            </span>
-                                        </div>
-                                        <p className="text-xs text-gray-600 dark:text-gray-300">
-                                            {details.detail}
-                                        </p>
-                                        {item.reason && (
-                                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                                                Reason: {item.reason}
-                                            </p>
-                                        )}
-                                        {getStatusBadge(item)}
-                                    </div>
-                                </div>
-                            );
-                        })
-                    )}
-                </div>
-            </div>
-        </div>
-    );
+              );
+            })}
+          </div>
+        )}
+      </AdminPanel>
+    </AdminPage>
+  );
 }

@@ -1,27 +1,32 @@
-// ============================================
-// Galeria - Tenant Management Page
-// ============================================
-// Super admin interface for managing all platform tenants
-
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
-  Building2,
+  AlertCircle,
   Ban,
+  Building2,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  Edit,
+  RefreshCw,
   Search,
   Trash2,
-  Edit,
-  AlertCircle,
-  RefreshCw,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ConfirmDialog } from '@/components/admin/ConfirmDialog';
 import type { AdminTenantListItem } from '@/lib/domain/admin/types';
+import {
+  AdminActionButton,
+  AdminEmptyState,
+  AdminLoadingState,
+  AdminPage,
+  AdminPageHeader,
+  AdminPanel,
+  adminInputWithIconClassName,
+  adminSelectClassName,
+} from '@/components/admin/control-plane';
 
 const tierLabels: Record<string, string> = {
   free: 'Free',
@@ -37,18 +42,18 @@ const statusLabels: Record<string, string> = {
   trialing: 'Trial',
 };
 
-const statusColors: Record<string, string> = {
-  active: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
-  suspended: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-  trialing: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+const statusTones: Record<string, 'mint' | 'signal' | 'default'> = {
+  active: 'mint',
+  suspended: 'signal',
+  trialing: 'default',
 };
 
-const tierColors: Record<string, string> = {
-  free: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
-  pro: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400',
-  premium: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-  enterprise: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
-  tester: 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400',
+const tierTones: Record<string, 'mint' | 'signal' | 'default'> = {
+  free: 'default',
+  pro: 'signal',
+  premium: 'mint',
+  enterprise: 'mint',
+  tester: 'signal',
 };
 
 export default function TenantsPage() {
@@ -97,8 +102,8 @@ export default function TenantsPage() {
       } else {
         setError('Failed to load tenants. The server returned an error.');
       }
-    } catch (error) {
-      console.error('Failed to fetch tenants:', error);
+    } catch (fetchError) {
+      console.error('Failed to fetch tenants:', fetchError);
       setError('Failed to load tenants. Please check your connection and try again.');
     } finally {
       setIsLoading(false);
@@ -124,17 +129,13 @@ export default function TenantsPage() {
         toast.success(`Tenant ${newStatus === 'suspended' ? 'suspended' : 'activated'}`);
         await fetchTenants();
       } else {
-        const error = await response.json();
-        toast.error(error.error || 'Failed to update tenant');
+        const payload = await response.json();
+        toast.error(payload.error || 'Failed to update tenant');
       }
-    } catch (error) {
-      console.error('Failed to update tenant:', error);
+    } catch (actionError) {
+      console.error('Failed to update tenant:', actionError);
       toast.error('Failed to update tenant');
     }
-  };
-
-  const handleDeleteTenant = (tenant: AdminTenantListItem) => {
-    setSelectedTenant(tenant);
   };
 
   const confirmDelete = async () => {
@@ -152,11 +153,11 @@ export default function TenantsPage() {
         setSelectedTenant(null);
         await fetchTenants();
       } else {
-        const error = await response.json();
-        toast.error(error.error || 'Failed to delete tenant');
+        const payload = await response.json();
+        toast.error(payload.error || 'Failed to delete tenant');
       }
-    } catch (error) {
-      console.error('Failed to delete tenant:', error);
+    } catch (deleteError) {
+      console.error('Failed to delete tenant:', deleteError);
       toast.error('Failed to delete tenant');
     } finally {
       setIsDeleting(false);
@@ -164,188 +165,176 @@ export default function TenantsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white sm:text-3xl">
-            Tenant Management
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Manage all platform tenants
-          </p>
+    <AdminPage>
+      <AdminPageHeader
+        eyebrow="Account stewardship"
+        title="Tenant Management"
+        description="Move through subscription state, tenant health, and ownership actions with a cleaner sense of what each account represents and what will happen next."
+        actions={
+          <AdminActionButton href="/admin">
+            <ChevronLeft className="h-4 w-4" />
+            Back to dashboard
+          </AdminActionButton>
+        }
+      />
+
+      <AdminPanel
+        title="Tenant filters"
+        description="Search by company, slug, plan, or account state."
+        className="admin-reveal admin-reveal-delay-1"
+      >
+        <div className="flex flex-col gap-3 xl:flex-row">
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              setCurrentPage(1);
+              setAppliedSearch(searchQuery.trim());
+            }}
+            className="flex-1"
+          >
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--admin-text-muted)]" />
+              <input
+                type="text"
+                placeholder="Search by name or slug..."
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                className={adminInputWithIconClassName}
+              />
+            </div>
+          </form>
+
+          <select
+            value={statusFilter}
+            onChange={(event) => {
+              setStatusFilter(event.target.value);
+              setCurrentPage(1);
+            }}
+            className={adminSelectClassName}
+          >
+            <option value="all">All Statuses</option>
+            <option value="active">Active</option>
+            <option value="suspended">Suspended</option>
+            <option value="trialing">Trial</option>
+          </select>
+
+          <select
+            value={tierFilter}
+            onChange={(event) => {
+              setTierFilter(event.target.value);
+              setCurrentPage(1);
+            }}
+            className={adminSelectClassName}
+          >
+            <option value="all">All Plans</option>
+            <option value="free">Free</option>
+            <option value="pro">Pro</option>
+            <option value="premium">Premium</option>
+            <option value="enterprise">Enterprise</option>
+            <option value="tester">Tester</option>
+          </select>
         </div>
-        <Link
-          href="/admin"
-          className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
-        >
-          <ChevronLeft className="h-4 w-4" />
-          Back to Dashboard
-        </Link>
-      </div>
+      </AdminPanel>
 
-      {/* Filters */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            setCurrentPage(1);
-            setAppliedSearch(searchQuery.trim());
-          }}
-          className="flex-1"
-        >
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search by name or slug..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-11 w-full rounded-lg border border-gray-300 bg-white pl-10 pr-4 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800"
-            />
-          </div>
-        </form>
-
-        <select
-          value={statusFilter}
-          onChange={(e) => {
-            setStatusFilter(e.target.value);
-            setCurrentPage(1);
-          }}
-          className="h-11 rounded-lg border border-gray-300 bg-white px-3 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800"
-        >
-          <option value="all">All Status</option>
-          <option value="active">Active</option>
-          <option value="suspended">Suspended</option>
-          <option value="trialing">Trial</option>
-        </select>
-
-        <select
-          value={tierFilter}
-          onChange={(e) => {
-            setTierFilter(e.target.value);
-            setCurrentPage(1);
-          }}
-          className="h-11 rounded-lg border border-gray-300 bg-white px-3 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800"
-        >
-          <option value="all">All Plans</option>
-          <option value="free">Free</option>
-          <option value="pro">Pro</option>
-          <option value="premium">Premium</option>
-          <option value="enterprise">Enterprise</option>
-          <option value="tester">Tester</option>
-        </select>
-      </div>
-
-      {/* Tenants List */}
-      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+      <AdminPanel
+        title="Tenant ledger"
+        description="A clear view of which accounts are stable, which ones need intervention, and where volume is building."
+        className="admin-reveal admin-reveal-delay-2"
+      >
         {isLoading ? (
-          <div className="flex h-64 items-center justify-center">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-violet-600 border-t-transparent" />
-          </div>
+          <AdminLoadingState label="Loading tenants" />
         ) : error ? (
-          <div className="flex h-64 flex-col items-center justify-center gap-3 text-gray-500">
-            <AlertCircle className="h-12 w-12 text-red-400" />
-            <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-            <button
-              onClick={fetchTenants}
-              className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-            >
+          <div className="flex min-h-64 flex-col items-center justify-center gap-4 rounded-[24px] border border-[rgba(255,108,122,0.24)] bg-[rgba(255,108,122,0.08)] px-6 py-10 text-center">
+            <AlertCircle className="h-12 w-12 text-[#ff9ba4]" />
+            <p className="max-w-lg text-sm leading-6 text-[#ffd1d6]">{error}</p>
+            <AdminActionButton onClick={() => void fetchTenants()}>
               <RefreshCw className="h-4 w-4" />
               Retry
-            </button>
+            </AdminActionButton>
           </div>
         ) : tenants.length === 0 ? (
-          <div className="flex h-64 flex-col items-center justify-center text-gray-500">
-            <Building2 className="mb-2 h-12 w-12 opacity-50" />
-            <p>No tenants found</p>
-          </div>
+          <AdminEmptyState
+            icon={Building2}
+            title="No tenants found"
+            description="Try removing filters or broadening the search query."
+          />
         ) : (
           <>
-            {/* Table Header */}
-            <div className="hidden sm:block border-b border-gray-200 bg-gray-50 dark:border-gray-700">
+            <div className="hidden xl:block">
               <table className="w-full">
-                <thead>
-                  <tr className="text-left text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                    <th className="px-4 py-3">Tenant</th>
-                    <th className="px-4 py-3">Plan</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3">Events</th>
-                    <th className="px-4 py-3">Users</th>
-                    <th className="px-4 py-3">Photos</th>
-                    <th className="px-4 py-3 text-right">Actions</th>
+                <thead className="admin-table-head">
+                  <tr className="text-left text-[0.68rem] font-semibold uppercase tracking-[0.24em]">
+                    <th className="px-5 py-4">Tenant</th>
+                    <th className="px-5 py-4">Plan</th>
+                    <th className="px-5 py-4">Status</th>
+                    <th className="px-5 py-4">Events</th>
+                    <th className="px-5 py-4">Users</th>
+                    <th className="px-5 py-4">Photos</th>
+                    <th className="px-5 py-4 text-right">Actions</th>
                   </tr>
                 </thead>
-              </table>
-            </div>
-
-            {/* Desktop Table */}
-            <div className="-mx-4 hidden sm:block overflow-x-auto px-4">
-              <table className="w-full">
                 <tbody>
                   {tenants.map((tenant) => (
-                    <tr key={tenant.id} className="border-b border-gray-200 last:border-0 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700">
-                      <td className="px-4 py-3">
+                    <tr key={tenant.id} className="admin-table-row">
+                      <td className="px-5 py-4">
                         <div>
-                          <p className="font-medium text-gray-900 dark:text-white">
-                            {tenant.company_name}
-                          </p>
-                          <p className="text-sm text-gray-500">{tenant.slug}</p>
+                          <p className="text-lg font-semibold text-[var(--admin-text)]">{tenant.company_name}</p>
+                          <p className="mt-1 text-sm text-[var(--admin-text-soft)]">{tenant.slug || tenant.id}</p>
                         </div>
                       </td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${tierColors[tenant.subscription_tier]}`}>
-                          {tierLabels[tenant.subscription_tier]}
+                      <td className="px-5 py-4">
+                        <span
+                          className="admin-pill rounded-full px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.18em]"
+                          data-tone={tierTones[tenant.subscription_tier] || 'default'}
+                        >
+                          {tierLabels[tenant.subscription_tier] || tenant.subscription_tier}
                         </span>
                       </td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${statusColors[tenant.status]}`}>
-                          {statusLabels[tenant.status]}
+                      <td className="px-5 py-4">
+                        <span
+                          className="admin-pill rounded-full px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.18em]"
+                          data-tone={statusTones[tenant.status] || 'default'}
+                        >
+                          {statusLabels[tenant.status] || tenant.status}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                        {tenant.event_count}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                        {tenant.user_count}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                        {tenant.photo_count}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-2">
+                      <td className="px-5 py-4 text-sm text-[var(--admin-text-soft)]">{tenant.event_count}</td>
+                      <td className="px-5 py-4 text-sm text-[var(--admin-text-soft)]">{tenant.user_count}</td>
+                      <td className="px-5 py-4 text-sm text-[var(--admin-text-soft)]">{tenant.photo_count}</td>
+                      <td className="px-5 py-4 text-right">
+                        <div className="flex items-center justify-end gap-3">
                           <Link
                             href={`/admin/tenants/${tenant.id}`}
-                            className="p-2 text-gray-400 hover:text-violet-600 dark:hover:text-violet-400"
-                            title="View details"
+                            className="inline-flex items-center gap-1 text-sm font-semibold text-[var(--admin-signal)] transition hover:text-[#ddceff]"
                           >
-                            <Edit className="h-4 w-4" />
+                            Edit
+                            <Edit className="h-3.5 w-3.5" />
                           </Link>
 
                           {tenant.status === 'active' ? (
                             <button
-                              onClick={() => handleStatusChange(tenant.id, 'suspended')}
-                              className="p-2 text-gray-400 hover:text-orange-600 dark:hover:text-orange-400"
-                              title="Suspend tenant"
+                              onClick={() => void handleStatusChange(tenant.id, 'suspended')}
+                              className="inline-flex items-center gap-1 text-sm font-semibold text-[#f8c27c] transition hover:text-[#ffd9a5]"
                             >
-                              <Ban className="h-4 w-4" />
+                              <Ban className="h-3.5 w-3.5" />
+                              Suspend
                             </button>
                           ) : (
                             <button
-                              onClick={() => handleStatusChange(tenant.id, 'active')}
-                              className="p-2 text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400"
-                              title="Activate tenant"
+                              onClick={() => void handleStatusChange(tenant.id, 'active')}
+                              className="inline-flex items-center gap-1 text-sm font-semibold text-[#9ce7dd] transition hover:text-[#c8f6ef]"
                             >
-                              <CheckCircle2 className="h-4 w-4" />
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              Activate
                             </button>
                           )}
 
                           <button
-                            onClick={() => handleDeleteTenant(tenant)}
-                            className="p-2 text-gray-400 hover:text-red-600 dark:hover:text-red-400"
-                            title="Delete tenant"
+                            onClick={() => setSelectedTenant(tenant)}
+                            className="inline-flex items-center gap-1 text-sm font-semibold text-[#ff9ba4] transition hover:text-[#ffd1d6]"
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Delete
                           </button>
                         </div>
                       </td>
@@ -355,115 +344,100 @@ export default function TenantsPage() {
               </table>
             </div>
 
-            {/* Mobile Cards */}
-            <div className="sm:hidden space-y-3 p-4">
+            <div className="space-y-3 xl:hidden">
               {tenants.map((tenant) => (
                 <div
                   key={tenant.id}
-                  className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800"
+                  className="rounded-[24px] border border-white/10 bg-white/[0.03] p-4 transition hover:border-white/16 hover:bg-white/[0.05]"
                 >
-                  <div className="mb-3 flex items-start justify-between">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <p className="font-medium text-gray-900 dark:text-white">
-                        {tenant.company_name}
-                      </p>
-                      <p className="text-sm text-gray-500">{tenant.slug}</p>
+                      <p className="text-lg font-semibold text-[var(--admin-text)]">{tenant.company_name}</p>
+                      <p className="mt-1 text-sm text-[var(--admin-text-soft)]">{tenant.slug || tenant.id}</p>
                     </div>
                     <button
-                      onClick={() => handleDeleteTenant(tenant)}
-                      className="text-red-600 hover:text-red-700 dark:hover:text-red-400"
+                      onClick={() => setSelectedTenant(tenant)}
+                      className="rounded-full border border-[rgba(255,108,122,0.2)] bg-[rgba(255,108,122,0.08)] p-2 text-[#ff9ba4]"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
 
-                  <div className="mb-3 grid grid-cols-2 gap-2 text-sm">
-                    <div>
-                      <span className="text-gray-500 dark:text-gray-400">Plan</span>
-                      <p className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${tierColors[tenant.subscription_tier]}`}>
-                        {tierLabels[tenant.subscription_tier]}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-gray-500 dark:text-gray-400">Status</span>
-                      <p className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${statusColors[tenant.status]}`}>
-                        {statusLabels[tenant.status]}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-2 text-sm text-gray-600 dark:text-gray-400">
-                    <div>
-                      <span className="text-gray-500 dark:text-gray-500">Events</span>
-                      <p className="mt-1">{tenant.event_count}</p>
-                    </div>
-                    <div>
-                      <span className="text-gray-500 dark:text-gray-500">Users</span>
-                      <p className="mt-1">{tenant.user_count}</p>
-                    </div>
-                    <div>
-                      <span className="text-gray-500 dark:text-gray-500">Photos</span>
-                      <p className="mt-1">{tenant.photo_count}</p>
-                    </div>
-                  </div>
-
-                  <div className="mt-3 flex gap-2">
-                    {tenant.status === 'active' ? (
-                      <button
-                        onClick={() => handleStatusChange(tenant.id, 'suspended')}
-                        className="flex-1 flex items-center justify-center gap-1 rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:border-gray-400 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-700"
-                      >
-                        <Ban className="h-3 w-3" />
-                        Suspend
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => handleStatusChange(tenant.id, 'active')}
-                        className="flex-1 flex items-center justify-center gap-1 rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:border-gray-400 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-700"
-                      >
-                        <CheckCircle2 className="h-3 w-3" />
-                        Activate
-                      </button>
-                    )}
-                    <Link
-                      href={`/admin/tenants/${tenant.id}`}
-                      className="flex-1 flex items-center justify-center gap-1 rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:border-gray-400 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-700"
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <span
+                      className="admin-pill rounded-full px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.18em]"
+                      data-tone={tierTones[tenant.subscription_tier] || 'default'}
                     >
-                      <Edit className="h-3 w-3" />
-                      Edit
-                    </Link>
+                      {tierLabels[tenant.subscription_tier] || tenant.subscription_tier}
+                    </span>
+                    <span
+                      className="admin-pill rounded-full px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.18em]"
+                      data-tone={statusTones[tenant.status] || 'default'}
+                    >
+                      {statusLabels[tenant.status] || tenant.status}
+                    </span>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-3 gap-3 text-sm">
+                    <div className="rounded-2xl border border-white/8 bg-black/10 p-3">
+                      <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-[var(--admin-text-muted)]">Events</p>
+                      <p className="mt-2 text-[var(--admin-text)]">{tenant.event_count}</p>
+                    </div>
+                    <div className="rounded-2xl border border-white/8 bg-black/10 p-3">
+                      <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-[var(--admin-text-muted)]">Users</p>
+                      <p className="mt-2 text-[var(--admin-text)]">{tenant.user_count}</p>
+                    </div>
+                    <div className="rounded-2xl border border-white/8 bg-black/10 p-3">
+                      <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-[var(--admin-text-muted)]">Photos</p>
+                      <p className="mt-2 text-[var(--admin-text)]">{tenant.photo_count}</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                    <AdminActionButton href={`/admin/tenants/${tenant.id}`} variant="primary">
+                      Edit tenant
+                    </AdminActionButton>
+                    {tenant.status === 'active' ? (
+                      <AdminActionButton onClick={() => void handleStatusChange(tenant.id, 'suspended')}>
+                        Suspend
+                      </AdminActionButton>
+                    ) : (
+                      <AdminActionButton onClick={() => void handleStatusChange(tenant.id, 'active')}>
+                        Activate
+                      </AdminActionButton>
+                    )}
                   </div>
                 </div>
               ))}
             </div>
 
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="flex flex-col gap-3 border-t border-gray-200 px-4 py-3 dark:border-gray-700 sm:flex-row sm:items-center sm:justify-between">
-                <button
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+            {totalPages > 1 ? (
+              <div className="mt-5 flex flex-col gap-3 border-t border-white/8 pt-5 sm:flex-row sm:items-center sm:justify-between">
+                <AdminActionButton
+                  onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
                   disabled={currentPage === 1}
-                  className="inline-flex min-h-11 items-center justify-center gap-1 rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 disabled:opacity-50 dark:text-gray-400 dark:hover:bg-gray-700"
+                  className="disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  <ChevronLeft className="h-4 w-4" /> Previous
-                </button>
-                <span className="text-sm text-gray-600 dark:text-gray-400">
+                  <ChevronLeft className="h-4 w-4" />
+                  Previous
+                </AdminActionButton>
+                <p className="text-sm text-[var(--admin-text-soft)]">
                   Page {currentPage} of {totalPages}
-                </span>
-                <button
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                </p>
+                <AdminActionButton
+                  onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
                   disabled={currentPage === totalPages}
-                  className="inline-flex min-h-11 items-center justify-center gap-1 rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 disabled:opacity-50 dark:text-gray-400 dark:hover:bg-gray-700"
+                  className="disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Next <ChevronRight className="h-4 w-4" />
-                </button>
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </AdminActionButton>
               </div>
-            )}
+            ) : null}
           </>
         )}
-      </div>
+      </AdminPanel>
 
-      {/* Delete Confirmation Dialog */}
       <ConfirmDialog
         open={!!selectedTenant}
         onOpenChange={(open) => {
@@ -485,6 +459,6 @@ export default function TenantsPage() {
         variant="danger"
         isPending={isDeleting}
       />
-    </div>
+    </AdminPage>
   );
 }

@@ -1,24 +1,27 @@
-// ============================================
-// Galeria - Admin Sessions Management Page
-// ============================================
-// Super admin interface for viewing and managing user sessions
-
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
-  Monitor,
-  Smartphone,
-  Globe,
-  Clock,
-  RefreshCw,
   ChevronLeft,
+  Clock,
+  Globe,
   LogOut,
+  Monitor,
+  RefreshCw,
+  Smartphone,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ConfirmDialog, useConfirmDialog } from '@/components/admin/ConfirmDialog';
 import type { AdminSessionsData } from '@/lib/domain/admin/types';
+import {
+  AdminActionButton,
+  AdminEmptyState,
+  AdminLoadingState,
+  AdminPage,
+  AdminPageHeader,
+  AdminPanel,
+} from '@/components/admin/control-plane';
 
 interface SessionData {
   sessionId: string;
@@ -45,7 +48,7 @@ export default function SessionsPage() {
   const confirm = useConfirmDialog();
 
   useEffect(() => {
-    fetchSessions();
+    void fetchSessions();
   }, []);
 
   const fetchSessions = async () => {
@@ -61,8 +64,8 @@ export default function SessionsPage() {
       } else {
         toast.error('Failed to load sessions');
       }
-    } catch (error) {
-      console.error('Failed to fetch sessions:', error);
+    } catch (fetchError) {
+      console.error('Failed to fetch sessions:', fetchError);
       toast.error('Failed to load sessions');
     } finally {
       setIsLoading(false);
@@ -80,8 +83,7 @@ export default function SessionsPage() {
       title: 'Terminate Session',
       description: (
         <>
-          Are you sure you want to terminate the session for{' '}
-          <strong>{session.name}</strong> ({session.email})?
+          Are you sure you want to terminate the session for <strong>{session.name}</strong> ({session.email})?
           <br />
           <span className="text-xs text-gray-500">
             This will log them out from {session.deviceInfo}.
@@ -100,13 +102,13 @@ export default function SessionsPage() {
         });
 
         if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error || 'Failed to terminate session');
+          const payload = await response.json();
+          throw new Error(payload.error || 'Failed to terminate session');
         }
 
-        const data = await response.json();
-        toast.success(`Terminated ${data.terminatedCount} session(s)`);
-        fetchSessions();
+        const payload = await response.json();
+        toast.success(`Terminated ${payload.terminatedCount} session(s)`);
+        void fetchSessions();
       },
     });
   };
@@ -140,20 +142,18 @@ export default function SessionsPage() {
         });
 
         if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error || 'Failed to terminate sessions');
+          const payload = await response.json();
+          throw new Error(payload.error || 'Failed to terminate sessions');
         }
 
-        const data = await response.json();
-        toast.success(`Terminated ${data.terminatedCount} session(s)`);
-        fetchSessions();
+        const payload = await response.json();
+        toast.success(`Terminated ${payload.terminatedCount} session(s)`);
+        void fetchSessions();
       },
     });
   };
 
-  const formatTimestamp = (timestamp: number) => {
-    return new Date(timestamp).toLocaleString();
-  };
+  const formatTimestamp = (timestamp: number) => new Date(timestamp).toLocaleString();
 
   const formatDuration = (ms: number) => {
     const seconds = Math.floor(ms / 1000);
@@ -187,205 +187,132 @@ export default function SessionsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white sm:text-3xl">
-            Active Sessions
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            {sessions ? `${sessions.total} active sessions across ${sessions.uniqueUsers} users` : 'Manage user sessions'}
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={handleRefresh}
-            disabled={isRefreshing || isLoading}
-            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
-          >
-            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
-          <Link
-            href="/admin"
-            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
-          >
-            <ChevronLeft className="h-4 w-4" />
-            Back to Dashboard
-          </Link>
-        </div>
-      </div>
-
-      {/* Sessions List */}
-      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
-        {isLoading ? (
-          <div className="flex h-64 items-center justify-center">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-violet-600 border-t-transparent" />
-          </div>
-        ) : !sessions || sessions.total === 0 ? (
-          <div className="flex h-64 flex-col items-center justify-center text-gray-500">
-            <Monitor className="mb-2 h-12 w-12 opacity-50" />
-            <p>No active sessions found</p>
-          </div>
-        ) : (
+    <AdminPage>
+      <AdminPageHeader
+        eyebrow="Access control"
+        title="Active Sessions"
+        description={
+          sessions
+            ? `${sessions.total} live sessions across ${sessions.uniqueUsers} users. Current sessions are highlighted so you can terminate access without losing your own bearings.`
+            : 'Review active access across the platform and terminate risky sessions when needed.'
+        }
+        actions={
           <>
-            {/* Desktop Table */}
-            <div className="hidden sm:block">
-              <table className="w-full">
-                <thead className="border-b border-gray-200 bg-gray-50 dark:border-gray-700">
-                  <tr className="text-left text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                    <th className="px-4 py-3">User</th>
-                    <th className="px-4 py-3">Device</th>
-                    <th className="px-4 py-3">IP Address</th>
-                    <th className="px-4 py-3">Last Activity</th>
-                    <th className="px-4 py-3">Expires</th>
-                    <th className="px-4 py-3 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sessions.data.map((session) => {
-                    const DeviceIcon = getDeviceIcon(session.userAgent);
-                    return (
-                      <tr
-                        key={session.sessionId}
-                        className={`border-b border-gray-200 last:border-0 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700 ${session.isCurrent ? 'bg-violet-50/50 dark:bg-violet-900/10' : ''}`}
-                      >
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-violet-100 text-violet-700 font-bold dark:bg-violet-900 dark:text-violet-300">
-                              {session.name[0]?.toUpperCase() || 'U'}
-                            </div>
-                            <div>
-                              <p className="font-medium text-gray-900 dark:text-white">
-                                {session.name}
-                                {session.isCurrent && (
-                                  <span className="ml-2 inline-flex items-center rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-700 dark:bg-violet-900/30 dark:text-violet-400">
-                                    Current
-                                  </span>
-                                )}
-                              </p>
-                              <p className="text-sm text-gray-500">{session.email}</p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                            <DeviceIcon className="h-4 w-4" />
-                            <span>{session.deviceInfo}</span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                          {session.ipAddress || 'Unknown'}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                          <div>
-                            <p>{formatTimestamp(session.lastActivity)}</p>
-                            <p className="text-xs text-gray-400">
-                              {formatDuration(Date.now() - session.lastActivity)} ago
-                            </p>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
-                            session.ttl < 3600
-                              ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                              : session.ttl < 86400
-                              ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-                              : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                          }`}>
-                            {formatTTL(session.ttl)}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          {!session.isCurrent && (
-                            <button
-                              onClick={() => handleTerminateSession(session)}
-                              className="p-2 text-gray-400 hover:text-red-600 dark:hover:text-red-400"
-                              title="Terminate session"
-                            >
-                              <LogOut className="h-4 w-4" />
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Mobile Cards */}
-            <div className="space-y-3 p-4 sm:hidden">
-              {sessions.data.map((session) => {
-                const DeviceIcon = getDeviceIcon(session.userAgent);
-                const userSessions = sessions.grouped[session.userId];
-                const hasMultipleSessions = userSessions && userSessions.length > 1;
-
-                return (
-                  <div
-                    key={session.sessionId}
-                    className={`rounded-lg border bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 ${session.isCurrent ? 'border-violet-200 dark:border-violet-800' : 'border-gray-200'}`}
-                  >
-                    <div className="mb-3 flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <DeviceIcon className="h-5 w-5 text-gray-400" />
-                        <div>
-                          <p className="font-medium text-gray-900 dark:text-white">
-                            {session.name}
-                          </p>
-                          <p className="text-sm text-gray-500">{session.email}</p>
-                        </div>
-                      </div>
-                      {!session.isCurrent && (
-                        <button
-                          onClick={() => handleTerminateSession(session)}
-                          className="text-red-600 hover:text-red-700 dark:hover:text-red-400"
-                        >
-                          <LogOut className="h-5 w-5" />
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
-                      <div className="flex items-center gap-2">
-                        <Smartphone className="h-4 w-4" />
-                        <span>{session.deviceInfo}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Globe className="h-4 w-4" />
-                        <span>{session.ipAddress || 'Unknown IP'}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Clock className="h-4 w-4" />
-                        <span>{formatTimestamp(session.lastActivity)}</span>
-                      </div>
-                    </div>
-
-                    {session.isCurrent && (
-                      <div className="mt-3 inline-flex items-center rounded-full bg-violet-100 px-3 py-1 text-xs font-medium text-violet-700 dark:bg-violet-900/30 dark:text-violet-400">
-                        Current Session
-                      </div>
-                    )}
-
-                    {hasMultipleSessions && !session.isCurrent && (
-                      <button
-                        onClick={() => handleTerminateUserSessions(session.userId)}
-                        className="mt-3 w-full rounded-md border border-gray-300 px-3 py-2 text-xs font-medium text-gray-600 hover:border-gray-400 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-700"
-                      >
-                        Terminate All User Sessions
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+            <AdminActionButton onClick={handleRefresh} disabled={isRefreshing || isLoading}>
+              <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+              Refresh
+            </AdminActionButton>
+            <AdminActionButton href="/admin">
+              <ChevronLeft className="h-4 w-4" />
+              Back to dashboard
+            </AdminActionButton>
           </>
-        )}
-      </div>
+        }
+      />
 
-      {/* Terminate Confirmation Dialog */}
+      <AdminPanel
+        title="Session ledger"
+        description="Read recency, device surface, and expiry at a glance before terminating access."
+        className="admin-reveal admin-reveal-delay-1"
+      >
+        {isLoading ? (
+          <AdminLoadingState label="Loading sessions" />
+        ) : !sessions || sessions.total === 0 ? (
+          <AdminEmptyState
+            icon={Monitor}
+            title="No active sessions"
+            description="No session records are currently active."
+          />
+        ) : (
+          <div className="space-y-3">
+            {sessions.data.map((session) => {
+              const DeviceIcon = getDeviceIcon(session.userAgent);
+              const userSessions = sessions.grouped[session.userId];
+              const hasMultipleSessions = userSessions && userSessions.length > 1;
+
+              return (
+                <div
+                  key={session.sessionId}
+                  className={`rounded-[24px] border p-4 transition hover:bg-white/[0.05] ${session.isCurrent ? 'border-[rgba(177,140,255,0.24)] bg-[rgba(177,140,255,0.08)]' : 'border-white/10 bg-white/[0.03]'}`}
+                >
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
+                    <div className="flex min-w-0 flex-1 items-center gap-4">
+                      <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border ${session.isCurrent ? 'border-[rgba(177,140,255,0.24)] bg-[rgba(177,140,255,0.16)] text-[#decfff]' : 'border-white/10 bg-black/15 text-[var(--admin-text-soft)]'}`}>
+                        {session.name[0]?.toUpperCase() || 'U'}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="truncate text-lg font-semibold text-[var(--admin-text)]">{session.name}</p>
+                          {session.isCurrent ? (
+                            <span className="admin-pill rounded-full px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.18em]" data-tone="signal">
+                              Current
+                            </span>
+                          ) : null}
+                        </div>
+                        <p className="truncate text-sm text-[var(--admin-text-soft)]">{session.email}</p>
+                      </div>
+                    </div>
+
+                    <div className="grid flex-1 gap-3 sm:grid-cols-3">
+                      <div className="rounded-2xl border border-white/8 bg-black/10 p-3 text-sm text-[var(--admin-text-soft)]">
+                        <div className="flex items-center gap-2 text-[var(--admin-text-muted)]">
+                          <DeviceIcon className="h-4 w-4" />
+                          Device
+                        </div>
+                        <p className="mt-2 text-[var(--admin-text)]">{session.deviceInfo}</p>
+                      </div>
+                      <div className="rounded-2xl border border-white/8 bg-black/10 p-3 text-sm text-[var(--admin-text-soft)]">
+                        <div className="flex items-center gap-2 text-[var(--admin-text-muted)]">
+                          <Globe className="h-4 w-4" />
+                          IP address
+                        </div>
+                        <p className="mt-2 text-[var(--admin-text)]">{session.ipAddress || 'Unknown'}</p>
+                      </div>
+                      <div className="rounded-2xl border border-white/8 bg-black/10 p-3 text-sm text-[var(--admin-text-soft)]">
+                        <div className="flex items-center gap-2 text-[var(--admin-text-muted)]">
+                          <Clock className="h-4 w-4" />
+                          Last activity
+                        </div>
+                        <p className="mt-2 text-[var(--admin-text)]">{formatTimestamp(session.lastActivity)}</p>
+                        <p className="mt-1 text-xs uppercase tracking-[0.18em] text-[var(--admin-text-muted)]">
+                          {formatDuration(Date.now() - session.lastActivity)} ago
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col items-start gap-3 lg:items-end">
+                      <span
+                        className="admin-pill rounded-full px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.18em]"
+                        data-tone={session.ttl < 3600 ? 'signal' : session.ttl < 86400 ? 'default' : 'mint'}
+                      >
+                        Expires in {formatTTL(session.ttl)}
+                      </span>
+
+                      {!session.isCurrent ? (
+                        <AdminActionButton onClick={() => handleTerminateSession(session)}>
+                          <LogOut className="h-4 w-4" />
+                          Terminate
+                        </AdminActionButton>
+                      ) : null}
+
+                      {hasMultipleSessions && !session.isCurrent ? (
+                        <button
+                          onClick={() => handleTerminateUserSessions(session.userId)}
+                          className="text-sm font-semibold text-[var(--admin-signal)] transition hover:text-[#ddceff]"
+                        >
+                          Terminate all for user
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </AdminPanel>
+
       <ConfirmDialog {...confirm.dialog} />
-    </div>
+    </AdminPage>
   );
 }

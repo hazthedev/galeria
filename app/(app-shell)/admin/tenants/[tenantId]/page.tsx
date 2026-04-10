@@ -9,7 +9,6 @@ import {
   CheckCircle2,
   ChevronLeft,
   ExternalLink,
-  Loader2,
   RefreshCw,
   Shield,
   Trash2,
@@ -17,6 +16,17 @@ import {
 import { toast } from 'sonner';
 
 import { ConfirmDialog } from '@/components/admin/ConfirmDialog';
+import {
+  AdminActionButton,
+  AdminEmptyState,
+  AdminLoadingState,
+  AdminPage,
+  AdminPageHeader,
+  AdminPanel,
+  AdminStatCard,
+  adminSelectClassName,
+  adminTextareaClassName,
+} from '@/components/admin/control-plane';
 import { SYSTEM_TENANT_ID } from '@/lib/constants/tenants';
 import type { AdminTenantDetailData, AdminTenantStatus } from '@/lib/domain/admin/types';
 
@@ -30,10 +40,10 @@ const tierLabels: Record<string, string> = {
   tester: 'Tester',
 };
 
-const statusColors: Record<AdminTenantStatus, string> = {
-  active: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
-  suspended: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-  trialing: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+const statusTones: Record<AdminTenantStatus, 'mint' | 'signal' | 'default'> = {
+  active: 'mint',
+  suspended: 'signal',
+  trialing: 'default',
 };
 
 const dialogLabels: Record<DialogKind, string> = {
@@ -52,16 +62,9 @@ function formatLabel(value: string) {
 }
 
 function getActionSuccessMessage(dialogKind: Exclude<DialogKind, 'delete'>) {
-  switch (dialogKind) {
-    case 'suspend':
-      return 'Tenant suspended';
-    case 'activate':
-      return 'Tenant activated';
-    case 'change-tier':
-      return 'Tenant plan updated';
-    default:
-      return 'Tenant updated';
-  }
+  if (dialogKind === 'suspend') return 'Tenant suspended';
+  if (dialogKind === 'activate') return 'Tenant activated';
+  return 'Tenant plan updated';
 }
 
 export default function AdminTenantDetailPage() {
@@ -81,23 +84,13 @@ export default function AdminTenantDetailPage() {
   const requiresStepUp = adminMfaEnabled && dialogKind === 'suspend';
 
   const fetchDetail = async () => {
-    if (!tenantId) {
-      return;
-    }
-
+    if (!tenantId) return;
     setIsLoading(true);
     setError(null);
-
     try {
-      const response = await fetch(`/api/admin/tenants/${tenantId}`, {
-        credentials: 'include',
-      });
+      const response = await fetch(`/api/admin/tenants/${tenantId}`, { credentials: 'include' });
       const payload = await response.json();
-
-      if (!response.ok) {
-        throw new Error(payload.error || 'Failed to load tenant');
-      }
-
+      if (!response.ok) throw new Error(payload.error || 'Failed to load tenant');
       setDetail(payload.data);
       setSelectedTier(payload.data.tenant.subscription_tier);
     } catch (fetchError) {
@@ -114,79 +107,51 @@ export default function AdminTenantDetailPage() {
 
   useEffect(() => {
     let isMounted = true;
-
     const fetchAdminMfaStatus = async () => {
       try {
-        const response = await fetch('/api/admin/mfa/status', {
-          credentials: 'include',
-        });
+        const response = await fetch('/api/admin/mfa/status', { credentials: 'include' });
         const payload = await response.json().catch(() => ({}));
-
-        if (!response.ok) {
-          return;
-        }
-
-        if (isMounted) {
-          setAdminMfaEnabled(Boolean(payload.data?.enabled));
-        }
-      } catch {
-        // Keep the page usable even if the hint request fails.
-      }
+        if (!response.ok) return;
+        if (isMounted) setAdminMfaEnabled(Boolean(payload.data?.enabled));
+      } catch {}
     };
-
     void fetchAdminMfaStatus();
-
     return () => {
       isMounted = false;
     };
   }, []);
 
   const dialogConfig = useMemo(() => {
-    if (!detail || !dialogKind) {
-      return null;
-    }
-
+    if (!detail || !dialogKind) return null;
     const requiresReason = dialogKind === 'suspend' || dialogKind === 'change-tier';
-
     return {
       title: dialogLabels[dialogKind],
-      description:
-        (
-          <div className="space-y-4">
-            <p>
-              {dialogKind === 'delete'
-                ? `Delete ${detail.tenant.company_name}? This removes ${detail.tenant.user_count} users, ${detail.tenant.event_count} events, and ${detail.tenant.photo_count} photos.`
-                : dialogKind === 'change-tier'
-                  ? `Change ${detail.tenant.company_name} to ${tierLabels[selectedTier] || selectedTier}?`
-                  : `${dialogLabels[dialogKind]} for ${detail.tenant.company_name}?`}
-            </p>
-            {requiresStepUp ? (
-              <label className="block">
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                  Current MFA code
-                </span>
-                <input
-                  value={stepUpToken}
-                  onChange={(event) => setStepUpToken(event.target.value.replace(/\D/g, '').slice(0, 6))}
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  placeholder="123456"
-                  className="mt-2 h-11 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-900 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900 dark:text-white"
-                />
-                <span className="mt-2 block text-xs text-gray-500 dark:text-gray-400">
-                  Required because suspending a tenant affects access across the account.
-                </span>
-              </label>
-            ) : null}
-          </div>
-        ),
+      description: (
+        <div className="space-y-4">
+          <p>
+            {dialogKind === 'delete'
+              ? `Delete ${detail.tenant.company_name}? This removes ${detail.tenant.user_count} users, ${detail.tenant.event_count} events, and ${detail.tenant.photo_count} photos.`
+              : dialogKind === 'change-tier'
+                ? `Change ${detail.tenant.company_name} to ${tierLabels[selectedTier] || selectedTier}?`
+                : `${dialogLabels[dialogKind]} for ${detail.tenant.company_name}?`}
+          </p>
+          {requiresStepUp ? (
+            <label className="block">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Current MFA code</span>
+              <input
+                value={stepUpToken}
+                onChange={(event) => setStepUpToken(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                placeholder="123456"
+                className={`${adminSelectClassName} mt-2 w-full`}
+              />
+            </label>
+          ) : null}
+        </div>
+      ),
       confirmLabel: dialogLabels[dialogKind],
-      variant:
-        dialogKind === 'delete'
-          ? ('danger' as const)
-          : dialogKind === 'suspend'
-            ? ('warning' as const)
-            : ('primary' as const),
+      variant: dialogKind === 'delete' ? ('danger' as const) : dialogKind === 'suspend' ? ('warning' as const) : ('primary' as const),
       confirmDisabled:
         (requiresReason && actionReason.trim().length === 0) ||
         (dialogKind === 'change-tier' && selectedTier === detail.tenant.subscription_tier) ||
@@ -195,24 +160,13 @@ export default function AdminTenantDetailPage() {
   }, [actionReason, detail, dialogKind, requiresStepUp, selectedTier, stepUpToken]);
 
   const handleConfirmedAction = async () => {
-    if (!detail || !tenantId || !dialogKind) {
-      return;
-    }
-
+    if (!detail || !tenantId || !dialogKind) return;
     setIsActionPending(true);
-
     try {
       if (dialogKind === 'delete') {
-        const response = await fetch(`/api/admin/tenants/${tenantId}`, {
-          method: 'DELETE',
-          credentials: 'include',
-        });
+        const response = await fetch(`/api/admin/tenants/${tenantId}`, { method: 'DELETE', credentials: 'include' });
         const payload = await response.json().catch(() => ({}));
-
-        if (!response.ok) {
-          throw new Error(payload.error || 'Failed to delete tenant');
-        }
-
+        if (!response.ok) throw new Error(payload.error || 'Failed to delete tenant');
         toast.success(`Deleted tenant: ${detail.tenant.company_name}`);
         window.location.assign('/admin/tenants');
         return;
@@ -239,7 +193,6 @@ export default function AdminTenantDetailPage() {
         }),
       });
       const payload = await response.json();
-
       if (!response.ok) {
         if (payload.code === 'STEP_UP_REQUIRED') {
           setAdminMfaEnabled(true);
@@ -264,353 +217,192 @@ export default function AdminTenantDetailPage() {
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
-      </div>
-    );
-  }
+  if (isLoading) return <AdminLoadingState label="Loading tenant workspace" />;
 
   if (error || !detail) {
     return (
-      <div className="space-y-6">
-        <Link
-          href="/admin/tenants"
-          className="inline-flex items-center gap-2 text-sm font-medium text-violet-600 hover:text-violet-700 dark:text-violet-400"
-        >
-          <ChevronLeft className="h-4 w-4" />
-          Back to Tenants
-        </Link>
-
-        <div className="flex h-64 flex-col items-center justify-center gap-3 rounded-xl border border-gray-200 bg-white text-gray-500 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-          <AlertCircle className="h-12 w-12 text-red-400" />
-          <p className="text-sm text-red-600 dark:text-red-400">{error || 'Tenant not found'}</p>
-          <button
-            onClick={() => void fetchDetail()}
-            className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-          >
-            <RefreshCw className="h-4 w-4" />
-            Retry
-          </button>
-        </div>
-      </div>
+      <AdminPage>
+        <AdminPageHeader
+          eyebrow="Tenant 360"
+          title="Tenant not available"
+          description="The requested tenant record could not be loaded."
+          actions={<AdminActionButton href="/admin/tenants"><ChevronLeft className="h-4 w-4" />Back to tenants</AdminActionButton>}
+        />
+        <AdminPanel className="admin-reveal admin-reveal-delay-1">
+          <AdminEmptyState icon={AlertCircle} title="Tenant not found" description={error || 'Tenant not found.'} action={<AdminActionButton onClick={() => void fetchDetail()}><RefreshCw className="h-4 w-4" />Retry</AdminActionButton>} />
+        </AdminPanel>
+      </AdminPage>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <Link
-            href="/admin/tenants"
-            className="inline-flex items-center gap-2 text-sm font-medium text-violet-600 hover:text-violet-700 dark:text-violet-400"
-          >
-            <ChevronLeft className="h-4 w-4" />
-            Back to Tenants
-          </Link>
+    <AdminPage>
+      <AdminPageHeader
+        eyebrow="Tenant 360"
+        title={detail.tenant.company_name}
+        description="A support-first view of account health, usage volume, feature limits, and the privileged actions that change tenant state."
+        actions={
+          <>
+            <AdminActionButton onClick={() => void fetchDetail()}><RefreshCw className="h-4 w-4" />Refresh</AdminActionButton>
+            <AdminActionButton href="/admin/tenants"><ChevronLeft className="h-4 w-4" />Back to tenants</AdminActionButton>
+          </>
+        }
+      />
 
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white sm:text-3xl">
-              {detail.tenant.company_name}
-            </h1>
-            <span
-              className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${statusColors[detail.tenant.status]}`}
-            >
-              {detail.tenant.status}
-            </span>
-            <span className="inline-flex rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-300">
-              {tierLabels[detail.tenant.subscription_tier] || detail.tenant.subscription_tier}
-            </span>
-          </div>
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <AdminStatCard label="Events" value={detail.tenant.event_count} detail={`${detail.tenant.active_events_count} active`} icon={CheckCircle2} tone="mint" />
+        <AdminStatCard label="Users" value={detail.tenant.user_count} detail={`${detail.tenant.organizer_count} organizers`} icon={Shield} />
+        <AdminStatCard label="Photos" value={detail.tenant.photo_count} detail={`${detail.tenant.pending_photos_count} pending`} icon={Trash2} />
+        <AdminStatCard label="Guests" value={detail.tenant.guest_count} detail="Across all events" icon={ExternalLink} />
+      </section>
 
-          <p className="mt-1 text-gray-600 dark:text-gray-400">
-            <span className="font-mono text-sm">{detail.tenant.slug}</span>
-            {' | '}
-            Created {formatDate(detail.tenant.created_at)}
-          </p>
-        </div>
-
-        <button
-          onClick={() => void fetchDetail()}
-          className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
-        >
-          <RefreshCw className="h-4 w-4" />
-          Refresh
-        </button>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-          <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Events</p>
-          <p className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">
-            {detail.tenant.event_count}
-          </p>
-          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            {detail.tenant.active_events_count} active
-          </p>
-        </div>
-
-        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-          <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Users</p>
-          <p className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">
-            {detail.tenant.user_count}
-          </p>
-          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            {detail.tenant.organizer_count} organizers
-          </p>
-        </div>
-
-        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-          <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Photos</p>
-          <p className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">
-            {detail.tenant.photo_count}
-          </p>
-          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            {detail.tenant.pending_photos_count} pending
-          </p>
-        </div>
-
-        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-          <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Guests</p>
-          <p className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">
-            {detail.tenant.guest_count}
-          </p>
-          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Across all events</p>
-        </div>
-      </div>
-
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(340px,1fr)]">
         <div className="space-y-6">
-          <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Account Summary</h2>
-            <div className="mt-4 grid gap-4 text-sm text-gray-600 dark:text-gray-300 sm:grid-cols-2">
-              <div>
-                <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                  Brand Name
-                </p>
-                <p className="mt-1">{detail.tenant.brand_name || detail.tenant.company_name}</p>
+          <AdminPanel title="Account Summary" description="Core tenant profile and operating state.">
+            <div className="grid gap-4 text-sm sm:grid-cols-2">
+              <div className="rounded-[22px] border border-white/10 bg-white/[0.03] p-4">
+                <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-[var(--admin-text-muted)]">Brand Name</p>
+                <p className="mt-2 text-[var(--admin-text)]">{detail.tenant.brand_name || detail.tenant.company_name}</p>
               </div>
-              <div>
-                <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                  Contact Email
-                </p>
-                <p className="mt-1">{detail.tenant.contact_email || 'Not set'}</p>
+              <div className="rounded-[22px] border border-white/10 bg-white/[0.03] p-4">
+                <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-[var(--admin-text-muted)]">Contact Email</p>
+                <p className="mt-2 text-[var(--admin-text)]">{detail.tenant.contact_email || 'Not set'}</p>
               </div>
-              <div>
-                <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                  Support Email
-                </p>
-                <p className="mt-1">{detail.tenant.support_email || 'Not set'}</p>
+              <div className="rounded-[22px] border border-white/10 bg-white/[0.03] p-4">
+                <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-[var(--admin-text-muted)]">Support Email</p>
+                <p className="mt-2 text-[var(--admin-text)]">{detail.tenant.support_email || 'Not set'}</p>
               </div>
-              <div>
-                <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                  Domain
-                </p>
-                <p className="mt-1">{detail.tenant.domain || detail.tenant.subdomain || 'Not configured'}</p>
+              <div className="rounded-[22px] border border-white/10 bg-white/[0.03] p-4">
+                <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-[var(--admin-text-muted)]">Domain</p>
+                <p className="mt-2 text-[var(--admin-text)]">{detail.tenant.domain || detail.tenant.subdomain || 'Not configured'}</p>
+              </div>
+              <div className="rounded-[22px] border border-white/10 bg-white/[0.03] p-4">
+                <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-[var(--admin-text-muted)]">Slug</p>
+                <p className="mt-2 font-mono text-xs text-[var(--admin-text)]">{detail.tenant.slug}</p>
+              </div>
+              <div className="rounded-[22px] border border-white/10 bg-white/[0.03] p-4">
+                <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-[var(--admin-text-muted)]">Created</p>
+                <p className="mt-2 text-[var(--admin-text)]">{formatDate(detail.tenant.created_at)}</p>
               </div>
             </div>
-          </section>
+          </AdminPanel>
 
-          <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Recent Users</h2>
-              <Link
-                href={`/admin/users?search=${encodeURIComponent(detail.tenant.company_name)}`}
-                className="inline-flex items-center gap-1 text-sm font-medium text-violet-600 hover:text-violet-700 dark:text-violet-400"
-              >
-                Open Users
-                <ExternalLink className="h-4 w-4" />
-              </Link>
-            </div>
-
-            <div className="mt-4 space-y-3">
-              {detail.recentUsers.length === 0 ? (
-                <p className="text-sm text-gray-500 dark:text-gray-400">No tenant users yet.</p>
-              ) : (
-                detail.recentUsers.map((user) => (
-                  <div
-                    key={user.id}
-                    className="flex flex-col gap-2 rounded-lg border border-gray-200 p-4 dark:border-gray-700 sm:flex-row sm:items-center sm:justify-between"
-                  >
+          <AdminPanel title="Recent Users" description="Newest people inside this tenant account.">
+            {detail.recentUsers.length === 0 ? (
+              <AdminEmptyState icon={Shield} title="No tenant users" description="No users have been added to this tenant yet." />
+            ) : (
+              <div className="space-y-3">
+                {detail.recentUsers.map((user) => (
+                  <div key={user.id} className="flex flex-col gap-2 rounded-[22px] border border-white/10 bg-white/[0.03] p-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                      <p className="font-medium text-gray-900 dark:text-white">
-                        {user.name || user.email}
-                      </p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">{user.email}</p>
+                      <p className="font-semibold text-[var(--admin-text)]">{user.name || user.email}</p>
+                      <p className="mt-1 text-sm text-[var(--admin-text-soft)]">{user.email}</p>
                     </div>
-
                     <div className="flex flex-wrap items-center gap-2 text-xs">
-                      <span className="rounded-full bg-gray-100 px-2 py-1 font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-300">
+                      <span className="admin-pill rounded-full px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.18em]" data-tone={user.role === 'organizer' ? 'mint' : user.role === 'super_admin' ? 'signal' : 'default'}>
                         {user.role}
                       </span>
-                      {user.totp_enabled ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-1 font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
-                          <Shield className="h-3 w-3" />
-                          MFA
-                        </span>
-                      ) : null}
-                      <span className="text-gray-500 dark:text-gray-400">
-                        Last login: {formatDate(user.last_login_at)}
-                      </span>
+                      {user.totp_enabled ? <span className="admin-pill rounded-full px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.18em]" data-tone="mint">MFA</span> : null}
+                      <span className="text-[var(--admin-text-muted)]">Last login: {formatDate(user.last_login_at)}</span>
                     </div>
                   </div>
-                ))
-              )}
-            </div>
-          </section>
+                ))}
+              </div>
+            )}
+          </AdminPanel>
 
-          <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Recent Events</h2>
-              <Link
-                href={`/admin/events?search=${encodeURIComponent(detail.tenant.company_name)}`}
-                className="inline-flex items-center gap-1 text-sm font-medium text-violet-600 hover:text-violet-700 dark:text-violet-400"
-              >
-                Open Events
-                <ExternalLink className="h-4 w-4" />
-              </Link>
-            </div>
-
-            <div className="mt-4 space-y-3">
-              {detail.recentEvents.length === 0 ? (
-                <p className="text-sm text-gray-500 dark:text-gray-400">No events created yet.</p>
-              ) : (
-                detail.recentEvents.map((event) => (
-                  <div
-                    key={event.id}
-                    className="flex flex-col gap-2 rounded-lg border border-gray-200 p-4 dark:border-gray-700 sm:flex-row sm:items-center sm:justify-between"
-                  >
+          <AdminPanel title="Recent Events" description="The newest event workspaces inside this tenant.">
+            {detail.recentEvents.length === 0 ? (
+              <AdminEmptyState icon={ExternalLink} title="No events created" description="This tenant has not created any events yet." />
+            ) : (
+              <div className="space-y-3">
+                {detail.recentEvents.map((event) => (
+                  <div key={event.id} className="flex flex-col gap-2 rounded-[22px] border border-white/10 bg-white/[0.03] p-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                      <p className="font-medium text-gray-900 dark:text-white">{event.name}</p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {event.short_code ? `/${event.short_code}` : 'No short code'}
-                        {' | '}
-                        Created {formatDate(event.created_at)}
+                      <p className="font-semibold text-[var(--admin-text)]">{event.name}</p>
+                      <p className="mt-1 text-sm text-[var(--admin-text-soft)]">
+                        {event.short_code ? `/${event.short_code}` : 'No short code'} | Created {formatDate(event.created_at)}
                       </p>
                     </div>
-
                     <div className="flex flex-wrap items-center gap-2 text-xs">
-                      <span className="rounded-full bg-gray-100 px-2 py-1 font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-300">
+                      <span className="admin-pill rounded-full px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.18em]" data-tone={event.status === 'active' ? 'mint' : 'default'}>
                         {event.status}
                       </span>
-                      <span className="rounded-full bg-gray-100 px-2 py-1 font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-300">
-                        {event.photo_count} photos
-                      </span>
-                      <Link
-                        href={`/admin/events?search=${encodeURIComponent(event.short_code || event.name)}`}
-                        className="inline-flex items-center gap-1 font-medium text-violet-600 hover:text-violet-700 dark:text-violet-400"
-                      >
+                      <span className="admin-pill rounded-full px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.18em]">{event.photo_count} photos</span>
+                      <Link href={`/admin/events?search=${encodeURIComponent(event.short_code || event.name)}`} className="inline-flex items-center gap-1 font-semibold text-[var(--admin-signal)] hover:text-[#ddceff]">
                         Open
-                        <ExternalLink className="h-3 w-3" />
+                        <ExternalLink className="h-3.5 w-3.5" />
                       </Link>
                     </div>
                   </div>
-                ))
-              )}
-            </div>
-          </section>
+                ))}
+              </div>
+            )}
+          </AdminPanel>
         </div>
 
         <div className="space-y-6">
-          <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Support Actions</h2>
-
-            <label className="mt-4 block text-sm text-gray-600 dark:text-gray-300">
-              Action reason
+          <AdminPanel title="Support Actions" description="Privileged tenant-level controls.">
+            <label className="block">
+              <span className="text-[0.72rem] font-semibold uppercase tracking-[0.2em] text-[var(--admin-text-muted)]">Action reason</span>
               <textarea
                 value={actionReason}
                 onChange={(event) => setActionReason(event.target.value)}
                 rows={3}
                 placeholder="Reason for the next privileged action"
-                className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900"
+                className={`${adminTextareaClassName} mt-2`}
               />
             </label>
 
             <div className="mt-4 grid gap-3">
               <div className="grid gap-2 sm:grid-cols-2">
                 {detail.tenant.status === 'active' ? (
-                  <button
-                    type="button"
-                    disabled={isSystemTenant}
-                    onClick={() => setDialogKind('suspend')}
-                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
+                  <AdminActionButton disabled={isSystemTenant} onClick={() => setDialogKind('suspend')}>
                     <Ban className="h-4 w-4" />
                     Suspend
-                  </button>
+                  </AdminActionButton>
                 ) : (
-                  <button
-                    type="button"
-                    disabled={isSystemTenant}
-                    onClick={() => setDialogKind('activate')}
-                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
+                  <AdminActionButton disabled={isSystemTenant} onClick={() => setDialogKind('activate')} variant="primary">
                     <CheckCircle2 className="h-4 w-4" />
                     Activate
-                  </button>
+                  </AdminActionButton>
                 )}
 
-                <button
-                  type="button"
+                <AdminActionButton
                   disabled={isSystemTenant}
                   onClick={() => setDialogKind('delete')}
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300"
+                  className="border-[rgba(255,108,122,0.2)] bg-[rgba(255,108,122,0.08)] text-[#ff9ba4] hover:border-[rgba(255,108,122,0.35)] hover:bg-[rgba(255,108,122,0.12)] hover:text-[#ffd1d6]"
                 >
                   <Trash2 className="h-4 w-4" />
                   Delete
-                </button>
+                </AdminActionButton>
               </div>
 
               <div className="flex flex-col gap-3 sm:flex-row">
-                <select
-                  value={selectedTier}
-                  disabled={isSystemTenant}
-                  onChange={(event) => setSelectedTier(event.target.value)}
-                  className="h-11 flex-1 rounded-lg border border-gray-300 bg-white px-3 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900"
-                >
+                <select value={selectedTier} disabled={isSystemTenant} onChange={(event) => setSelectedTier(event.target.value)} className={`${adminSelectClassName} flex-1`}>
                   <option value="free">Free</option>
                   <option value="pro">Pro</option>
                   <option value="premium">Premium</option>
                   <option value="enterprise">Enterprise</option>
                   <option value="tester">Tester</option>
                 </select>
-
-                <button
-                  type="button"
-                  disabled={isSystemTenant || selectedTier === detail.tenant.subscription_tier}
-                  onClick={() => setDialogKind('change-tier')}
-                  className="inline-flex min-h-11 items-center justify-center rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
-                >
+                <AdminActionButton disabled={isSystemTenant || selectedTier === detail.tenant.subscription_tier} onClick={() => setDialogKind('change-tier')} variant="primary">
                   Apply Plan
-                </button>
+                </AdminActionButton>
               </div>
             </div>
-          </section>
+          </AdminPanel>
 
-          <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Features & Limits</h2>
-
-            <div className="mt-4 space-y-4 text-sm">
+          <AdminPanel title="Features & Limits" description="Stored overrides and numerical constraints for this tenant.">
+            <div className="space-y-5 text-sm">
               <div>
-                <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                  Features
-                </p>
-                <div className="mt-2 flex flex-wrap gap-2">
+                <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-[var(--admin-text-muted)]">Features</p>
+                <div className="mt-3 flex flex-wrap gap-2">
                   {Object.entries(detail.tenant.features_enabled || {}).length === 0 ? (
-                    <span className="text-sm text-gray-500 dark:text-gray-400">
-                      No feature overrides stored.
-                    </span>
+                    <span className="text-[var(--admin-text-soft)]">No feature overrides stored.</span>
                   ) : (
                     Object.entries(detail.tenant.features_enabled || {}).map(([key, enabled]) => (
-                      <span
-                        key={key}
-                        className={`rounded-full px-2 py-1 text-xs font-medium ${
-                          enabled
-                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
-                            : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
-                        }`}
-                      >
+                      <span key={key} className="admin-pill rounded-full px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.18em]" data-tone={enabled ? 'mint' : 'default'}>
                         {formatLabel(key)}: {enabled ? 'on' : 'off'}
                       </span>
                     ))
@@ -619,60 +411,43 @@ export default function AdminTenantDetailPage() {
               </div>
 
               <div>
-                <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                  Limits
-                </p>
-                <div className="mt-2 space-y-2">
+                <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-[var(--admin-text-muted)]">Limits</p>
+                <div className="mt-3 space-y-2">
                   {Object.entries(detail.tenant.limits || {}).length === 0 ? (
-                    <p className="text-sm text-gray-500 dark:text-gray-400">No limits stored.</p>
+                    <p className="text-[var(--admin-text-soft)]">No limits stored.</p>
                   ) : (
                     Object.entries(detail.tenant.limits || {}).map(([key, value]) => (
-                      <div
-                        key={key}
-                        className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-600 dark:border-gray-700 dark:text-gray-300"
-                      >
-                        <span>{formatLabel(key)}</span>
-                        <span className="font-medium text-gray-900 dark:text-white">
-                          {Array.isArray(value) ? value.join(', ') : String(value)}
-                        </span>
+                      <div key={key} className="flex items-center justify-between gap-3 rounded-[18px] border border-white/10 bg-white/[0.03] px-4 py-3 text-sm">
+                        <span className="text-[var(--admin-text-soft)]">{formatLabel(key)}</span>
+                        <span className="font-semibold text-[var(--admin-text)]">{Array.isArray(value) ? value.join(', ') : String(value)}</span>
                       </div>
                     ))
                   )}
                 </div>
               </div>
             </div>
-          </section>
+          </AdminPanel>
 
-          <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Audit Timeline</h2>
-
-            <div className="mt-4 space-y-3">
-              {detail.recentAudit.length === 0 ? (
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  No tenant-specific audit activity yet.
-                </p>
-              ) : (
-                detail.recentAudit.map((item) => (
-                  <div key={item.id} className="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+          <AdminPanel title="Audit Timeline" description="Recent admin actions affecting this tenant.">
+            {detail.recentAudit.length === 0 ? (
+              <AdminEmptyState icon={AlertCircle} title="No audit activity" description="No tenant-specific audit activity yet." />
+            ) : (
+              <div className="space-y-3">
+                {detail.recentAudit.map((item) => (
+                  <div key={item.id} className="rounded-[22px] border border-white/10 bg-white/[0.03] p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="font-medium text-gray-900 dark:text-white">{item.action}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {item.admin_name || item.admin_email || 'Unknown admin'}
-                        </p>
+                        <p className="font-semibold text-[var(--admin-text)]">{item.action}</p>
+                        <p className="text-xs text-[var(--admin-text-muted)]">{item.admin_name || item.admin_email || 'Unknown admin'}</p>
                       </div>
-                      <span className="text-xs text-gray-500 dark:text-gray-400">
-                        {formatDate(item.created_at)}
-                      </span>
+                      <span className="text-xs text-[var(--admin-text-muted)]">{formatDate(item.created_at)}</span>
                     </div>
-                    {item.reason ? (
-                      <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">{item.reason}</p>
-                    ) : null}
+                    {item.reason ? <p className="mt-3 text-sm text-[var(--admin-text-soft)]">{item.reason}</p> : null}
                   </div>
-                ))
-              )}
-            </div>
-          </section>
+                ))}
+              </div>
+            )}
+          </AdminPanel>
         </div>
       </div>
 
@@ -692,6 +467,6 @@ export default function AdminTenantDetailPage() {
         isPending={isActionPending}
         confirmDisabled={dialogConfig?.confirmDisabled}
       />
-    </div>
+    </AdminPage>
   );
 }

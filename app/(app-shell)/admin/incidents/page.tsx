@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   AlertCircle,
+  ArrowUpRight,
   CheckCircle2,
   ChevronLeft,
   ExternalLink,
@@ -17,11 +18,20 @@ import type {
   AdminIncidentServiceStatus,
   AdminIncidentStatus,
 } from '@/lib/domain/admin/types';
+import {
+  AdminActionButton,
+  AdminEmptyState,
+  AdminLoadingState,
+  AdminPage,
+  AdminPageHeader,
+  AdminPanel,
+  AdminStatCard,
+} from '@/components/admin/control-plane';
 
-const statusTone: Record<AdminIncidentStatus, string> = {
-  healthy: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300',
-  warning: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
-  critical: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
+const statusTone: Record<AdminIncidentStatus, 'mint' | 'signal' | 'default'> = {
+  healthy: 'mint',
+  warning: 'default',
+  critical: 'signal',
 };
 
 function formatStatusLabel(status: AdminIncidentStatus) {
@@ -95,224 +105,219 @@ export default function AdminIncidentsPage() {
   }, []);
 
   if (isLoading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-violet-600 border-t-transparent" />
-      </div>
-    );
+    return <AdminLoadingState label="Loading incidents workspace" />;
   }
 
   if (error || !data) {
     return (
-      <div className="space-y-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white sm:text-3xl">
-              Incidents
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400">
-              Platform health and active risk signals
-            </p>
-          </div>
-          <Link
-            href="/admin"
-            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
-          >
-            <ChevronLeft className="h-4 w-4" />
-            Back to Dashboard
-          </Link>
-        </div>
+      <AdminPage>
+        <AdminPageHeader
+          eyebrow="Platform health"
+          title="Incidents"
+          description="Operational warnings, service state, and failure signals for the control plane."
+          actions={
+            <AdminActionButton href="/admin">
+              <ChevronLeft className="h-4 w-4" />
+              Back to dashboard
+            </AdminActionButton>
+          }
+        />
 
-        <div className="flex h-64 flex-col items-center justify-center gap-3 rounded-xl border border-gray-200 bg-white text-gray-500 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-          <AlertCircle className="h-12 w-12 text-red-400" />
-          <p className="text-sm text-red-600 dark:text-red-400">{error || 'Unable to load incidents workspace'}</p>
-          <button
-            onClick={() => void fetchIncidents()}
-            className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-          >
-            <RefreshCw className="h-4 w-4" />
-            Retry
-          </button>
-        </div>
-      </div>
+        <AdminPanel className="admin-reveal admin-reveal-delay-1">
+          <div className="flex min-h-64 flex-col items-center justify-center gap-4 rounded-[24px] border border-[rgba(255,108,122,0.24)] bg-[rgba(255,108,122,0.08)] px-6 py-10 text-center">
+            <AlertCircle className="h-12 w-12 text-[#ff9ba4]" />
+            <p className="max-w-lg text-sm leading-6 text-[#ffd1d6]">
+              {error || 'Unable to load incidents workspace'}
+            </p>
+            <AdminActionButton onClick={() => void fetchIncidents()}>
+              <RefreshCw className="h-4 w-4" />
+              Retry
+            </AdminActionButton>
+          </div>
+        </AdminPanel>
+      </AdminPage>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white sm:text-3xl">
-            Incidents
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Live operational health for the platform control plane.
-          </p>
-        </div>
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <button
-            onClick={() => void fetchIncidents()}
-            className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
-          >
-            <RefreshCw className="h-4 w-4" />
-            Refresh
-          </button>
-          <Link
-            href="/admin"
-            className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
-          >
-            <ChevronLeft className="h-4 w-4" />
-            Back to Dashboard
-          </Link>
-        </div>
-      </div>
+    <AdminPage>
+      <AdminPageHeader
+        eyebrow="Platform health"
+        title="Incidents"
+        description="A live operational board for service condition, moderation pressure, MFA gaps, and failure traces that need escalation."
+        actions={
+          <>
+            <AdminActionButton onClick={() => void fetchIncidents()}>
+              <RefreshCw className="h-4 w-4" />
+              Refresh
+            </AdminActionButton>
+            <AdminActionButton href="/admin">
+              <ChevronLeft className="h-4 w-4" />
+              Back to dashboard
+            </AdminActionButton>
+          </>
+        }
+      />
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
-        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-          <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Critical Services</p>
-          <p className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">
-            {data.summary.critical_services}
-          </p>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-          <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Warnings</p>
-          <p className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">
-            {data.summary.warning_services}
-          </p>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-          <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Pending Moderation</p>
-          <p className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">
-            {data.summary.pending_moderation}
-          </p>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-          <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Active Events</p>
-          <p className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">
-            {data.summary.active_events}
-          </p>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-          <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Admin MFA Gaps</p>
-          <p className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">
-            {data.summary.admin_mfa_gaps}
-          </p>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-          <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Failed Scans (24h)</p>
-          <p className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">
-            {data.summary.failed_scans_24h}
-          </p>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-          <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Failed Admin Actions (24h)</p>
-          <p className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">
-            {data.summary.failed_admin_actions_24h}
-          </p>
-        </div>
-      </div>
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <AdminStatCard
+          label="Critical Services"
+          value={data.summary.critical_services}
+          detail="Services currently in a state that blocks or threatens operations."
+          icon={ShieldAlert}
+          tone="signal"
+        />
+        <AdminStatCard
+          label="Warnings"
+          value={data.summary.warning_services}
+          detail="Signals that need observation before they become incidents."
+          icon={TriangleAlert}
+        />
+        <AdminStatCard
+          label="Pending Moderation"
+          value={data.summary.pending_moderation}
+          detail="Photos waiting for a human moderation decision."
+          icon={AlertCircle}
+          href="/admin/moderation"
+        />
+        <AdminStatCard
+          label="Active Events"
+          value={data.summary.active_events}
+          detail="Live experiences currently generating activity."
+          icon={CheckCircle2}
+          href="/admin/events"
+          tone="mint"
+        />
+        <AdminStatCard
+          label="Admin MFA Gaps"
+          value={data.summary.admin_mfa_gaps}
+          detail="Accounts that still need stronger protection."
+          icon={ShieldAlert}
+        />
+        <AdminStatCard
+          label="Failed Scans 24h"
+          value={data.summary.failed_scans_24h}
+          detail="Automated scan failures recorded in the last day."
+          icon={AlertCircle}
+        />
+      </section>
 
-      <div className="grid gap-6 xl:grid-cols-[1.3fr_0.9fr]">
-        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Service Status</h2>
-        <div className="mt-4 grid gap-4 lg:grid-cols-2">
-          {[...data.services].sort(compareServiceSeverity).map((service: AdminIncidentServiceStatus) => {
-            const Icon = getStatusIcon(service.status);
+      <section className="grid gap-6 xl:grid-cols-[1.25fr_0.95fr]">
+        <AdminPanel
+          title="Service map"
+          description="Each service surface is ranked by severity so the riskiest state appears first."
+          className="admin-reveal admin-reveal-delay-2"
+        >
+          <div className="grid gap-4 lg:grid-cols-2">
+            {[...data.services].sort(compareServiceSeverity).map((service: AdminIncidentServiceStatus) => {
+              const Icon = getStatusIcon(service.status);
 
-            return (
-              <div
-                key={service.id}
-                className="rounded-xl border border-gray-200 p-4 dark:border-gray-700"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-start gap-3">
-                    <div className={`rounded-lg p-2 ${statusTone[service.status]}`}>
-                      <Icon className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-semibold text-gray-900 dark:text-white">{service.label}</h3>
-                        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusTone[service.status]}`}>
-                          {formatStatusLabel(service.status)}
-                        </span>
+              return (
+                <div
+                  key={service.id}
+                  className="rounded-[24px] border border-white/10 bg-white/[0.03] p-4 transition hover:border-white/16 hover:bg-white/[0.05]"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                      <div
+                        className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-black/15"
+                      >
+                        <Icon className="h-5 w-5 text-[var(--admin-text)]" />
                       </div>
-                      <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">{service.summary}</p>
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="text-lg font-semibold text-[var(--admin-text)]">{service.label}</h3>
+                          <span
+                            className="admin-pill rounded-full px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.18em]"
+                            data-tone={statusTone[service.status]}
+                          >
+                            {formatStatusLabel(service.status)}
+                          </span>
+                        </div>
+                        <p className="mt-2 text-sm leading-6 text-[var(--admin-text-soft)]">{service.summary}</p>
+                      </div>
                     </div>
+                    {service.latency_ms !== null ? (
+                      <span className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-[var(--admin-text-muted)]">
+                        {service.latency_ms}ms
+                      </span>
+                    ) : null}
                   </div>
-                  {service.latency_ms !== null ? (
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
-                      {service.latency_ms}ms
-                    </span>
+
+                  {service.details ? (
+                    <p className="mt-4 text-sm leading-6 text-[var(--admin-text-muted)]">{service.details}</p>
+                  ) : null}
+
+                  {service.href ? (
+                    <div className="mt-5">
+                      <Link
+                        href={service.href}
+                        className="inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--admin-signal)] transition hover:text-[#ddceff]"
+                      >
+                        Open workspace
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </Link>
+                    </div>
                   ) : null}
                 </div>
+              );
+            })}
+          </div>
+        </AdminPanel>
 
-                {service.details ? (
-                  <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">{service.details}</p>
-                ) : null}
-
-                {service.href ? (
-                  <div className="mt-3">
-                    <Link
-                      href={service.href}
-                      className="inline-flex items-center gap-1 text-sm font-medium text-violet-600 hover:text-violet-700 dark:text-violet-400"
-                    >
-                      Open workspace
-                      <ExternalLink className="h-3 w-3" />
-                    </Link>
-                  </div>
-                ) : null}
-              </div>
-            );
-          })}
-        </div>
-        </div>
-
-        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Recent Failures</h2>
+        <AdminPanel
+          title="Recent failures"
+          description="The last recorded admin or scan problems in the trailing 24 hours."
+          aside={
             <Link
               href="/admin/audit"
-              className="inline-flex items-center gap-1 text-sm font-medium text-violet-600 hover:text-violet-700 dark:text-violet-400"
+              className="inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--admin-signal)] transition hover:text-[#ddceff]"
             >
-              Audit Logs
-              <ExternalLink className="h-3 w-3" />
+              Audit logs
+              <ArrowUpRight className="h-4 w-4" />
             </Link>
-          </div>
-
+          }
+          className="admin-reveal admin-reveal-delay-3"
+        >
           {data.recentFailures.length === 0 ? (
-            <div className="mt-4 rounded-xl border border-dashed border-gray-200 px-4 py-10 text-center text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
-              No recent platform failure signals in the last 24 hours.
-            </div>
+            <AdminEmptyState
+              icon={CheckCircle2}
+              title="No recent failures"
+              description="The last 24 hours have not produced platform failure signals."
+            />
           ) : (
-            <div className="mt-4 space-y-3">
+            <div className="space-y-3">
               {data.recentFailures.map((failure) => (
                 <div
                   key={failure.id}
-                  className="rounded-xl border border-gray-200 p-4 dark:border-gray-700"
+                  className="rounded-[24px] border border-white/10 bg-white/[0.03] p-4 transition hover:border-white/16 hover:bg-white/[0.05]"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="font-medium text-gray-900 dark:text-white">{failure.title}</p>
-                      <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
+                      <p className="text-lg font-semibold text-[var(--admin-text)]">{failure.title}</p>
+                      <p className="mt-2 text-sm leading-6 text-[var(--admin-text-soft)]">
                         {failure.description || 'No extra context recorded.'}
                       </p>
                     </div>
-                    <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-900/30 dark:text-red-300">
+                    <span
+                      className="admin-pill rounded-full px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.18em]"
+                      data-tone="signal"
+                    >
                       {failure.type === 'scan_failure' ? 'Scan' : 'Admin'}
                     </span>
                   </div>
 
-                  <div className="mt-3 flex items-center justify-between gap-3">
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                  <div className="mt-4 flex items-center justify-between gap-3">
+                    <span className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-[var(--admin-text-muted)]">
                       {formatFailureTime(failure.created_at)}
                     </span>
                     {failure.href ? (
                       <Link
                         href={failure.href}
-                        className="inline-flex items-center gap-1 text-sm font-medium text-violet-600 hover:text-violet-700 dark:text-violet-400"
+                        className="inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--admin-signal)] transition hover:text-[#ddceff]"
                       >
                         Open
-                        <ExternalLink className="h-3 w-3" />
+                        <ExternalLink className="h-3.5 w-3.5" />
                       </Link>
                     ) : null}
                   </div>
@@ -320,8 +325,8 @@ export default function AdminIncidentsPage() {
               ))}
             </div>
           )}
-        </div>
-      </div>
-    </div>
+        </AdminPanel>
+      </section>
+    </AdminPage>
   );
 }

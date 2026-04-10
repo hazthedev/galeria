@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Albert_Sans, Cormorant_Garamond, Geist_Mono, Geist } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 
@@ -14,6 +14,17 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+});
+
+const adminSans = Albert_Sans({
+  variable: "--font-admin-sans",
+  subsets: ["latin"],
+});
+
+const adminDisplay = Cormorant_Garamond({
+  variable: "--font-admin-display",
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
 });
 
 const themeInitScript = `
@@ -83,7 +94,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} ${adminSans.variable} ${adminDisplay.variable} antialiased`}
+      >
         <Script id="theme-init" strategy="beforeInteractive">
           {themeInitScript}
         </Script>
