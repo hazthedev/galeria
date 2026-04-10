@@ -21,7 +21,6 @@ import {
     Search,
     Shield,
     Siren,
-    ArrowUpRight,
     Sparkles,
 } from 'lucide-react';
 import { BrandMark } from '@/components/landing/BrandMark';
@@ -279,19 +278,6 @@ function UserMenu() {
                         <LogOut className="h-4 w-4" />
                         Logout
                     </AdminActionButton>
-                </div>
-
-                <div className="mt-4 rounded-2xl border border-white/8 bg-black/10 px-3 py-2.5">
-                    <div className="flex items-center justify-between gap-3 text-xs uppercase tracking-[0.24em] text-[var(--admin-text-muted)]">
-                        <span>Mode</span>
-                        <Link href="/organizer" className="inline-flex items-center gap-1 text-[var(--admin-signal)] hover:text-[#ddceff]">
-                            Leave admin
-                            <ArrowUpRight className="h-3.5 w-3.5" />
-                        </Link>
-                    </div>
-                    <p className="mt-2 text-sm leading-6 text-[var(--admin-text-soft)]">
-                        Super admin access lets you move across tenants, support accounts, and platform signals from one place.
-                    </p>
                 </div>
             </div>
         </div>
