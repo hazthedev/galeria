@@ -5,7 +5,8 @@ import {
   createAdminErrorResponse,
   requireAdminRouteAccess,
 } from '@/lib/domain/admin/api';
-import { getAdminIncidents } from '@/lib/services/admin/incidents';
+import { isAdminDatabaseError } from '@/lib/domain/admin/context';
+import { getAdminIncidents, getEmptyAdminIncidentsData } from '@/lib/services/admin/incidents';
 
 export async function GET(request: NextRequest) {
   try {
@@ -18,6 +19,11 @@ export async function GET(request: NextRequest) {
     return createAdminDataResponse(data);
   } catch (error) {
     console.error('[ADMIN_INCIDENTS_GET] Error:', error);
+
+    if (isAdminDatabaseError(error)) {
+      return createAdminDataResponse(getEmptyAdminIncidentsData());
+    }
+
     return createAdminErrorResponse('Failed to load incidents workspace', 'INTERNAL_ERROR');
   }
 }

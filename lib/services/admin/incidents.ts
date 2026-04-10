@@ -6,7 +6,7 @@ import {
   type AdminIncidentServiceStatus,
   type AdminIncidentStatus,
 } from '@/lib/domain/admin/types';
-import { getAdminDb } from '@/lib/domain/admin/context';
+import { getAdminDb, isMissingSchemaResourceError } from '@/lib/domain/admin/context';
 import { healthCheckRedis } from '@/lib/infrastructure/cache/redis';
 import {
   isSupabaseAdminConfigured,
@@ -22,6 +22,24 @@ async function tableExists(name: string): Promise<boolean> {
   );
 
   return Boolean(result.rows[0]?.name);
+}
+
+async function columnExists(tableSchema: string, tableName: string, columnName: string): Promise<boolean> {
+  const db = getAdminDb();
+  const result = await db.query<{ exists: boolean }>(
+    `
+      SELECT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = $1
+          AND table_name = $2
+          AND column_name = $3
+      ) AS exists
+    `,
+    [tableSchema, tableName, columnName]
+  );
+
+  return Boolean(result.rows[0]?.exists);
 }
 
 function buildServiceStatus(
@@ -179,9 +197,42 @@ function getModerationQueueStatus(): AdminIncidentServiceStatus {
   );
 }
 
+export function getEmptyAdminIncidentsData(): AdminIncidentsData {
+  return {
+    summary: {
+      critical_services: 0,
+      warning_services: 0,
+      pending_moderation: 0,
+      active_events: 0,
+      admin_mfa_gaps: 0,
+      failed_scans_24h: 0,
+      failed_admin_actions_24h: 0,
+    },
+    services: [
+      buildServiceStatus(
+        'database',
+        'Database',
+        'warning',
+        'Incident metrics are unavailable.',
+        'The admin incidents workspace is using fallback data because some schema resources are missing.',
+        null
+      ),
+      getAuthStatus(),
+      getRealtimeStatus(),
+      getStorageStatus(),
+      getModerationQueueStatus(),
+    ],
+    recentFailures: [],
+  };
+}
+
 export async function getAdminIncidents(): Promise<AdminIncidentsData> {
   const db = getAdminDb();
-  const hasPhotoScanLogs = await tableExists('public.photo_scan_logs');
+  const [hasPhotoScanLogs, hasAdminAuditLogs, hasTotpEnabledColumn] = await Promise.all([
+    tableExists('public.photo_scan_logs'),
+    tableExists('public.admin_audit_logs'),
+    columnExists('public', 'users', 'totp_enabled'),
+  ]);
 
   const [dbStatus, redisStatus, summaryResult, recentFailures] = await Promise.all([
     (async () => {
@@ -227,131 +278,173 @@ export async function getAdminIncidents(): Promise<AdminIncidentsData> {
             null
         );
     })(),
-    db.query<{
-      pending_moderation: string;
-      active_events: string;
-      admin_mfa_gaps: string;
-      failed_scans_24h: string;
-      failed_admin_actions_24h: string;
-    }>(`
-      SELECT
-        (SELECT COUNT(*) FROM photos WHERE status = 'pending') AS pending_moderation,
-        (SELECT COUNT(*) FROM events WHERE status = 'active') AS active_events,
-        (SELECT COUNT(*) FROM users WHERE totp_enabled = false AND role = 'super_admin') AS admin_mfa_gaps,
-        ${
-          hasPhotoScanLogs
-            ? `(SELECT COUNT(*) FROM photo_scan_logs
-                WHERE created_at >= NOW() - INTERVAL '24 hours'
-                  AND (outcome = 'failed' OR decision = 'error'))`
-            : '0'
-        } AS failed_scans_24h,
-        (SELECT COUNT(*) FROM admin_audit_logs
-          WHERE created_at >= NOW() - INTERVAL '24 hours'
-            AND action LIKE '%.failed') AS failed_admin_actions_24h
-    `),
+    (async () => {
+      try {
+        return await db.query<{
+          pending_moderation: string;
+          active_events: string;
+          admin_mfa_gaps: string;
+          failed_scans_24h: string;
+          failed_admin_actions_24h: string;
+        }>(`
+          SELECT
+            (SELECT COUNT(*) FROM photos WHERE status = 'pending') AS pending_moderation,
+            (SELECT COUNT(*) FROM events WHERE status = 'active') AS active_events,
+            ${
+              hasTotpEnabledColumn
+                ? `(SELECT COUNT(*) FROM users WHERE totp_enabled = false AND role = 'super_admin')`
+                : '0'
+            } AS admin_mfa_gaps,
+            ${
+              hasPhotoScanLogs
+                ? `(SELECT COUNT(*) FROM photo_scan_logs
+                    WHERE created_at >= NOW() - INTERVAL '24 hours'
+                      AND (outcome = 'failed' OR decision = 'error'))`
+                : '0'
+            } AS failed_scans_24h,
+            ${
+              hasAdminAuditLogs
+                ? `(SELECT COUNT(*) FROM admin_audit_logs
+                    WHERE created_at >= NOW() - INTERVAL '24 hours'
+                      AND action LIKE '%.failed')`
+                : '0'
+            } AS failed_admin_actions_24h
+        `);
+      } catch (error) {
+        if (!isMissingSchemaResourceError(error)) {
+          throw error;
+        }
+
+        return {
+          rows: [
+            {
+              pending_moderation: '0',
+              active_events: '0',
+              admin_mfa_gaps: '0',
+              failed_scans_24h: '0',
+              failed_admin_actions_24h: '0',
+            },
+          ],
+        };
+      }
+    })(),
     (async (): Promise<AdminIncidentFailureItem[]> => {
       const failureItems: AdminIncidentFailureItem[] = [];
 
       if (hasPhotoScanLogs) {
-        const scanFailures = await db.query<{
-          id: string;
-          photo_id: string | null;
-          event_id: string;
-          event_name: string | null;
-          created_at: Date | string;
-          reason: string | null;
-          error: string | null;
-        }>(
-          `
-            SELECT
-              l.id,
-              l.photo_id,
-              l.event_id,
-              e.name AS event_name,
-              l.created_at,
-              l.reason,
-              l.error
-            FROM photo_scan_logs l
-            LEFT JOIN events e ON e.id = l.event_id
-            WHERE l.created_at >= NOW() - INTERVAL '24 hours'
-              AND (l.outcome = 'failed' OR l.decision = 'error')
-            ORDER BY l.created_at DESC
-            LIMIT 5
-          `
-        );
+        try {
+          const scanFailures = await db.query<{
+            id: string;
+            photo_id: string | null;
+            event_id: string;
+            event_name: string | null;
+            created_at: Date | string;
+            reason: string | null;
+            error: string | null;
+          }>(
+            `
+              SELECT
+                l.id,
+                l.photo_id,
+                l.event_id,
+                e.name AS event_name,
+                l.created_at,
+                l.reason,
+                l.error
+              FROM photo_scan_logs l
+              LEFT JOIN events e ON e.id = l.event_id
+              WHERE l.created_at >= NOW() - INTERVAL '24 hours'
+                AND (l.outcome = 'failed' OR l.decision = 'error')
+              ORDER BY l.created_at DESC
+              LIMIT 5
+            `
+          );
 
-        failureItems.push(
-          ...scanFailures.rows.map((row) => ({
-            id: `scan-${row.id}`,
-            type: 'scan_failure' as const,
-            title: row.event_name
-              ? `Scan failure in ${row.event_name}`
-              : 'Photo scan failure',
-            description: row.error || row.reason || 'The moderation scan did not complete successfully.',
-            created_at:
-              typeof row.created_at === 'string'
-                ? new Date(row.created_at).toISOString()
-                : row.created_at.toISOString(),
-            href: row.event_id ? `/admin/events/${row.event_id}` : '/admin/moderation',
-          }))
-        );
+          failureItems.push(
+            ...scanFailures.rows.map((row) => ({
+              id: `scan-${row.id}`,
+              type: 'scan_failure' as const,
+              title: row.event_name
+                ? `Scan failure in ${row.event_name}`
+                : 'Photo scan failure',
+              description: row.error || row.reason || 'The moderation scan did not complete successfully.',
+              created_at:
+                typeof row.created_at === 'string'
+                  ? new Date(row.created_at).toISOString()
+                  : row.created_at.toISOString(),
+              href: row.event_id ? `/admin/events/${row.event_id}` : '/admin/moderation',
+            }))
+          );
+        } catch (error) {
+          if (!isMissingSchemaResourceError(error)) {
+            throw error;
+          }
+        }
       }
 
-      const adminFailures = await db.query<{
-        id: string;
-        action: string;
-        target_type: string | null;
-        target_id: string | null;
-        created_at: Date | string;
-        reason: string | null;
-        new_values: Record<string, unknown> | null;
-      }>(
-        `
-          SELECT
-            id,
-            action,
-            target_type,
-            target_id,
-            created_at,
-            reason,
-            new_values
-          FROM admin_audit_logs
-          WHERE created_at >= NOW() - INTERVAL '24 hours'
-            AND action LIKE '%.failed'
-          ORDER BY created_at DESC
-          LIMIT 5
-        `
-      );
+      if (hasAdminAuditLogs) {
+        try {
+          const adminFailures = await db.query<{
+            id: string;
+            action: string;
+            target_type: string | null;
+            target_id: string | null;
+            created_at: Date | string;
+            reason: string | null;
+            new_values: Record<string, unknown> | null;
+          }>(
+            `
+              SELECT
+                id,
+                action,
+                target_type,
+                target_id,
+                created_at,
+                reason,
+                new_values
+              FROM admin_audit_logs
+              WHERE created_at >= NOW() - INTERVAL '24 hours'
+                AND action LIKE '%.failed'
+              ORDER BY created_at DESC
+              LIMIT 5
+            `
+          );
 
-      failureItems.push(
-        ...adminFailures.rows.map((row) => {
-          const errorValue =
-            row.new_values && typeof row.new_values.error === 'string'
-              ? row.new_values.error
-              : null;
+          failureItems.push(
+            ...adminFailures.rows.map((row) => {
+              const errorValue =
+                row.new_values && typeof row.new_values.error === 'string'
+                  ? row.new_values.error
+                  : null;
 
-          let href: string | null = '/admin/audit';
-          if (row.target_type === 'event' && row.target_id) {
-            href = `/admin/events/${row.target_id}`;
-          } else if (row.target_type === 'tenant' && row.target_id) {
-            href = `/admin/tenants/${row.target_id}`;
-          } else if (row.target_type === 'user' && row.target_id) {
-            href = `/admin/users/${row.target_id}`;
+              let href: string | null = '/admin/audit';
+              if (row.target_type === 'event' && row.target_id) {
+                href = `/admin/events/${row.target_id}`;
+              } else if (row.target_type === 'tenant' && row.target_id) {
+                href = `/admin/tenants/${row.target_id}`;
+              } else if (row.target_type === 'user' && row.target_id) {
+                href = `/admin/users/${row.target_id}`;
+              }
+
+              return {
+                id: `audit-${row.id}`,
+                type: 'admin_action_failure' as const,
+                title: `Admin action failed: ${row.action.replace('.failed', '')}`,
+                description: errorValue || row.reason || 'A privileged admin action failed.',
+                created_at:
+                  typeof row.created_at === 'string'
+                    ? new Date(row.created_at).toISOString()
+                    : row.created_at.toISOString(),
+                href,
+              };
+            })
+          );
+        } catch (error) {
+          if (!isMissingSchemaResourceError(error)) {
+            throw error;
           }
-
-          return {
-            id: `audit-${row.id}`,
-            type: 'admin_action_failure' as const,
-            title: `Admin action failed: ${row.action.replace('.failed', '')}`,
-            description: errorValue || row.reason || 'A privileged admin action failed.',
-            created_at:
-              typeof row.created_at === 'string'
-                ? new Date(row.created_at).toISOString()
-                : row.created_at.toISOString(),
-            href,
-          };
-        })
-      );
+        }
+      }
 
       return failureItems
         .sort((left, right) => new Date(right.created_at).getTime() - new Date(left.created_at).getTime())
