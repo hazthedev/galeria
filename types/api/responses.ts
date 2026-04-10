@@ -4,6 +4,7 @@
 
 import type { IUser } from '../domain/user';
 import type { ITenant } from '../domain/tenant';
+import type { ISessionData } from './auth';
 
 export interface IAuthResponseSession {
   success: boolean;
@@ -16,6 +17,7 @@ export interface IAuthResponseSession {
 export interface IMeResponse {
   user: IUser;
   tenant?: ITenant;
+  session?: ISessionData | null;
 }
 
 export type ApiError = {

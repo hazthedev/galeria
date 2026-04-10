@@ -18,6 +18,9 @@ export type AuditAction =
   | 'user.role_changed'
   | 'user.tier_changed'
   | 'user.password_reset'
+  | 'user.mfa_disabled'
+  | 'user.impersonation_started'
+  | 'user.impersonation_ended'
   | 'tenant.created'
   | 'tenant.updated'
   | 'tenant.deleted'
@@ -25,6 +28,12 @@ export type AuditAction =
   | 'tenant.activated'
   | 'tenant.plan_changed'
   | 'event.deleted'
+  | 'event.status_changed'
+  | 'event.uploads_enabled'
+  | 'event.uploads_disabled'
+  | 'photo.approved'
+  | 'photo.rejected'
+  | 'photo.deleted'
   | 'settings.updated'
   | 'moderation.enabled'
   | 'moderation.disabled'
@@ -43,7 +52,7 @@ export type AuditAction =
 export interface AuditLogOptions {
   adminId: string;
   action: AuditAction;
-  targetType?: 'user' | 'tenant' | 'event' | 'settings' | 'session' | 'moderation';
+  targetType?: 'user' | 'tenant' | 'event' | 'photo' | 'settings' | 'session' | 'moderation';
   targetId?: string;
   oldValues?: Record<string, unknown>;
   newValues?: Record<string, unknown>;

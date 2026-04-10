@@ -51,12 +51,19 @@ const actionLabels: Record<string, string> = {
   'user.deleted': 'User Deleted',
   'user.role_changed': 'Role Changed',
   'user.tier_changed': 'Plan Changed',
+  'user.password_reset': 'Password Reset Sent',
+  'user.mfa_disabled': 'User MFA Disabled',
+  'user.impersonation_started': 'Support Mode Started',
+  'user.impersonation_ended': 'Support Mode Ended',
   'tenant.created': 'Tenant Created',
   'tenant.deleted': 'Tenant Deleted',
   'tenant.suspended': 'Tenant Suspended',
   'tenant.activated': 'Tenant Activated',
   'tenant.plan_changed': 'Plan Changed',
   'tenant.updated': 'Tenant Updated',
+  'photo.approved': 'Photo Approved',
+  'photo.rejected': 'Photo Rejected',
+  'photo.deleted': 'Photo Deleted',
   'admin.mfa_enabled': 'MFA Enabled',
   'admin.mfa_disabled': 'MFA Disabled',
 };
@@ -83,11 +90,13 @@ export default function AuditLogsPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [actionFilter, setActionFilter] = useState('all');
   const [targetTypeFilter, setTargetTypeFilter] = useState('all');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     fetchLogs();
-  }, [currentPage, actionFilter, targetTypeFilter]);
+  }, [currentPage, actionFilter, targetTypeFilter, dateFrom, dateTo]);
 
   const fetchLogs = async () => {
     setIsLoading(true);
@@ -101,6 +110,12 @@ export default function AuditLogsPage() {
       }
       if (targetTypeFilter !== 'all') {
         params.append('targetType', targetTypeFilter);
+      }
+      if (dateFrom) {
+        params.append('from', dateFrom);
+      }
+      if (dateTo) {
+        params.append('to', dateTo);
       }
 
       const response = await fetch(`/api/admin/audit?${params}`, {
@@ -194,6 +209,30 @@ export default function AuditLogsPage() {
             <option key={type} value={type}>{targetTypeLabels[type] || type}</option>
           ))}
         </select>
+
+        <div className="flex items-center gap-2">
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => {
+              setDateFrom(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="h-11 rounded-lg border border-gray-300 bg-white px-3 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800"
+            placeholder="From"
+          />
+          <span className="text-sm text-gray-400">to</span>
+          <input
+            type="date"
+            value={dateTo}
+            onChange={(e) => {
+              setDateTo(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="h-11 rounded-lg border border-gray-300 bg-white px-3 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800"
+            placeholder="To"
+          />
+        </div>
       </div>
 
       {/* Audit Logs List */}

@@ -21,7 +21,7 @@ export async function GET(
   const { eventId } = await params;
   try {
     const headers = request.headers;
-    const { userId, tenantId: authTenantId, payload } = await requireAuthForApi(headers);
+    const { userId, tenantId: authTenantId, payload } = await requireAuthForApi(headers, request.method);
     const db = getTenantDb(authTenantId);
 
     const event = await db.findOne<{ id: string; organizer_id: string }>('events', { id: eventId });

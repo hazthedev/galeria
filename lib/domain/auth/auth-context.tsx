@@ -39,6 +39,7 @@ interface AuthProviderProps {
 
 interface MeResponse {
   user: IUser | null;
+  session?: ISessionData | null;
   tenant?: unknown;
   message?: string;
 }
@@ -119,18 +120,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const data: MeResponse = await response.json();
         if (data.user) {
           setUser(data.user);
-          // Create minimal session object from user data
-          setSession({
-            userId: data.user.id,
-            tenantId: data.user.tenant_id,
-            role: data.user.role,
-            email: data.user.email,
-            name: data.user.name,
-            createdAt: Date.now(),
-            lastActivity: Date.now(),
-            expiresAt: Date.now() + 604800000, // 7 days
-            rememberMe: false,
-          });
+          setSession(
+            data.session ?? {
+              userId: data.user.id,
+              tenantId: data.user.tenant_id,
+              role: data.user.role,
+              email: data.user.email,
+              name: data.user.name,
+              createdAt: Date.now(),
+              lastActivity: Date.now(),
+              expiresAt: Date.now() + 604800000,
+              rememberMe: false,
+            }
+          );
         } else {
           setUser(null);
           setSession(null);

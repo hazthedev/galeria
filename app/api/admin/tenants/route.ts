@@ -4,13 +4,18 @@
 // Super admin endpoints for managing all platform tenants
 
 import { NextRequest, NextResponse } from 'next/server';
-import { requireSuperAdmin } from '@/middleware/auth';
-import { getTenantDb } from '@/lib/infrastructure/database/db';
-import { SYSTEM_TENANT_ID } from '@/lib/constants/tenants';
+import {
+  createAdminDataResponse,
+  createAdminErrorResponse,
+  createAdminPaginatedResponse,
+  requireAdminRouteAccess,
+} from '@/lib/domain/admin/api';
 import { logSimpleAdminAction } from '@/lib/audit/middleware';
-import crypto from 'crypto';
-
-type TenantStatus = 'active' | 'suspended' | 'trialing';
+import {
+  createAdminTenant,
+  getAdminTenantBySlug,
+  listAdminTenants,
+} from '@/lib/services/admin/tenants';
 
 /**
  * GET /api/admin/tenants
@@ -18,78 +23,28 @@ type TenantStatus = 'active' | 'suspended' | 'trialing';
  */
 export async function GET(request: NextRequest) {
   try {
-    const auth = await requireSuperAdmin(request);
-    if (auth instanceof NextResponse) return auth;
+    const access = await requireAdminRouteAccess(request);
+    if (access instanceof NextResponse) return access;
 
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1', 10);
     const limit = Math.min(parseInt(searchParams.get('limit') || '20', 10), 100);
     const status = searchParams.get('status'); // active, suspended, all
     const tier = searchParams.get('tier'); // free, pro, premium, enterprise
+    const search = searchParams.get('search');
 
-    const offset = (page - 1) * limit;
-    const db = getTenantDb(SYSTEM_TENANT_ID);
-
-    // Build query conditions
-    let whereClause = '1=1';
-    const params: unknown[] = [];
-    let paramIndex = 1;
-
-    if (status && status !== 'all') {
-      whereClause += ` AND t.status = $${paramIndex++}`;
-      params.push(status);
-    }
-
-    if (tier && tier !== 'all') {
-      whereClause += ` AND t.subscription_tier = $${paramIndex++}`;
-      params.push(tier);
-    }
-
-    const tenantsResult = await db.query(
-      `SELECT
-        t.id,
-        t.company_name,
-        t.slug,
-        t.subscription_tier,
-        t.status,
-        t.created_at,
-        t.updated_at,
-        COUNT(DISTINCT e.id) FILTER (WHERE e.id IS NOT NULL) as event_count,
-        COUNT(DISTINCT u.id) FILTER (WHERE u.id IS NOT NULL) as user_count,
-        (SELECT COUNT(*) FROM photos p WHERE p.event_id IN (SELECT id FROM events WHERE tenant_id = t.id)) as photo_count
-      FROM tenants t
-      LEFT JOIN events e ON e.tenant_id = t.id
-      LEFT JOIN users u ON u.tenant_id = t.id
-      WHERE ${whereClause}
-      GROUP BY t.id
-      ORDER BY t.created_at DESC
-      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
-      [...params, limit, offset]
-    );
-
-    // Get total count
-    const countResult = await db.query(
-      `SELECT COUNT(*) as count FROM tenants t WHERE ${whereClause}`,
-      params.slice(0, paramIndex - 1)
-    );
-
-    const total = Number(countResult.rows[0]?.count || 0);
-
-    return NextResponse.json({
-      data: tenantsResult.rows,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
+    const result = await listAdminTenants({
+      page,
+      limit,
+      status,
+      tier,
+      search,
     });
+
+    return createAdminPaginatedResponse(result.items, result.pagination);
   } catch (error) {
     console.error('[Admin Tenants API] Failed to load tenants:', error);
-    return NextResponse.json(
-      { error: 'Failed to load tenants', code: 'INTERNAL_ERROR' },
-      { status: 500 }
-    );
+    return createAdminErrorResponse('Failed to load tenants', 'INTERNAL_ERROR');
   }
 }
 
@@ -99,8 +54,8 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const auth = await requireSuperAdmin(request);
-    if (auth instanceof NextResponse) return auth;
+    const access = await requireAdminRouteAccess(request);
+    if (access instanceof NextResponse) return access;
 
     const body = await request.json();
     const { company_name, slug, subscription_tier = 'free', status = 'active' } = body;
@@ -127,42 +82,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const db = getTenantDb(SYSTEM_TENANT_ID);
-
-    // Check if slug exists
-    const existing = await db.findOne('tenants', { slug });
+    const existing = await getAdminTenantBySlug(slug);
     if (existing) {
-      return NextResponse.json(
-        { error: 'Slug already exists', code: 'SLUG_EXISTS' },
-        { status: 409 }
-      );
+      return createAdminErrorResponse('Slug already exists', 'VALIDATION_ERROR', 409);
     }
 
-    // Create tenant
-    const tenantId = crypto.randomUUID();
-    const tenant = await db.insert('tenants', {
-      id: tenantId,
+    const tenant = await createAdminTenant({
       company_name,
       slug,
       subscription_tier,
       status,
-      created_at: new Date(),
-      updated_at: new Date(),
     });
 
-    // Log audit trail
-    await logSimpleAdminAction(request, auth.user, 'tenant.created', {
-      targetId: tenantId,
+    await logSimpleAdminAction(request, access.auth.user, 'tenant.created', {
+      targetId: tenant.id,
       targetType: 'tenant',
       reason: `Created tenant: ${company_name} (${slug})`,
     });
 
-    return NextResponse.json({ data: tenant }, { status: 201 });
+    return createAdminDataResponse(tenant, { status: 201 });
   } catch (error) {
     console.error('[Admin Tenants API] Failed to create tenant:', error);
-    return NextResponse.json(
-      { error: 'Failed to create tenant', code: 'INTERNAL_ERROR' },
-      { status: 500 }
-    );
+    return createAdminErrorResponse('Failed to create tenant', 'INTERNAL_ERROR');
   }
 }

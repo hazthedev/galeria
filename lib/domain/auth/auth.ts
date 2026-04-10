@@ -490,7 +490,20 @@ export async function verifyMagicLinkToken(
  * Authenticate API request and return user info
  * Used by photo moderation endpoints
  */
-export async function requireAuthForApi(headers: Headers): Promise<{
+function isWriteMethod(method: string): boolean {
+  return !['GET', 'HEAD', 'OPTIONS'].includes(method.toUpperCase());
+}
+
+export function isReadOnlyImpersonationSession(
+  session: { impersonation?: { readOnly: boolean } } | null | undefined
+): boolean {
+  return Boolean(session?.impersonation?.readOnly);
+}
+
+export async function requireAuthForApi(
+  headers: Headers,
+  method: string = 'GET'
+): Promise<{
   payload: IJWTPayload;
   userId: string;
   tenantId: string;
@@ -520,6 +533,13 @@ export async function requireAuthForApi(headers: Headers): Promise<{
     throw new Error('Authentication required');
   }
 
+  if (
+    session.session.impersonation?.readOnly &&
+    isWriteMethod(method)
+  ) {
+    throw new Error('READ_ONLY_IMPERSONATION');
+  }
+
   const payload: IJWTPayload = {
     sub: session.user.id,
     tenant_id: session.user.tenant_id,
@@ -542,7 +562,8 @@ export interface EventModeratorAccessRecord {
 
 export async function requireEventModeratorAccess(
   headers: Headers,
-  eventId: string
+  eventId: string,
+  method: string = 'GET'
 ): Promise<{
   payload: IJWTPayload;
   userId: string;
@@ -550,7 +571,7 @@ export async function requireEventModeratorAccess(
   db: ReturnType<typeof getTenantDb>;
   event: EventModeratorAccessRecord;
 }> {
-  const auth = await requireAuthForApi(headers);
+  const auth = await requireAuthForApi(headers, method);
 
   if (!hasModeratorRole(auth.payload.role)) {
     throw new Error('Forbidden');

@@ -80,48 +80,66 @@ function DefaultEventThemeSection({ settings, dispatch }: SettingsSectionProps) 
       <div className="mt-4 grid gap-4 text-sm sm:grid-cols-2">
         <label className="flex flex-col gap-2 text-gray-600 dark:text-gray-300">
           <span>Primary color</span>
-          <input
-            type="text"
-            value={theme.primary_color}
-            onChange={(event) =>
-              dispatch({
-                type: 'set-theme-field',
-                field: 'primary_color',
-                value: event.target.value,
-              })
-            }
-            className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900"
-          />
+          <div className="flex items-center gap-2">
+            <span
+              className="h-9 w-9 shrink-0 rounded border border-gray-300 dark:border-gray-600"
+              style={{ backgroundColor: theme.primary_color }}
+            />
+            <input
+              type="text"
+              value={theme.primary_color}
+              onChange={(event) =>
+                dispatch({
+                  type: 'set-theme-field',
+                  field: 'primary_color',
+                  value: event.target.value,
+                })
+              }
+              className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900"
+            />
+          </div>
         </label>
         <label className="flex flex-col gap-2 text-gray-600 dark:text-gray-300">
           <span>Secondary color</span>
-          <input
-            type="text"
-            value={theme.secondary_color}
-            onChange={(event) =>
-              dispatch({
-                type: 'set-theme-field',
-                field: 'secondary_color',
-                value: event.target.value,
-              })
-            }
-            className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900"
-          />
+          <div className="flex items-center gap-2">
+            <span
+              className="h-9 w-9 shrink-0 rounded border border-gray-300 dark:border-gray-600"
+              style={{ backgroundColor: theme.secondary_color }}
+            />
+            <input
+              type="text"
+              value={theme.secondary_color}
+              onChange={(event) =>
+                dispatch({
+                  type: 'set-theme-field',
+                  field: 'secondary_color',
+                  value: event.target.value,
+                })
+              }
+              className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900"
+            />
+          </div>
         </label>
         <label className="flex flex-col gap-2 text-gray-600 dark:text-gray-300">
           <span>Background</span>
-          <input
-            type="text"
-            value={theme.background}
-            onChange={(event) =>
-              dispatch({
-                type: 'set-theme-field',
-                field: 'background',
-                value: event.target.value,
-              })
-            }
-            className="rounded border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900"
-          />
+          <div className="flex items-center gap-2">
+            <span
+              className="h-9 w-9 shrink-0 rounded border border-gray-300 dark:border-gray-600"
+              style={{ backgroundColor: theme.background }}
+            />
+            <input
+              type="text"
+              value={theme.background}
+              onChange={(event) =>
+                dispatch({
+                  type: 'set-theme-field',
+                  field: 'background',
+                  value: event.target.value,
+                })
+              }
+              className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900"
+            />
+          </div>
         </label>
         <label className="flex flex-col gap-2 text-gray-600 dark:text-gray-300">
           <span>Frame template</span>

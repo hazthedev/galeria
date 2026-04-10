@@ -4,7 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantDb } from '@/lib/db';
-import { verifyAccessToken } from '@/lib/domain/auth/auth';
+import { isReadOnlyImpersonationSession, verifyAccessToken } from '@/lib/domain/auth/auth';
 import { extractSessionId, validateSession } from '@/lib/domain/auth/session';
 import { generateSlug, generateEventUrl } from '@/lib/utils';
 import { isReservedShortCode } from '@/lib/shared/short-codes';
@@ -94,6 +94,16 @@ export async function PATCH(
         { error: 'Authentication required', code: 'AUTH_REQUIRED' },
         { status: 401 }
       );
+    }
+
+    if (sessionResult.sessionId) {
+      const supportSession = await validateSession(sessionResult.sessionId, false);
+      if (supportSession.valid && supportSession.session && isReadOnlyImpersonationSession(supportSession.session)) {
+        return NextResponse.json(
+          { error: 'Support mode is read-only', code: 'READ_ONLY_IMPERSONATION' },
+          { status: 403 }
+        );
+      }
     }
 
     const updates: IEventUpdate = await request.json();
@@ -249,6 +259,16 @@ export async function DELETE(
         { error: 'Authentication required', code: 'AUTH_REQUIRED' },
         { status: 401 }
       );
+    }
+
+    if (sessionResult.sessionId) {
+      const supportSession = await validateSession(sessionResult.sessionId, false);
+      if (supportSession.valid && supportSession.session && isReadOnlyImpersonationSession(supportSession.session)) {
+        return NextResponse.json(
+          { error: 'Support mode is read-only', code: 'READ_ONLY_IMPERSONATION' },
+          { status: 403 }
+        );
+      }
     }
 
     const db = getTenantDb(tenantId);

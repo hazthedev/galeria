@@ -16,35 +16,10 @@ import {
   ChevronLeft,
   ChevronRight,
   ExternalLink,
+  AlertCircle,
+  RefreshCw,
 } from 'lucide-react';
-import { toast } from 'sonner';
-
-interface Event {
-  id: string;
-  tenant_id: string;
-  name: string;
-  short_code: string;
-  status: string;
-  start_date: string;
-  end_date: string;
-  settings: Record<string, unknown>;
-  created_at: string;
-  company_name: string;
-  tenant_slug: string;
-  photo_count: number;
-  guest_count: number;
-  attendance_count: number;
-}
-
-interface EventsResponse {
-  data: Event[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
-}
+import type { AdminEventListItem } from '@/lib/domain/admin/types';
 
 const statusLabels: Record<string, string> = {
   active: 'Active',
@@ -59,8 +34,9 @@ const statusColors: Record<string, string> = {
 };
 
 export default function AdminEventsPage() {
-  const [events, setEvents] = useState<Event[]>([]);
+  const [events, setEvents] = useState<AdminEventListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [statusFilter, setStatusFilter] = useState('all');
@@ -73,6 +49,7 @@ export default function AdminEventsPage() {
 
   const fetchEvents = async () => {
     setIsLoading(true);
+    setError(null);
     try {
       const params = new URLSearchParams({
         page: currentPage.toString(),
@@ -93,15 +70,15 @@ export default function AdminEventsPage() {
       });
 
       if (response.ok) {
-        const data: EventsResponse = await response.json();
+        const data = await response.json();
         setEvents(data.data || []);
         setTotalPages(data.pagination.totalPages);
       } else {
-        toast.error('Failed to load events');
+        setError('Failed to load events. The server returned an error.');
       }
     } catch (error) {
       console.error('Failed to fetch events:', error);
-      toast.error('Failed to load events');
+      setError('Failed to load events. Please check your connection and try again.');
     } finally {
       setIsLoading(false);
     }
@@ -120,7 +97,7 @@ export default function AdminEventsPage() {
 
   // Extract unique tenants from events for filter
   const uniqueTenants = Array.from(
-    new Map(events.map(e => [e.tenant_id, { id: e.tenant_id, name: e.company_name }])).values()
+    new Map(events.map((event) => [event.tenant_id, { id: event.tenant_id, name: event.tenant_name }])).values()
   );
 
   return (
@@ -197,6 +174,18 @@ export default function AdminEventsPage() {
           <div className="flex h-64 items-center justify-center">
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-violet-600 border-t-transparent" />
           </div>
+        ) : error ? (
+          <div className="flex h-64 flex-col items-center justify-center gap-3 text-gray-500">
+            <AlertCircle className="h-12 w-12 text-red-400" />
+            <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+            <button
+              onClick={fetchEvents}
+              className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Retry
+            </button>
+          </div>
         ) : events.length === 0 ? (
           <div className="flex h-64 flex-col items-center justify-center text-gray-500">
             <Calendar className="mb-2 h-12 w-12 opacity-50" />
@@ -227,13 +216,13 @@ export default function AdminEventsPage() {
                           <p className="font-medium text-gray-900 dark:text-white">
                             {event.name}
                           </p>
-                          <p className="text-sm text-gray-500">{event.short_code}</p>
+                          <p className="text-sm text-gray-500">{event.short_code || 'No short code'}</p>
                         </div>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                           <Building2 className="h-4 w-4" />
-                          <span>{event.company_name}</span>
+                          <span>{event.tenant_name}</span>
                         </div>
                       </td>
                       <td className="px-4 py-3">
@@ -258,21 +247,31 @@ export default function AdminEventsPage() {
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
                         <div>
-                          <p>{formatDate(event.start_date)}</p>
-                          {event.end_date && event.end_date !== event.start_date && (
-                            <p className="text-xs text-gray-400">to {formatDate(event.end_date)}</p>
+                          <p>{formatDate(event.event_date)}</p>
+                          {event.expires_at && event.expires_at !== event.event_date && (
+                            <p className="text-xs text-gray-400">to {formatDate(event.expires_at)}</p>
                           )}
                         </div>
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <Link
-                          href={`/e/${event.short_code}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-sm text-violet-600 hover:text-violet-700 dark:text-violet-400"
-                        >
-                          View <ExternalLink className="h-3 w-3" />
-                        </Link>
+                        <div className="flex items-center justify-end gap-3">
+                          <Link
+                            href={`/admin/events/${event.id}`}
+                            className="inline-flex items-center gap-1 text-sm text-violet-600 hover:text-violet-700 dark:text-violet-400"
+                          >
+                            View 360 <ExternalLink className="h-3 w-3" />
+                          </Link>
+                          {event.short_code ? (
+                            <Link
+                              href={`/e/${event.short_code}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-700 dark:text-gray-300"
+                            >
+                              Guest Page <ExternalLink className="h-3 w-3" />
+                            </Link>
+                          ) : null}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -292,7 +291,7 @@ export default function AdminEventsPage() {
                       <p className="font-medium text-gray-900 dark:text-white truncate">
                         {event.name}
                       </p>
-                      <p className="text-sm text-gray-500">{event.short_code}</p>
+                      <p className="text-sm text-gray-500">{event.short_code || 'No short code'}</p>
                     </div>
                     <span className={`ml-2 inline-flex shrink-0 rounded-full px-2 py-1 text-xs font-medium ${statusColors[event.status] || statusColors.ended}`}>
                       {statusLabels[event.status] || event.status}
@@ -302,7 +301,7 @@ export default function AdminEventsPage() {
                   <div className="mb-3 text-sm text-gray-600 dark:text-gray-400">
                     <div className="flex items-center gap-2">
                       <Building2 className="h-4 w-4" />
-                      <span>{event.company_name}</span>
+                      <span>{event.tenant_name}</span>
                     </div>
                   </div>
 
@@ -323,18 +322,26 @@ export default function AdminEventsPage() {
 
                   <div className="mt-3 text-sm text-gray-600 dark:text-gray-400">
                     <span className="text-gray-500 dark:text-gray-500">Event Date</span>
-                    <p className="mt-1">{formatDate(event.start_date)}</p>
+                    <p className="mt-1">{formatDate(event.event_date)}</p>
                   </div>
 
-                  <div className="mt-3">
+                  <div className="mt-3 grid gap-2">
                     <Link
-                      href={`/e/${event.short_code}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                      href={`/admin/events/${event.id}`}
                       className="inline-flex w-full items-center justify-center gap-1 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-center text-sm font-medium text-violet-700 hover:bg-violet-100 dark:border-violet-900/30 dark:bg-violet-900/20 dark:text-violet-400 dark:hover:bg-violet-900/30"
                     >
-                      View Event <ExternalLink className="h-3 w-3" />
+                      View Event 360 <ExternalLink className="h-3 w-3" />
                     </Link>
+                    {event.short_code ? (
+                      <Link
+                        href={`/e/${event.short_code}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex w-full items-center justify-center gap-1 rounded-lg border border-gray-200 px-3 py-2 text-center text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-700"
+                      >
+                        Open Guest Page <ExternalLink className="h-3 w-3" />
+                      </Link>
+                    ) : null}
                   </div>
                 </div>
               ))}

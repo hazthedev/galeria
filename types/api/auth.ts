@@ -37,6 +37,16 @@ export interface ISessionData {
   ipAddress?: string;
   userAgent?: string;
   rememberMe: boolean;
+  impersonation?: {
+    actorUserId: string;
+    actorTenantId: string;
+    actorEmail: string;
+    actorName: string;
+    actorRole: UserRole;
+    actorSessionId: string;
+    startedAt: number;
+    readOnly: boolean;
+  };
 }
 
 export interface ISessionValidationResult {

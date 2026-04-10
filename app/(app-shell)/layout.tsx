@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { SupportModeBanner } from "@/components/admin/SupportModeBanner";
 import { AuthProvider } from "@/lib/auth-context";
 import { RealtimeProvider } from "@/lib/realtime/client";
 import { Toaster } from "sonner";
@@ -11,6 +12,7 @@ export default function AppShellLayout({
   return (
     <AuthProvider>
       <RealtimeProvider>
+        <SupportModeBanner />
         {children}
         <Toaster
           position="top-right"

@@ -19,7 +19,7 @@ export async function PATCH(
     const headers = request.headers;
 
     // Authenticate and get user info
-    const { payload, userId, tenantId: authTenantId } = await requireAuthForApi(headers);
+    const { payload, userId, tenantId: authTenantId } = await requireAuthForApi(headers, request.method);
 
     // Verify access
     const { isOwner, isAdmin } = await verifyPhotoModerationAccess(
@@ -87,6 +87,13 @@ export async function PATCH(
       if (errorMessage.includes('Insufficient permissions')) {
         return NextResponse.json(
           { error: 'Insufficient permissions', code: 'FORBIDDEN' },
+          { status: 403 }
+        );
+      }
+
+      if (errorMessage.includes('READ_ONLY_IMPERSONATION')) {
+        return NextResponse.json(
+          { error: 'Support mode is read-only', code: 'READ_ONLY_IMPERSONATION' },
           { status: 403 }
         );
       }

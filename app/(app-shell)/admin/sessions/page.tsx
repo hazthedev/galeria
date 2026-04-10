@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ConfirmDialog, useConfirmDialog } from '@/components/admin/ConfirmDialog';
+import type { AdminSessionsData } from '@/lib/domain/admin/types';
 
 interface SessionData {
   sessionId: string;
@@ -37,15 +38,8 @@ interface SessionData {
   deviceInfo: string;
 }
 
-interface SessionsResponse {
-  data: SessionData[];
-  grouped: Record<string, SessionData[]>;
-  total: number;
-  uniqueUsers: number;
-}
-
 export default function SessionsPage() {
-  const [sessions, setSessions] = useState<SessionsResponse | null>(null);
+  const [sessions, setSessions] = useState<AdminSessionsData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const confirm = useConfirmDialog();
@@ -63,7 +57,7 @@ export default function SessionsPage() {
 
       if (response.ok) {
         const data = await response.json();
-        setSessions(data);
+        setSessions(data.data || null);
       } else {
         toast.error('Failed to load sessions');
       }
@@ -296,6 +290,8 @@ export default function SessionsPage() {
                           <span className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
                             session.ttl < 3600
                               ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                              : session.ttl < 86400
+                              ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
                               : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
                           }`}>
                             {formatTTL(session.ttl)}

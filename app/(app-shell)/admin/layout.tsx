@@ -17,6 +17,9 @@ import {
     LogOut,
     Monitor,
     FileText,
+    Search,
+    Shield,
+    Siren,
 } from 'lucide-react';
 import { BrandMark } from '@/components/landing/BrandMark';
 import clsx from 'clsx';
@@ -26,9 +29,12 @@ import { useEffect, useRef, useState } from 'react';
 
 const SIDEBAR_ITEMS = [
     { href: '/admin', label: 'Overview', icon: LayoutDashboard },
+    { href: '/admin/search', label: 'Search', icon: Search },
     { href: '/admin/users', label: 'Users', icon: Users },
     { href: '/admin/events', label: 'Events', icon: Calendar },
     { href: '/admin/tenants', label: 'Tenants', icon: Building2 },
+    { href: '/admin/moderation', label: 'Moderation', icon: Shield },
+    { href: '/admin/incidents', label: 'Incidents', icon: Siren },
     { href: '/admin/sessions', label: 'Sessions', icon: Monitor },
     { href: '/admin/audit', label: 'Audit Logs', icon: FileText },
     { href: '/admin/settings', label: 'Settings', icon: Settings },

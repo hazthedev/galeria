@@ -5,7 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { getTenantDb } from '@/lib/db';
-import { verifyAccessToken } from '@/lib/domain/auth/auth';
+import { isReadOnlyImpersonationSession, verifyAccessToken } from '@/lib/domain/auth/auth';
 import { generateSlug, generateUUID, generateEventUrl } from '@/lib/utils';
 import { extractSessionId, validateSession } from '@/lib/domain/auth/session';
 import { isReservedShortCode } from '@/lib/shared/short-codes';
@@ -325,6 +325,17 @@ export async function handleEventCreate(request: NextRequest) {
         { error: 'Authentication required', code: 'AUTH_REQUIRED' },
         { status: 401 }
       );
+    }
+
+    const sessionResult = extractSessionId(cookieHeader, authHeader);
+    if (sessionResult.sessionId) {
+      const session = await validateSession(sessionResult.sessionId, false);
+      if (session.valid && session.session && isReadOnlyImpersonationSession(session.session)) {
+        return NextResponse.json(
+          { error: 'Support mode is read-only', code: 'READ_ONLY_IMPERSONATION' },
+          { status: 403 }
+        );
+      }
     }
 
     if (userRole && !['organizer', 'super_admin'].includes(userRole)) {

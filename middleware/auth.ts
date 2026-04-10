@@ -355,6 +355,13 @@ export async function requireAuth(
     return createUnauthorizedResponse('Authentication required');
   }
 
+  if (
+    session.impersonation?.readOnly &&
+    !['GET', 'HEAD', 'OPTIONS'].includes(request.method.toUpperCase())
+  ) {
+    return createForbiddenResponse('Support mode is read-only');
+  }
+
   return { user, session };
 }
 

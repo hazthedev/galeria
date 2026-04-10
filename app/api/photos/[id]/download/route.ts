@@ -46,7 +46,7 @@ export async function GET(
 
     let authUser: { userId: string; tenantId: string; role: string } | null = null;
     try {
-      const auth = await requireAuthForApi(request.headers);
+      const auth = await requireAuthForApi(request.headers, request.method);
       authUser = { userId: auth.userId, tenantId: auth.tenantId, role: auth.payload.role };
     } catch {
       authUser = null;

@@ -9,7 +9,7 @@ import { getEffectiveTenantEntitlements } from '@/lib/tenant';
 
 export async function GET(request: NextRequest) {
   try {
-    const { userId, tenantId, payload } = await requireAuthForApi(request.headers);
+    const { userId, tenantId, payload } = await requireAuthForApi(request.headers, request.method);
 
     if (!['organizer', 'super_admin'].includes(payload.role)) {
       return NextResponse.json(

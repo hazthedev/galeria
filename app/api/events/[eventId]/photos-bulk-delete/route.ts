@@ -13,7 +13,7 @@ export async function POST(
 ) {
   try {
     const { eventId } = await params;
-    const { userId, tenantId, payload } = await requireAuthForApi(request.headers);
+    const { userId, tenantId, payload } = await requireAuthForApi(request.headers, request.method);
 
     if (!['organizer', 'super_admin'].includes(payload.role)) {
       return NextResponse.json({ error: 'Forbidden', code: 'FORBIDDEN' }, { status: 403 });
@@ -74,6 +74,12 @@ export async function POST(
     });
   } catch (error) {
     console.error('[PHOTO_BULK_DELETE] Error:', error);
+    if (error instanceof Error && error.message.includes('READ_ONLY_IMPERSONATION')) {
+      return NextResponse.json(
+        { error: 'Support mode is read-only', code: 'READ_ONLY_IMPERSONATION' },
+        { status: 403 }
+      );
+    }
     return NextResponse.json(
       { error: 'Failed to delete photos', code: 'INTERNAL_ERROR' },
       { status: 500 }

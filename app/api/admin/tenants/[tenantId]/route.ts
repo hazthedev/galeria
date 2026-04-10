@@ -4,13 +4,24 @@
 // Super admin endpoints for managing individual tenants
 
 import { NextRequest, NextResponse } from 'next/server';
-import { requireSuperAdmin } from '@/middleware/auth';
-import { getTenantDb } from '@/lib/infrastructure/database/db';
-import { SYSTEM_TENANT_ID } from '@/lib/constants/tenants';
-import { logSimpleAdminAction } from '@/lib/audit/middleware';
-import { getTierConfig } from '@/lib/tenant';
 
-type TenantStatus = 'active' | 'suspended' | 'trialing';
+import { withAuditLog } from '@/lib/audit/middleware';
+import {
+  createAdminDataResponse,
+  createAdminErrorResponse,
+  requireAdminRouteAccess,
+} from '@/lib/domain/admin/api';
+import {
+  deleteAdminTenant,
+  getAdminTenantById,
+  getAdminTenantDetail,
+  isSystemTenantId,
+  updateAdminTenant,
+} from '@/lib/services/admin/tenants';
+import type { SubscriptionTier } from '@/lib/types';
+
+const validTenantStatuses = ['active', 'suspended', 'trialing'] as const;
+const validSubscriptionTiers = ['free', 'pro', 'premium', 'enterprise', 'tester'] as const;
 
 /**
  * GET /api/admin/tenants/[tenantId]
@@ -21,62 +32,21 @@ export async function GET(
   context: { params: Promise<Record<string, string>> }
 ) {
   try {
-    const auth = await requireSuperAdmin(request);
-    if (auth instanceof NextResponse) return auth;
+    const access = await requireAdminRouteAccess(request);
+    if (access instanceof NextResponse) return access;
 
     const params = await context.params;
     const tenantId = params['tenantId'];
-    const db = getTenantDb(SYSTEM_TENANT_ID);
-
-    const tenantResult = await db.query(
-      `SELECT
-        t.*,
-        COUNT(DISTINCT e.id) FILTER (WHERE e.id IS NOT NULL) as event_count,
-        COUNT(DISTINCT u.id) FILTER (WHERE u.id IS NOT NULL) as user_count,
-        (
-          SELECT COUNT(*)
-          FROM photos p
-          WHERE p.event_id IN (SELECT id FROM events WHERE tenant_id = t.id)
-        ) as photo_count,
-        (
-          SELECT COUNT(*)
-          FROM events
-          WHERE tenant_id = $1 AND status = 'active'
-        ) as active_events_count,
-        (
-          SELECT COUNT(*)
-          FROM users
-          WHERE tenant_id = $1 AND role = 'organizer'
-        ) as organizer_count,
-        (
-          SELECT COUNT(*)
-          FROM attendances a
-          WHERE a.event_id IN (SELECT id FROM events WHERE tenant_id = t.id)
-        ) as guest_count
-      FROM tenants t
-      LEFT JOIN events e ON e.tenant_id = t.id
-      LEFT JOIN users u ON u.tenant_id = t.id
-      WHERE t.id = $1
-      GROUP BY t.id`,
-      [tenantId]
-    );
-
-    const tenant = tenantResult.rows[0];
+    const tenant = await getAdminTenantDetail(tenantId);
 
     if (!tenant) {
-      return NextResponse.json(
-        { error: 'Tenant not found', code: 'NOT_FOUND' },
-        { status: 404 }
-      );
+      return createAdminErrorResponse('Tenant not found', 'NOT_FOUND', 404);
     }
 
-    return NextResponse.json({ data: tenant });
+    return createAdminDataResponse(tenant);
   } catch (error) {
     console.error('[Admin Tenant Detail API] Failed to load tenant:', error);
-    return NextResponse.json(
-      { error: 'Failed to load tenant', code: 'INTERNAL_ERROR' },
-      { status: 500 }
-    );
+    return createAdminErrorResponse('Failed to load tenant', 'INTERNAL_ERROR');
   }
 }
 
@@ -88,165 +58,144 @@ export async function PATCH(
   request: NextRequest,
   context: { params: Promise<Record<string, string>> }
 ) {
-  const auth = await requireSuperAdmin(request);
-  if (auth instanceof NextResponse) return auth;
-
-  const params = await context.params;
-  const tenantId = params['tenantId'];
-  const body = await request.json();
-  const { subscription_tier, status, company_name } = body;
-
-  const db = getTenantDb(SYSTEM_TENANT_ID);
-
-  // Get current tenant for audit logging
-  const currentTenant = await db.findOne<{
-    id: string;
-    company_name: string;
-    subscription_tier: string;
-    status: string;
-  }>(
-    'tenants',
-    { id: tenantId }
-  );
-
-  if (!currentTenant) {
-    return NextResponse.json(
-      { error: 'Tenant not found', code: 'NOT_FOUND' },
-      { status: 404 }
-    );
-  }
-
-  // Prevent modifying system tenant
-  if (tenantId === SYSTEM_TENANT_ID) {
-    return NextResponse.json(
-      { error: 'Cannot modify system tenant', code: 'FORBIDDEN' },
-      { status: 403 }
-    );
-  }
-
-  const updates: string[] = [];
-  const values: unknown[] = [];
-  let paramIndex = 1;
-  let auditAction: string | null = null;
-
-  if (subscription_tier !== undefined) {
-    if (!['free', 'pro', 'premium', 'enterprise', 'tester'].includes(subscription_tier)) {
-      return NextResponse.json(
-        { error: 'Invalid subscription tier', code: 'VALIDATION_ERROR' },
-        { status: 400 }
-      );
+  try {
+    const access = await requireAdminRouteAccess(request);
+    if (access instanceof NextResponse) {
+      return access;
     }
-    updates.push(`subscription_tier = $${paramIndex++}`);
-    values.push(subscription_tier);
-    auditAction = 'tenant.plan_changed';
 
-    // Update tenant features and limits based on new tier
-    const tierConfig = getTierConfig(subscription_tier);
-    await db.query(
-      `UPDATE tenants
-       SET features_enabled = $1::jsonb,
-           limits = $2::jsonb
-       WHERE id = $3`,
-      [JSON.stringify(tierConfig.features), JSON.stringify(tierConfig.limits), tenantId]
-    );
-  }
+    const params = await context.params;
+    const tenantId = params['tenantId'];
+    const body = await request.json();
+    const { subscription_tier, status, company_name } = body || {};
 
-  if (status !== undefined) {
-    if (!['active', 'suspended', 'trialing'].includes(status)) {
-      return NextResponse.json(
-        { error: 'Invalid status', code: 'VALIDATION_ERROR' },
-        { status: 400 }
-      );
+    if (isSystemTenantId(tenantId)) {
+      return createAdminErrorResponse('Cannot modify system tenant', 'VALIDATION_ERROR', 403);
     }
-    updates.push(`status = $${paramIndex++}`);
-    values.push(status);
 
-    if (!auditAction) auditAction = status === 'suspended' ? 'tenant.suspended' : 'tenant.activated';
-  }
+    if (
+      status !== undefined &&
+      !validTenantStatuses.includes(status as (typeof validTenantStatuses)[number])
+    ) {
+      return createAdminErrorResponse('Invalid status', 'VALIDATION_ERROR', 400);
+    }
 
-  if (company_name !== undefined) {
-    updates.push(`company_name = $${paramIndex++}`);
-    values.push(company_name);
-    if (!auditAction) auditAction = 'tenant.updated';
-  }
+    if (
+      subscription_tier !== undefined &&
+      !validSubscriptionTiers.includes(
+        subscription_tier as (typeof validSubscriptionTiers)[number]
+      )
+    ) {
+      return createAdminErrorResponse('Invalid subscription tier', 'VALIDATION_ERROR', 400);
+    }
 
-  if (updates.length === 0) {
-    return NextResponse.json(
-      { error: 'No changes provided', code: 'VALIDATION_ERROR' },
-      { status: 400 }
+    if (
+      status === undefined &&
+      subscription_tier === undefined &&
+      company_name === undefined
+    ) {
+      return createAdminErrorResponse('No changes provided', 'VALIDATION_ERROR', 400);
+    }
+
+    const currentTenant = await getAdminTenantById(tenantId);
+    if (!currentTenant) {
+      return createAdminErrorResponse('Tenant not found', 'NOT_FOUND', 404);
+    }
+
+    const updatedTenant = await withAuditLog(
+      request,
+      access.auth.user,
+      access.auth.session,
+      subscription_tier !== undefined
+        ? 'tenant.plan_changed'
+        : status === 'suspended'
+          ? 'tenant.suspended'
+          : status === 'active'
+            ? 'tenant.activated'
+            : 'tenant.updated',
+      {
+        targetId: tenantId,
+        targetType: 'tenant',
+        reason: `Updated tenant: ${currentTenant.company_name}`,
+        getOldValues: () => ({
+          company_name: currentTenant.company_name,
+          subscription_tier: currentTenant.subscription_tier,
+          status: currentTenant.status,
+        }),
+        getNewValues: (result) => ({
+          company_name: result.company_name,
+          subscription_tier: result.subscription_tier,
+          status: result.status,
+        }),
+      },
+      () =>
+        updateAdminTenant(tenantId, {
+          status,
+          subscription_tier: subscription_tier as SubscriptionTier | undefined,
+          company_name,
+        })
     );
+
+    return createAdminDataResponse(updatedTenant);
+  } catch (error) {
+    console.error('[Admin Tenant Detail API] Failed to update tenant:', error);
+    return createAdminErrorResponse('Failed to update tenant', 'INTERNAL_ERROR');
   }
-
-  updates.push('updated_at = NOW()');
-  values.push(tenantId);
-
-  await db.query(
-    `UPDATE tenants SET ${updates.join(', ')} WHERE id = $${paramIndex}`,
-    values
-  );
-
-  // Log audit trail
-  await logSimpleAdminAction(request, auth.user, auditAction as any, {
-    targetId: tenantId,
-    targetType: 'tenant',
-    reason: `Updated tenant: ${currentTenant.company_name}`,
-  });
-
-  // Return updated tenant
-  const updatedTenant = await db.findOne('tenants', { id: tenantId });
-
-  return NextResponse.json({ data: updatedTenant });
 }
 
 /**
  * DELETE /api/admin/tenants/[tenantId]
- * Delete a tenant (CANNOT delete system tenant)
+ * Delete a tenant (cannot delete system tenant)
  */
 export async function DELETE(
   request: NextRequest,
   context: { params: Promise<Record<string, string>> }
 ) {
-  const auth = await requireSuperAdmin(request);
-  if (auth instanceof NextResponse) return auth;
+  try {
+    const access = await requireAdminRouteAccess(request);
+    if (access instanceof NextResponse) {
+      return access;
+    }
 
-  const params = await context.params;
-  const tenantId = params['tenantId'];
-  const db = getTenantDb(SYSTEM_TENANT_ID);
+    const params = await context.params;
+    const tenantId = params['tenantId'];
 
-  // Prevent deleting system tenant
-  if (tenantId === SYSTEM_TENANT_ID) {
-    return NextResponse.json(
-      { error: 'Cannot delete system tenant', code: 'FORBIDDEN' },
-      { status: 403 }
+    if (isSystemTenantId(tenantId)) {
+      return createAdminErrorResponse('Cannot delete system tenant', 'VALIDATION_ERROR', 403);
+    }
+
+    const tenant = await getAdminTenantById(tenantId);
+    if (!tenant) {
+      return createAdminErrorResponse('Tenant not found', 'NOT_FOUND', 404);
+    }
+
+    const result = await withAuditLog(
+      request,
+      access.auth.user,
+      access.auth.session,
+      'tenant.deleted',
+      {
+        targetId: tenantId,
+        targetType: 'tenant',
+        reason: `Deleted tenant: ${tenant.company_name} (${tenant.slug})`,
+        getOldValues: () => ({
+          company_name: tenant.company_name,
+          subscription_tier: tenant.subscription_tier,
+          status: tenant.status,
+        }),
+        getNewValues: () => ({
+          deleted: true,
+        }),
+      },
+      async () => {
+        await deleteAdminTenant(tenantId);
+        return { deleted: true, tenantId };
+      }
     );
+
+    return createAdminDataResponse(result);
+  } catch (error) {
+    console.error('[Admin Tenant Detail API] Failed to delete tenant:', error);
+    return createAdminErrorResponse('Failed to delete tenant', 'INTERNAL_ERROR');
   }
-
-  // Get tenant info for audit before deletion
-  const tenant = await db.findOne<{
-    id: string;
-    company_name: string;
-    slug: string;
-  }>(
-    'tenants',
-    { id: tenantId }
-  );
-
-  if (!tenant) {
-    return NextResponse.json(
-      { error: 'Tenant not found', code: 'NOT_FOUND' },
-      { status: 404 }
-    );
-  }
-
-  // Delete tenant (cascade will handle related records via DB constraints)
-  await db.query('DELETE FROM tenants WHERE id = $1', [tenantId]);
-
-  // Log audit trail
-  await logSimpleAdminAction(request, auth.user, 'tenant.deleted', {
-    targetId: tenantId,
-    targetType: 'tenant',
-    reason: `Deleted tenant: ${tenant.company_name} (${tenant.slug})`,
-  });
-
-  return NextResponse.json({ success: true });
 }

@@ -44,6 +44,8 @@ const DB_RETRY_MAX_ATTEMPTS_SESSION_MODE = parseInt(
   10
 );
 
+const SET_TENANT_CONTEXT_SQL = 'SELECT set_tenant_id($1::uuid)';
+
 function isSessionModeClientLimitError(error: unknown): boolean {
   if (!error || typeof error !== 'object') {
     return false;
@@ -145,7 +147,7 @@ export class TenantDatabase {
         client = await pool.connect();
 
         // Set tenant context for THIS connection
-        await client.query('SELECT set_tenant_id($1)', [this.tenantId]);
+        await client.query(SET_TENANT_CONTEXT_SQL, [this.tenantId]);
 
         // Execute the query on the SAME connection
         const result = await client.query(text, params);
@@ -220,7 +222,7 @@ export class TenantDatabase {
 
     try {
       // Set tenant context
-      await client.query('SELECT set_tenant_id($1)', [this.tenantId]);
+      await client.query(SET_TENANT_CONTEXT_SQL, [this.tenantId]);
 
       // Begin transaction
       await client.query('BEGIN');
@@ -454,7 +456,7 @@ export async function queryWithTenant<T extends QueryResultRow = QueryResultRow>
   const client = await pool.connect();
 
   try {
-    await client.query('SELECT set_tenant_id($1)', [tenantId]);
+    await client.query(SET_TENANT_CONTEXT_SQL, [tenantId]);
     const result = await client.query(text, params);
     return result;
   } finally {

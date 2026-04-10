@@ -9,35 +9,19 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Building2,
-  Users,
-  Calendar,
-  Image as ImageIcon,
-  Shield,
   Ban,
   CheckCircle2,
-  XCircle,
   ChevronLeft,
   ChevronRight,
   Search,
-  MoreVertical,
   Trash2,
   Edit,
+  AlertCircle,
+  RefreshCw,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { ConfirmDialog, useConfirmDialog } from '@/components/admin/ConfirmDialog';
-
-interface Tenant {
-  id: string;
-  company_name: string;
-  slug: string;
-  subscription_tier: string;
-  status: 'active' | 'suspended' | 'trialing';
-  created_at: string;
-  updated_at: string;
-  event_count: number;
-  user_count: number;
-  photo_count: number;
-}
+import { ConfirmDialog } from '@/components/admin/ConfirmDialog';
+import type { AdminTenantListItem } from '@/lib/domain/admin/types';
 
 const tierLabels: Record<string, string> = {
   free: 'Free',
@@ -68,22 +52,25 @@ const tierColors: Record<string, string> = {
 };
 
 export default function TenantsPage() {
-  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [tenants, setTenants] = useState<AdminTenantListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [statusFilter, setStatusFilter] = useState('all');
   const [tierFilter, setTierFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
+  const [appliedSearch, setAppliedSearch] = useState('');
+  const [selectedTenant, setSelectedTenant] = useState<AdminTenantListItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
-    fetchTenants();
-  }, [currentPage, statusFilter, tierFilter]);
+    void fetchTenants();
+  }, [appliedSearch, currentPage, statusFilter, tierFilter]);
 
   const fetchTenants = async () => {
     setIsLoading(true);
+    setError(null);
     try {
       const params = new URLSearchParams({
         page: currentPage.toString(),
@@ -95,6 +82,9 @@ export default function TenantsPage() {
       if (tierFilter !== 'all') {
         params.append('tier', tierFilter);
       }
+      if (appliedSearch) {
+        params.append('search', appliedSearch);
+      }
 
       const response = await fetch(`/api/admin/tenants?${params}`, {
         credentials: 'include',
@@ -105,11 +95,11 @@ export default function TenantsPage() {
         setTenants(data.data || []);
         setTotalPages(data.pagination?.totalPages || 1);
       } else {
-        toast.error('Failed to load tenants');
+        setError('Failed to load tenants. The server returned an error.');
       }
     } catch (error) {
       console.error('Failed to fetch tenants:', error);
-      toast.error('Failed to load tenants');
+      setError('Failed to load tenants. Please check your connection and try again.');
     } finally {
       setIsLoading(false);
     }
@@ -117,16 +107,22 @@ export default function TenantsPage() {
 
   const handleStatusChange = async (tenantId: string, newStatus: string) => {
     try {
-      const response = await fetch(`/api/admin/tenants/${tenantId}`, {
-        method: 'PATCH',
+      const response = await fetch(`/api/admin/tenants/${tenantId}/actions`, {
+        method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify({
+          action: newStatus === 'suspended' ? 'suspend_tenant' : 'activate_tenant',
+          reason:
+            newStatus === 'suspended'
+              ? 'Suspended from tenant management list'
+              : 'Activated from tenant management list',
+        }),
       });
 
       if (response.ok) {
         toast.success(`Tenant ${newStatus === 'suspended' ? 'suspended' : 'activated'}`);
-        fetchTenants();
+        await fetchTenants();
       } else {
         const error = await response.json();
         toast.error(error.error || 'Failed to update tenant');
@@ -137,7 +133,7 @@ export default function TenantsPage() {
     }
   };
 
-  const handleDeleteTenant = (tenant: Tenant) => {
+  const handleDeleteTenant = (tenant: AdminTenantListItem) => {
     setSelectedTenant(tenant);
   };
 
@@ -154,7 +150,7 @@ export default function TenantsPage() {
       if (response.ok) {
         toast.success(`Deleted tenant: ${selectedTenant.company_name}`);
         setSelectedTenant(null);
-        fetchTenants();
+        await fetchTenants();
       } else {
         const error = await response.json();
         toast.error(error.error || 'Failed to delete tenant');
@@ -194,7 +190,7 @@ export default function TenantsPage() {
           onSubmit={(e) => {
             e.preventDefault();
             setCurrentPage(1);
-            fetchTenants();
+            setAppliedSearch(searchQuery.trim());
           }}
           className="flex-1"
         >
@@ -246,6 +242,18 @@ export default function TenantsPage() {
         {isLoading ? (
           <div className="flex h-64 items-center justify-center">
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-violet-600 border-t-transparent" />
+          </div>
+        ) : error ? (
+          <div className="flex h-64 flex-col items-center justify-center gap-3 text-gray-500">
+            <AlertCircle className="h-12 w-12 text-red-400" />
+            <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+            <button
+              onClick={fetchTenants}
+              className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Retry
+            </button>
           </div>
         ) : tenants.length === 0 ? (
           <div className="flex h-64 flex-col items-center justify-center text-gray-500">

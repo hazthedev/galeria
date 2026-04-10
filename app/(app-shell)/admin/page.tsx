@@ -19,98 +19,46 @@ import {
     Trophy,
     Clock,
 } from 'lucide-react';
-
-interface DashboardStats {
-    totalUsers: number;
-    totalEvents: number;
-    totalPhotos: number;
-    activeEvents: number;
-    recentUsers: number;
-    totalTenants: number;
-    mfaEnabledUsers: number;
-    totalLuckyDraws: number;
-    totalWinners: number;
-    pendingPhotos: number;
-}
-
-interface RecentActivityItem {
-    id: string;
-    type: 'user' | 'event' | 'photo' | 'moderation';
-    createdAt: string;
-    tenantName?: string | null;
-    eventId?: string | null;
-    eventName?: string | null;
-    eventStatus?: string | null;
-    organizerName?: string | null;
-    contributorName?: string | null;
-    userName?: string | null;
-    userEmail?: string | null;
-    moderatorName?: string | null;
-    moderatorEmail?: string | null;
-    action?: string | null;
-    photoStatus?: string | null;
-    reason?: string | null;
-    imageUrl?: string | null;
-}
+import {
+    EMPTY_ADMIN_OVERVIEW_STATS,
+    type AdminActivityItem,
+    type AdminOverviewData,
+    type AdminOverviewStats,
+} from '@/lib/domain/admin/types';
 
 export default function SupervisorDashboardPage() {
-    const [stats, setStats] = useState<DashboardStats>({
-        totalUsers: 0,
-        totalEvents: 0,
-        totalPhotos: 0,
-        activeEvents: 0,
-        recentUsers: 0,
-        totalTenants: 0,
-        mfaEnabledUsers: 0,
-        totalLuckyDraws: 0,
-        totalWinners: 0,
-        pendingPhotos: 0,
-    });
+    const [stats, setStats] = useState<AdminOverviewStats>(EMPTY_ADMIN_OVERVIEW_STATS);
     const [isLoading, setIsLoading] = useState(true);
-    const [recentActivity, setRecentActivity] = useState<RecentActivityItem[]>([]);
+    const [recentActivity, setRecentActivity] = useState<AdminActivityItem[]>([]);
     const [activityLoading, setActivityLoading] = useState(true);
 
     useEffect(() => {
-        const fetchStats = async () => {
+        const fetchOverview = async () => {
             try {
-                const response = await fetch('/api/admin/stats', {
+                const response = await fetch('/api/admin/overview?activityLimit=10', {
                     credentials: 'include',
                 });
 
                 if (response.ok) {
-                    const data = await response.json();
-                    setStats(data.data || stats);
-                }
-            } catch (error) {
-                console.error('Failed to fetch supervisor stats:', error);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        const fetchActivity = async () => {
-            setActivityLoading(true);
-            try {
-                const response = await fetch('/api/admin/activity?limit=10', {
-                    credentials: 'include',
-                });
-
-                if (response.ok) {
-                    const data = await response.json();
-                    setRecentActivity(data.data || []);
+                    const payload = await response.json();
+                    const data: AdminOverviewData | undefined = payload.data;
+                    setStats(data?.stats || EMPTY_ADMIN_OVERVIEW_STATS);
+                    setRecentActivity(data?.recentActivity || []);
                 } else {
+                    setStats(EMPTY_ADMIN_OVERVIEW_STATS);
                     setRecentActivity([]);
                 }
             } catch (error) {
-                console.error('Failed to fetch recent activity:', error);
+                console.error('Failed to fetch supervisor overview:', error);
+                setStats(EMPTY_ADMIN_OVERVIEW_STATS);
                 setRecentActivity([]);
             } finally {
+                setIsLoading(false);
                 setActivityLoading(false);
             }
         };
 
-        fetchStats();
-        fetchActivity();
+        fetchOverview();
     }, []);
 
     const statCards = [
@@ -187,7 +135,7 @@ export default function SupervisorDashboardPage() {
         );
     }
 
-    const getActivityDetails = (item: RecentActivityItem) => {
+    const getActivityDetails = (item: AdminActivityItem) => {
         switch (item.type) {
             case 'user':
                 return {
@@ -217,7 +165,7 @@ export default function SupervisorDashboardPage() {
         }
     };
 
-    const getStatusBadge = (item: RecentActivityItem) => {
+    const getStatusBadge = (item: AdminActivityItem) => {
         if (item.type === 'event' && item.eventStatus) {
             return (
                 <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-200">

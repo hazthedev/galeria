@@ -103,7 +103,7 @@ async function requireConfigWriteAccess(
   tenantId: string;
   userId: string;
 }> {
-  const { userId, tenantId, payload } = await requireAuthForApi(request.headers);
+  const { userId, tenantId, payload } = await requireAuthForApi(request.headers, request.method);
   if (!hasModeratorRole(payload.role)) {
     throw new Error('Forbidden');
   }
@@ -150,6 +150,13 @@ function getConfigMutationError(error: unknown) {
     if (error.message.includes('Forbidden')) {
       return NextResponse.json(
         { error: 'Forbidden', code: 'FORBIDDEN' },
+        { status: 403 }
+      );
+    }
+
+    if (error.message.includes('READ_ONLY_IMPERSONATION')) {
+      return NextResponse.json(
+        { error: 'Support mode is read-only', code: 'READ_ONLY_IMPERSONATION' },
         { status: 403 }
       );
     }

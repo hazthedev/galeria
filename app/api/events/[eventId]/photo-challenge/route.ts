@@ -21,7 +21,7 @@ async function requirePhotoChallengeManageAccess(
   req: NextRequest,
   eventId: string
 ): Promise<{ db: ReturnType<typeof getTenantDb> }> {
-  const { userId, tenantId, payload } = await requireAuthForApi(req.headers);
+  const { userId, tenantId, payload } = await requireAuthForApi(req.headers, req.method);
 
   if (!hasModeratorRole(payload.role)) {
     throw new Error('Forbidden');
@@ -59,6 +59,13 @@ function getMutationErrorResponse(
     if (error.message.includes('Forbidden')) {
       return NextResponse.json(
         { error: 'Forbidden', code: 'FORBIDDEN' },
+        { status: 403 }
+      );
+    }
+
+    if (error.message.includes('READ_ONLY_IMPERSONATION')) {
+      return NextResponse.json(
+        { error: 'Support mode is read-only', code: 'READ_ONLY_IMPERSONATION' },
         { status: 403 }
       );
     }

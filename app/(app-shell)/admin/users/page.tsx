@@ -5,6 +5,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import {
     Search,
     Users as UsersIcon,
@@ -14,6 +15,7 @@ import {
     ChevronRight,
     CheckSquare,
     Square,
+    ExternalLink,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { toast } from 'sonner';
@@ -28,6 +30,7 @@ interface User {
     user_subscription_tier?: 'free' | 'pro' | 'premium' | 'enterprise' | 'tester';
     tenant_subscription_tier?: 'free' | 'pro' | 'premium' | 'enterprise' | 'tester';
     tenant_id: string;
+    tenant_name?: string;
     created_at: string;
     last_login_at?: string;
 }
@@ -398,9 +401,13 @@ export default function SupervisorUsersPage() {
                                     >
                                         <div className="flex items-start justify-between gap-3">
                                             <div className="min-w-0">
-                                                <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                                                <Link
+                                                    href={`/admin/users/${user.id}`}
+                                                    className="inline-flex items-center gap-1 text-sm font-semibold text-gray-900 hover:text-violet-700 dark:text-white dark:hover:text-violet-400"
+                                                >
                                                     {user.name}
-                                                </p>
+                                                    <ExternalLink className="h-3 w-3" />
+                                                </Link>
                                                 <p className="mt-1 break-all text-xs text-gray-500 dark:text-gray-400">
                                                     {user.email}
                                                 </p>
@@ -463,6 +470,14 @@ export default function SupervisorUsersPage() {
                                                 </dd>
                                             </div>
                                         </dl>
+
+                                        <Link
+                                            href={`/admin/users/${user.id}`}
+                                            className="mt-4 inline-flex w-full items-center justify-center gap-1 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-center text-sm font-medium text-violet-700 hover:bg-violet-100 dark:border-violet-900/30 dark:bg-violet-900/20 dark:text-violet-400 dark:hover:bg-violet-900/30"
+                                        >
+                                            View User 360
+                                            <ExternalLink className="h-3 w-3" />
+                                        </Link>
                                     </div>
                                 );
                             })}
@@ -487,6 +502,9 @@ export default function SupervisorUsersPage() {
                                         </th>
                                         <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
                                             User
+                                        </th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
+                                            Tenant
                                         </th>
                                         <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
                                             Role
@@ -526,11 +544,18 @@ export default function SupervisorUsersPage() {
                                             </td>
                                             <td className="px-4 py-3">
                                                 <div>
-                                                    <p className="font-medium text-gray-900 dark:text-white">
+                                                    <Link
+                                                        href={`/admin/users/${user.id}`}
+                                                        className="inline-flex items-center gap-1 font-medium text-gray-900 hover:text-violet-700 dark:text-white dark:hover:text-violet-400"
+                                                    >
                                                         {user.name}
-                                                    </p>
+                                                        <ExternalLink className="h-3 w-3" />
+                                                    </Link>
                                                     <p className="text-sm text-gray-500">{user.email}</p>
                                                 </div>
+                                            </td>
+                                            <td className="px-4 py-3 text-sm text-gray-500">
+                                                {user.tenant_name || <span className="text-gray-400">—</span>}
                                             </td>
                                             <td className="px-4 py-3">
                                                 <select
@@ -579,14 +604,23 @@ export default function SupervisorUsersPage() {
                                                     : 'Never'}
                                             </td>
                                             <td className="px-4 py-3 text-right">
-                                                <button
-                                                    onClick={() => handleDeleteUser(user.id, user.name)}
-                                                    className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-                                                    title="Delete user"
-                                                    aria-label={`Delete ${user.name}`}
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </button>
+                                                <div className="flex items-center justify-end gap-2">
+                                                    <Link
+                                                        href={`/admin/users/${user.id}`}
+                                                        className="inline-flex h-11 items-center gap-1 rounded-lg px-3 text-sm font-medium text-violet-600 hover:bg-violet-50 dark:text-violet-400 dark:hover:bg-violet-900/20"
+                                                    >
+                                                        View 360
+                                                        <ExternalLink className="h-3 w-3" />
+                                                    </Link>
+                                                    <button
+                                                        onClick={() => handleDeleteUser(user.id, user.name)}
+                                                        className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                                        title="Delete user"
+                                                        aria-label={`Delete ${user.name}`}
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}

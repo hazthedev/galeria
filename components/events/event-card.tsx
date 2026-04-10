@@ -58,7 +58,9 @@ export function EventCard({
   const eventDate = new Date(event.event_date);
   const isPastEvent = eventDate < new Date();
   const config = eventConfig[event.event_type];
-  const statusConfigItem = statusConfig[event.status];
+  // Show "Ended" for past events that are still marked "active" in the DB
+  const displayStatus = (isPastEvent && event.status === 'active') ? 'ended' : event.status;
+  const statusConfigItem = statusConfig[displayStatus];
 
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('en-US', {
@@ -193,7 +195,6 @@ export function EventCard({
             <Calendar className="h-4 w-4 flex-shrink-0" />
             <span className={clsx(isPastEvent && 'text-orange-600 dark:text-orange-400')}>
               {formatDate(eventDate)}
-              {isPastEvent && ' (Past)'}
             </span>
           </div>
 

@@ -72,6 +72,7 @@ export async function GET(request: NextRequest) {
           ...user,
           password_hash: undefined, // Never send password hash
         } as IUser,
+        session: result.session,
       },
       { status: 200, headers: noStoreHeaders }
     );

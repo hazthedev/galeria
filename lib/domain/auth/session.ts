@@ -63,6 +63,16 @@ export interface ISessionData {
   ipAddress?: string;
   userAgent?: string;
   rememberMe: boolean;
+  impersonation?: {
+    actorUserId: string;
+    actorTenantId: string;
+    actorEmail: string;
+    actorName: string;
+    actorRole: UserRole;
+    actorSessionId: string;
+    startedAt: number;
+    readOnly: boolean;
+  };
 }
 
 /**
@@ -82,6 +92,7 @@ export interface ISessionOptions {
   ipAddress?: string;
   userAgent?: string;
   rememberMe?: boolean;
+  impersonation?: ISessionData['impersonation'];
 }
 
 // ============================================
@@ -117,7 +128,7 @@ export async function createSession(
   user: IUser,
   options: ISessionOptions = {}
 ): Promise<string> {
-  const { ipAddress, userAgent, rememberMe = false } = options;
+  const { ipAddress, userAgent, rememberMe = false, impersonation } = options;
 
   const sessionId = generateSessionId();
   const now = Date.now();
@@ -135,6 +146,7 @@ export async function createSession(
     ipAddress,
     userAgent,
     rememberMe,
+    impersonation,
   };
 
   // Store session in Redis with TTL
@@ -300,6 +312,17 @@ export async function refreshSession(sessionId: string): Promise<boolean> {
   }
 
   return true;
+}
+
+export async function setSession(
+  sessionId: string,
+  session: ISessionData
+): Promise<void> {
+  const ttl = session.rememberMe ? SESSION_REMEMBER_ME_TTL : SESSION_TTL_SECONDS;
+  await setKeyWithExpiry(getSessionKey(sessionId), session, ttl);
+  if (USE_IN_MEMORY_SESSIONS) {
+    inMemorySessions.set(sessionId, session);
+  }
 }
 
 // ============================================
