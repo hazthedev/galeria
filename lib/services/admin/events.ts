@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { getAdminDb } from '@/lib/domain/admin/context';
+import { getAdminDb, isMissingSchemaResourceError } from '@/lib/domain/admin/context';
 import type {
   AdminAuditTimelineItem,
   AdminEventAttendanceSummary,
@@ -34,6 +34,21 @@ export interface AdminEventActionState {
   status: AdminEventStatus;
   settings: Record<string, unknown> | null;
 }
+
+interface AdminEventListCompatibilityOptions {
+  includeTenantSlug: boolean;
+  includeAttendanceMetrics: boolean;
+}
+
+const FULL_ADMIN_EVENT_LIST_COMPATIBILITY: AdminEventListCompatibilityOptions = {
+  includeTenantSlug: true,
+  includeAttendanceMetrics: true,
+};
+
+const LEGACY_ADMIN_EVENT_LIST_COMPATIBILITY: AdminEventListCompatibilityOptions = {
+  includeTenantSlug: false,
+  includeAttendanceMetrics: false,
+};
 
 function toIsoString(value: Date | string | null): string | null {
   if (!value) {
@@ -90,7 +105,36 @@ export function isAdminEventUploadsEnabled(settings: Record<string, unknown> | n
   return (features as Record<string, unknown>)['photo_upload_enabled'] !== false;
 }
 
-export async function listAdminEvents(options: ListAdminEventsOptions) {
+function getAdminEventListTenantSlugSql(options: AdminEventListCompatibilityOptions): string {
+  return options.includeTenantSlug ? 't.slug AS tenant_slug,' : 'NULL::text AS tenant_slug,';
+}
+
+function getAdminEventAttendanceSql(options: AdminEventListCompatibilityOptions): string {
+  if (options.includeAttendanceMetrics) {
+    return `
+        (
+          SELECT COALESCE(SUM(COALESCE(a.companions_count, 0) + 1), 0)
+          FROM attendances a
+          WHERE a.event_id = e.id
+        ) AS guest_count,
+        (
+          SELECT COUNT(*)
+          FROM attendances a
+          WHERE a.event_id = e.id
+        ) AS attendance_count
+    `;
+  }
+
+  return `
+        0::bigint AS guest_count,
+        0::bigint AS attendance_count
+  `;
+}
+
+async function listAdminEventsWithCompatibility(
+  options: ListAdminEventsOptions,
+  compatibility: AdminEventListCompatibilityOptions
+) {
   const db = getAdminDb();
   const offset = (options.page - 1) * options.limit;
 
@@ -140,7 +184,7 @@ export async function listAdminEvents(options: ListAdminEventsOptions) {
         e.id,
         e.tenant_id,
         t.company_name AS tenant_name,
-        t.slug AS tenant_slug,
+        ${getAdminEventListTenantSlugSql(compatibility)}
         e.name,
         e.short_code,
         e.status,
@@ -152,16 +196,7 @@ export async function listAdminEvents(options: ListAdminEventsOptions) {
           FROM photos p
           WHERE p.event_id = e.id
         ) AS photo_count,
-        (
-          SELECT COALESCE(SUM(COALESCE(a.companions_count, 0) + 1), 0)
-          FROM attendances a
-          WHERE a.event_id = e.id
-        ) AS guest_count,
-        (
-          SELECT COUNT(*)
-          FROM attendances a
-          WHERE a.event_id = e.id
-        ) AS attendance_count
+        ${getAdminEventAttendanceSql(compatibility)}
       FROM events e
       LEFT JOIN tenants t ON t.id = e.tenant_id
       WHERE ${whereClause}
@@ -208,6 +243,18 @@ export async function listAdminEvents(options: ListAdminEventsOptions) {
       totalPages: Math.ceil(total / options.limit),
     },
   };
+}
+
+export async function listAdminEvents(options: ListAdminEventsOptions) {
+  try {
+    return await listAdminEventsWithCompatibility(options, FULL_ADMIN_EVENT_LIST_COMPATIBILITY);
+  } catch (error) {
+    if (isMissingSchemaResourceError(error)) {
+      return listAdminEventsWithCompatibility(options, LEGACY_ADMIN_EVENT_LIST_COMPATIBILITY);
+    }
+
+    throw error;
+  }
 }
 
 export async function getAdminEventDetail(eventId: string): Promise<AdminEventDetailData | null> {

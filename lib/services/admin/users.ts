@@ -2,7 +2,11 @@ import 'server-only';
 
 import { getRedisClient } from '@/lib/infrastructure/cache/redis';
 import { getKey } from '@/lib/redis';
-import { getAdminDb } from '@/lib/domain/admin/context';
+import {
+  getAdminDb,
+  isMissingColumnError,
+  isMissingSchemaResourceError,
+} from '@/lib/domain/admin/context';
 import { extractSessionId, getSessionTTL, type ISessionData } from '@/lib/domain/auth/session';
 import {
   getSupabaseServerAuthClient,
@@ -37,6 +41,24 @@ export interface ListAdminUsersOptions {
   role?: string | null;
   search?: string | null;
 }
+
+interface AdminUserCompatibilityOptions {
+  includeTenantSlug: boolean;
+  includeUserSubscriptionTier: boolean;
+  includeTotpEnabled: boolean;
+}
+
+const FULL_ADMIN_USER_COMPATIBILITY: AdminUserCompatibilityOptions = {
+  includeTenantSlug: true,
+  includeUserSubscriptionTier: true,
+  includeTotpEnabled: true,
+};
+
+const LEGACY_ADMIN_USER_COMPATIBILITY: AdminUserCompatibilityOptions = {
+  includeTenantSlug: false,
+  includeUserSubscriptionTier: false,
+  includeTotpEnabled: false,
+};
 
 function toIsoString(value: Date | string | null): string | null {
   if (!value) {
@@ -120,7 +142,40 @@ async function listAdminUserSessions(
   return sessions;
 }
 
-export async function listAdminUsers(options: ListAdminUsersOptions) {
+function getAdminUserSubscriptionTierSql(options: AdminUserCompatibilityOptions): string {
+  if (options.includeUserSubscriptionTier) {
+    return `
+        CASE
+          WHEN u.role = 'super_admin' THEN COALESCE(u.subscription_tier::text, 'free')
+          ELSE COALESCE(t.subscription_tier::text, u.subscription_tier::text, 'free')
+        END AS subscription_tier,
+        u.subscription_tier::text AS user_subscription_tier,
+        t.subscription_tier::text AS tenant_subscription_tier,
+    `;
+  }
+
+  return `
+        CASE
+          WHEN u.role = 'super_admin' THEN 'free'
+          ELSE COALESCE(t.subscription_tier::text, 'free')
+        END AS subscription_tier,
+        NULL::text AS user_subscription_tier,
+        t.subscription_tier::text AS tenant_subscription_tier,
+  `;
+}
+
+function getAdminUserTenantSlugSql(options: AdminUserCompatibilityOptions): string {
+  return options.includeTenantSlug ? 't.slug AS tenant_slug,' : 'NULL::text AS tenant_slug,';
+}
+
+function getAdminUserTotpSql(options: AdminUserCompatibilityOptions): string {
+  return options.includeTotpEnabled ? 'COALESCE(u.totp_enabled, false) AS totp_enabled' : 'false AS totp_enabled';
+}
+
+async function listAdminUsersWithCompatibility(
+  options: ListAdminUsersOptions,
+  compatibility: AdminUserCompatibilityOptions
+) {
   const db = getAdminDb();
   const offset = (options.page - 1) * options.limit;
 
@@ -145,7 +200,7 @@ export async function listAdminUsers(options: ListAdminUsersOptions) {
     name: string | null;
     role: AdminUserRole;
     tenant_id: string;
-    subscription_tier: string | null;
+    subscription_tier: string;
     user_subscription_tier: string | null;
     tenant_subscription_tier: string | null;
     tenant_name: string | null;
@@ -161,17 +216,12 @@ export async function listAdminUsers(options: ListAdminUsersOptions) {
         u.name,
         u.role,
         u.tenant_id,
-        CASE
-          WHEN u.role = 'super_admin' THEN COALESCE(u.subscription_tier, 'free')
-          ELSE COALESCE(t.subscription_tier, u.subscription_tier, 'free')
-        END AS subscription_tier,
-        u.subscription_tier AS user_subscription_tier,
-        t.subscription_tier AS tenant_subscription_tier,
+        ${getAdminUserSubscriptionTierSql(compatibility)}
         t.company_name AS tenant_name,
         u.created_at,
         u.last_login_at,
         COALESCE(u.email_verified, false) AS email_verified,
-        COALESCE(u.totp_enabled, false) AS totp_enabled
+        ${getAdminUserTotpSql(compatibility)}
       FROM users u
       LEFT JOIN tenants t ON t.id = u.tenant_id
       WHERE ${whereClause}
@@ -215,13 +265,26 @@ export async function listAdminUsers(options: ListAdminUsersOptions) {
   };
 }
 
+export async function listAdminUsers(options: ListAdminUsersOptions) {
+  try {
+    return await listAdminUsersWithCompatibility(options, FULL_ADMIN_USER_COMPATIBILITY);
+  } catch (error) {
+    if (isMissingColumnError(error)) {
+      return listAdminUsersWithCompatibility(options, LEGACY_ADMIN_USER_COMPATIBILITY);
+    }
+
+    throw error;
+  }
+}
+
 export async function getAdminUserById(userId: string): Promise<AdminUserRecord | null> {
   const db = getAdminDb();
   return db.findOne<AdminUserRecord>('users', { id: userId });
 }
 
-export async function getAdminUserDetail(
+async function getAdminUserDetailWithCompatibility(
   userId: string,
+  compatibility: AdminUserCompatibilityOptions,
   requestHeaders?: { cookie?: string | null; authorization?: string | null }
 ): Promise<AdminUserDetailData | null> {
   const db = getAdminDb();
@@ -235,7 +298,7 @@ export async function getAdminUserDetail(
     tenant_name: string | null;
     tenant_status: string | null;
     tenant_slug: string | null;
-    subscription_tier: string | null;
+    subscription_tier: string;
     user_subscription_tier: string | null;
     tenant_subscription_tier: string | null;
     created_at: Date;
@@ -252,17 +315,12 @@ export async function getAdminUserDetail(
         u.tenant_id,
         t.company_name AS tenant_name,
         t.status AS tenant_status,
-        t.slug AS tenant_slug,
-        CASE
-          WHEN u.role = 'super_admin' THEN COALESCE(u.subscription_tier, 'free')
-          ELSE COALESCE(t.subscription_tier, u.subscription_tier, 'free')
-        END AS subscription_tier,
-        u.subscription_tier AS user_subscription_tier,
-        t.subscription_tier AS tenant_subscription_tier,
+        ${getAdminUserTenantSlugSql(compatibility)}
+        ${getAdminUserSubscriptionTierSql(compatibility)}
         u.created_at,
         u.last_login_at,
         COALESCE(u.email_verified, false) AS email_verified,
-        COALESCE(u.totp_enabled, false) AS totp_enabled
+        ${getAdminUserTotpSql(compatibility)}
       FROM users u
       LEFT JOIN tenants t ON t.id = u.tenant_id
       WHERE u.id = $1
@@ -313,31 +371,48 @@ export async function getAdminUserDetail(
     [row.role === 'organizer' ? userId : row.tenant_id]
   );
 
-  const recentAuditResult = await db.query<{
+  let recentAuditRows: Array<{
     id: string;
     action: string;
     reason: string | null;
     created_at: Date;
     admin_name: string | null;
     admin_email: string | null;
-  }>(
-    `
-      SELECT
-        a.id,
-        a.action,
-        a.reason,
-        a.created_at,
-        u.name AS admin_name,
-        u.email AS admin_email
-      FROM admin_audit_logs a
-      LEFT JOIN users u ON u.id = a.admin_id
-      WHERE a.target_type = 'user'
-        AND a.target_id = $1
-      ORDER BY a.created_at DESC
-      LIMIT 8
-    `,
-    [userId]
-  );
+  }> = [];
+
+  try {
+    const recentAuditResult = await db.query<{
+      id: string;
+      action: string;
+      reason: string | null;
+      created_at: Date;
+      admin_name: string | null;
+      admin_email: string | null;
+    }>(
+      `
+        SELECT
+          a.id,
+          a.action,
+          a.reason,
+          a.created_at,
+          u.name AS admin_name,
+          u.email AS admin_email
+        FROM admin_audit_logs a
+        LEFT JOIN users u ON u.id = a.admin_id
+        WHERE a.target_type = 'user'
+          AND a.target_id = $1
+        ORDER BY a.created_at DESC
+        LIMIT 8
+      `,
+      [userId]
+    );
+
+    recentAuditRows = recentAuditResult.rows;
+  } catch (error) {
+    if (!isMissingSchemaResourceError(error)) {
+      throw error;
+    }
+  }
 
   const currentSessionId = requestHeaders
     ? extractSessionId(requestHeaders.cookie || null, requestHeaders.authorization || null).sessionId
@@ -369,7 +444,7 @@ export async function getAdminUserDetail(
     created_at: event.created_at.toISOString(),
   }));
 
-  const recentAudit: AdminAuditTimelineItem[] = recentAuditResult.rows.map((item) => ({
+  const recentAudit: AdminAuditTimelineItem[] = recentAuditRows.map((item) => ({
     id: item.id,
     action: item.action,
     reason: item.reason,
@@ -388,6 +463,29 @@ export async function getAdminUserDetail(
     recentSessions: recentSessions.slice(0, 6),
     recentAudit,
   };
+}
+
+export async function getAdminUserDetail(
+  userId: string,
+  requestHeaders?: { cookie?: string | null; authorization?: string | null }
+): Promise<AdminUserDetailData | null> {
+  try {
+    return await getAdminUserDetailWithCompatibility(
+      userId,
+      FULL_ADMIN_USER_COMPATIBILITY,
+      requestHeaders
+    );
+  } catch (error) {
+    if (isMissingColumnError(error)) {
+      return getAdminUserDetailWithCompatibility(
+        userId,
+        LEGACY_ADMIN_USER_COMPATIBILITY,
+        requestHeaders
+      );
+    }
+
+    throw error;
+  }
 }
 
 export async function updateAdminUserRole(

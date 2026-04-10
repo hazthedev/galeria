@@ -11,6 +11,14 @@ export function isMissingTableError(error: unknown): boolean {
   return (error as { code?: string })?.code === '42P01';
 }
 
+export function isMissingColumnError(error: unknown): boolean {
+  return (error as { code?: string })?.code === '42703';
+}
+
+export function isMissingSchemaResourceError(error: unknown): boolean {
+  return isMissingTableError(error) || isMissingColumnError(error);
+}
+
 export function isAdminDatabaseError(error: unknown): boolean {
   return (
     Boolean((error as { code?: string })?.code) ||
