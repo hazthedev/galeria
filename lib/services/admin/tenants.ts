@@ -3,7 +3,7 @@ import 'server-only';
 import crypto from 'crypto';
 
 import { SYSTEM_TENANT_ID } from '@/lib/constants/tenants';
-import { getAdminDb } from '@/lib/domain/admin/context';
+import { getAdminDb, isMissingSchemaResourceError } from '@/lib/domain/admin/context';
 import type {
   AdminAuditTimelineItem,
   AdminSubscriptionTier,
@@ -33,6 +33,24 @@ export interface ListAdminTenantsOptions {
   search?: string | null;
 }
 
+interface AdminTenantCompatibilityOptions {
+  includeSlug: boolean;
+  includeAttendanceMetrics: boolean;
+  includeTotpEnabled: boolean;
+}
+
+const FULL_ADMIN_TENANT_COMPATIBILITY: AdminTenantCompatibilityOptions = {
+  includeSlug: true,
+  includeAttendanceMetrics: true,
+  includeTotpEnabled: true,
+};
+
+const LEGACY_ADMIN_TENANT_COMPATIBILITY: AdminTenantCompatibilityOptions = {
+  includeSlug: false,
+  includeAttendanceMetrics: false,
+  includeTotpEnabled: false,
+};
+
 export function isSystemTenantId(tenantId: string): boolean {
   return tenantId === SYSTEM_TENANT_ID;
 }
@@ -49,7 +67,43 @@ function toIsoString(value: Date | string | null): string | null {
   return value.toISOString();
 }
 
-export async function listAdminTenants(options: ListAdminTenantsOptions) {
+function getAdminTenantSlugSql(options: AdminTenantCompatibilityOptions): string {
+  return options.includeSlug ? 't.slug,' : 'NULL::text AS slug,';
+}
+
+function getAdminTenantSearchClause(
+  options: AdminTenantCompatibilityOptions,
+  paramIndex: number
+): string {
+  if (options.includeSlug) {
+    return ` AND (t.company_name ILIKE $${paramIndex} OR t.slug ILIKE $${paramIndex + 1})`;
+  }
+
+  return ` AND t.company_name ILIKE $${paramIndex}`;
+}
+
+function getAdminTenantGuestCountSql(options: AdminTenantCompatibilityOptions): string {
+  if (options.includeAttendanceMetrics) {
+    return `
+        (
+          SELECT COUNT(*)
+          FROM attendances a
+          WHERE a.event_id IN (SELECT id FROM events WHERE tenant_id = t.id)
+        ) as guest_count,
+    `;
+  }
+
+  return '0::bigint as guest_count,';
+}
+
+function getAdminTenantTotpSql(options: AdminTenantCompatibilityOptions): string {
+  return options.includeTotpEnabled ? 'COALESCE(u.totp_enabled, false) AS totp_enabled' : 'false AS totp_enabled';
+}
+
+async function listAdminTenantsWithCompatibility(
+  options: ListAdminTenantsOptions,
+  compatibility: AdminTenantCompatibilityOptions
+) {
   const db = getAdminDb();
   const offset = (options.page - 1) * options.limit;
 
@@ -68,15 +122,20 @@ export async function listAdminTenants(options: ListAdminTenantsOptions) {
   }
 
   if (options.search) {
-    whereClause += ` AND (t.company_name ILIKE $${paramIndex} OR t.slug ILIKE $${paramIndex + 1})`;
-    params.push(`%${options.search}%`, `%${options.search}%`);
-    paramIndex += 2;
+    whereClause += getAdminTenantSearchClause(compatibility, paramIndex);
+    params.push(`%${options.search}%`);
+    paramIndex += 1;
+
+    if (compatibility.includeSlug) {
+      params.push(`%${options.search}%`);
+      paramIndex += 1;
+    }
   }
 
   const tenantsResult = await db.query<{
     id: string;
     company_name: string;
-    slug: string;
+    slug: string | null;
     subscription_tier: AdminSubscriptionTier;
     status: AdminTenantStatus;
     created_at: Date;
@@ -89,13 +148,14 @@ export async function listAdminTenants(options: ListAdminTenantsOptions) {
       SELECT
         t.id,
         t.company_name,
-        t.slug,
+        ${getAdminTenantSlugSql(compatibility)}
         t.subscription_tier,
         t.status,
         t.created_at,
         t.updated_at,
         COUNT(DISTINCT e.id) FILTER (WHERE e.id IS NOT NULL) as event_count,
         COUNT(DISTINCT u.id) FILTER (WHERE u.id IS NOT NULL) as user_count,
+        ${getAdminTenantGuestCountSql(compatibility)}
         (SELECT COUNT(*) FROM photos p WHERE p.event_id IN (SELECT id FROM events WHERE tenant_id = t.id)) as photo_count
       FROM tenants t
       LEFT JOIN events e ON e.tenant_id = t.id
@@ -116,7 +176,7 @@ export async function listAdminTenants(options: ListAdminTenantsOptions) {
   const items: AdminTenantListItem[] = tenantsResult.rows.map((row) => ({
     id: row.id,
     company_name: row.company_name,
-    slug: row.slug,
+    slug: row.slug || row.id,
     subscription_tier: row.subscription_tier,
     status: row.status,
     created_at: row.created_at.toISOString(),
@@ -139,6 +199,18 @@ export async function listAdminTenants(options: ListAdminTenantsOptions) {
   };
 }
 
+export async function listAdminTenants(options: ListAdminTenantsOptions) {
+  try {
+    return await listAdminTenantsWithCompatibility(options, FULL_ADMIN_TENANT_COMPATIBILITY);
+  } catch (error) {
+    if (isMissingSchemaResourceError(error)) {
+      return listAdminTenantsWithCompatibility(options, LEGACY_ADMIN_TENANT_COMPATIBILITY);
+    }
+
+    throw error;
+  }
+}
+
 export async function getAdminTenantById(tenantId: string): Promise<AdminTenantRecord | null> {
   const db = getAdminDb();
   return db.findOne<AdminTenantRecord>('tenants', { id: tenantId });
@@ -149,13 +221,16 @@ export async function getAdminTenantBySlug(slug: string): Promise<AdminTenantRec
   return db.findOne<AdminTenantRecord>('tenants', { slug });
 }
 
-export async function getAdminTenantDetail(tenantId: string): Promise<AdminTenantDetailData | null> {
+async function getAdminTenantDetailWithCompatibility(
+  tenantId: string,
+  compatibility: AdminTenantCompatibilityOptions
+): Promise<AdminTenantDetailData | null> {
   const db = getAdminDb();
 
   const tenantResult = await db.query<{
     id: string;
     company_name: string;
-    slug: string;
+    slug: string | null;
     subscription_tier: AdminSubscriptionTier;
     status: AdminTenantStatus;
     created_at: Date;
@@ -179,7 +254,7 @@ export async function getAdminTenantDetail(tenantId: string): Promise<AdminTenan
       SELECT
         t.id,
         t.company_name,
-        t.slug,
+        ${getAdminTenantSlugSql(compatibility)}
         t.subscription_tier,
         t.status,
         t.created_at,
@@ -208,11 +283,7 @@ export async function getAdminTenantDetail(tenantId: string): Promise<AdminTenan
           FROM users
           WHERE tenant_id = $1 AND role = 'organizer'
         ) as organizer_count,
-        (
-          SELECT COUNT(*)
-          FROM attendances a
-          WHERE a.event_id IN (SELECT id FROM events WHERE tenant_id = t.id)
-        ) as guest_count,
+        ${getAdminTenantGuestCountSql(compatibility)}
         (
           SELECT COUNT(*)
           FROM photos p
@@ -250,7 +321,7 @@ export async function getAdminTenantDetail(tenantId: string): Promise<AdminTenan
         u.role,
         u.created_at,
         u.last_login_at,
-        COALESCE(u.totp_enabled, false) AS totp_enabled
+        ${getAdminTenantTotpSql(compatibility)}
       FROM users u
       WHERE u.tenant_id = $1
       ORDER BY COALESCE(u.last_login_at, u.created_at) DESC
@@ -291,42 +362,59 @@ export async function getAdminTenantDetail(tenantId: string): Promise<AdminTenan
     [tenantId]
   );
 
-  const recentAuditResult = await db.query<{
+  let recentAuditRows: Array<{
     id: string;
     action: string;
     reason: string | null;
     created_at: Date;
     admin_name: string | null;
     admin_email: string | null;
-  }>(
-    `
-      SELECT
-        a.id,
-        a.action,
-        a.reason,
-        a.created_at,
-        u.name AS admin_name,
-        u.email AS admin_email
-      FROM admin_audit_logs a
-      LEFT JOIN users u ON u.id = a.admin_id
-      WHERE a.target_id = $1
-         OR (
-           a.target_type = 'tenant'
-           AND (
-             a.target_id = $1
-             OR a.reason ILIKE $2
+  }> = [];
+
+  try {
+    const recentAuditResult = await db.query<{
+      id: string;
+      action: string;
+      reason: string | null;
+      created_at: Date;
+      admin_name: string | null;
+      admin_email: string | null;
+    }>(
+      `
+        SELECT
+          a.id,
+          a.action,
+          a.reason,
+          a.created_at,
+          u.name AS admin_name,
+          u.email AS admin_email
+        FROM admin_audit_logs a
+        LEFT JOIN users u ON u.id = a.admin_id
+        WHERE a.target_id = $1
+           OR (
+             a.target_type = 'tenant'
+             AND (
+               a.target_id = $1
+               OR a.reason ILIKE $2
+             )
            )
-         )
-      ORDER BY a.created_at DESC
-      LIMIT 8
-    `,
-    [tenantId, `%${row.company_name}%`]
-  );
+        ORDER BY a.created_at DESC
+        LIMIT 8
+      `,
+      [tenantId, `%${row.company_name}%`]
+    );
+
+    recentAuditRows = recentAuditResult.rows;
+  } catch (error) {
+    if (!isMissingSchemaResourceError(error)) {
+      throw error;
+    }
+  }
 
   const tenant: AdminTenantSummary = {
     id: row.id,
     company_name: row.company_name,
-    slug: row.slug,
+    slug: row.slug || row.id,
     subscription_tier: row.subscription_tier,
     status: row.status,
     created_at: row.created_at.toISOString(),
@@ -368,7 +456,7 @@ export async function getAdminTenantDetail(tenantId: string): Promise<AdminTenan
     photo_count: Number(event.photo_count || 0),
   }));
 
-  const recentAudit: AdminAuditTimelineItem[] = recentAuditResult.rows.map((audit) => ({
+  const recentAudit: AdminAuditTimelineItem[] = recentAuditRows.map((audit) => ({
     id: audit.id,
     action: audit.action,
     reason: audit.reason,
@@ -383,6 +471,18 @@ export async function getAdminTenantDetail(tenantId: string): Promise<AdminTenan
     recentEvents,
     recentAudit,
   };
+}
+
+export async function getAdminTenantDetail(tenantId: string): Promise<AdminTenantDetailData | null> {
+  try {
+    return await getAdminTenantDetailWithCompatibility(tenantId, FULL_ADMIN_TENANT_COMPATIBILITY);
+  } catch (error) {
+    if (isMissingSchemaResourceError(error)) {
+      return getAdminTenantDetailWithCompatibility(tenantId, LEGACY_ADMIN_TENANT_COMPATIBILITY);
+    }
+
+    throw error;
+  }
 }
 
 export async function updateAdminTenantStatus(
