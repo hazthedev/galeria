@@ -147,6 +147,7 @@ export default function OrganizerLayout({
                         <BrandMark size={32} gradientId="gm-org-sidebar" />
                         <span className="text-lg font-bold text-gray-900 dark:text-white">Galeria</span>
                     </Link>
+                    <TierBadge />
                 </div>
 
                 {/* Navigation */}
@@ -183,6 +184,26 @@ export default function OrganizerLayout({
                 {children}
             </main>
         </div>
+    );
+}
+
+const TIER_STYLES: Record<string, string> = {
+    free: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300',
+    pro: 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300',
+    premium: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
+    enterprise: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
+    tester: 'bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300',
+};
+
+function TierBadge() {
+    const { user } = useAuth();
+    const tier = user?.subscription_tier || 'free';
+    const label = tier.charAt(0).toUpperCase() + tier.slice(1);
+
+    return (
+        <span className={clsx('rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase leading-none tracking-wide', TIER_STYLES[tier] || TIER_STYLES.free)}>
+            {label}
+        </span>
     );
 }
 
