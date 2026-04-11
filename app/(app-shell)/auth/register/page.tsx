@@ -7,6 +7,7 @@
 
 import { RegisterForm } from '@/components/auth/register-form';
 import { AuthPageShell } from '@/components/auth/AuthPageShell';
+import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
 import { BrandMark } from '@/components/landing/BrandMark';
 import { motion } from 'motion/react';
 import Link from 'next/link';
@@ -39,6 +40,17 @@ export default function RegisterPage() {
           transition={{ duration: 0.5, delay: 0.15, ease: 'easeOut' }}
           className="rounded-[28px] border border-[#e5d8ca]/80 bg-[#fcf8f2] p-8 shadow-xl shadow-[#d8cab8]/20 dark:border-gray-800 dark:bg-gray-800 dark:shadow-none"
         >
+          <GoogleSignInButton label="Sign up with Google" />
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-200 dark:border-gray-700" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-[#fcf8f2] px-2 text-stone-500 dark:bg-gray-800 dark:text-gray-500">
+                or continue with email
+              </span>
+            </div>
+          </div>
           <RegisterForm />
         </motion.div>
 
