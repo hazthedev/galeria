@@ -40,6 +40,16 @@ interface AdminEventListCompatibilityOptions {
   includeAttendanceMetrics: boolean;
 }
 
+interface AdminEventDetailCompatibilityOptions {
+  includeTenantSlug: boolean;
+  includeTenantTier: boolean;
+  includeAttendanceMetrics: boolean;
+  includeLuckyDraw: boolean;
+  includePhotoChallenge: boolean;
+  includePhotoScans: boolean;
+  includeModerationLogs: boolean;
+}
+
 const FULL_ADMIN_EVENT_LIST_COMPATIBILITY: AdminEventListCompatibilityOptions = {
   includeTenantSlug: true,
   includeAttendanceMetrics: true,
@@ -48,6 +58,26 @@ const FULL_ADMIN_EVENT_LIST_COMPATIBILITY: AdminEventListCompatibilityOptions = 
 const LEGACY_ADMIN_EVENT_LIST_COMPATIBILITY: AdminEventListCompatibilityOptions = {
   includeTenantSlug: false,
   includeAttendanceMetrics: false,
+};
+
+const FULL_ADMIN_EVENT_DETAIL_COMPATIBILITY: AdminEventDetailCompatibilityOptions = {
+  includeTenantSlug: true,
+  includeTenantTier: true,
+  includeAttendanceMetrics: true,
+  includeLuckyDraw: true,
+  includePhotoChallenge: true,
+  includePhotoScans: true,
+  includeModerationLogs: true,
+};
+
+const LEGACY_ADMIN_EVENT_DETAIL_COMPATIBILITY: AdminEventDetailCompatibilityOptions = {
+  includeTenantSlug: false,
+  includeTenantTier: false,
+  includeAttendanceMetrics: false,
+  includeLuckyDraw: false,
+  includePhotoChallenge: false,
+  includePhotoScans: false,
+  includeModerationLogs: false,
 };
 
 function toIsoString(value: Date | string | null): string | null {
@@ -129,6 +159,186 @@ function getAdminEventAttendanceSql(options: AdminEventListCompatibilityOptions)
         0::bigint AS guest_count,
         0::bigint AS attendance_count
   `;
+}
+
+function getAdminEventDetailTenantSlugSql(
+  options: AdminEventDetailCompatibilityOptions
+): string {
+  return options.includeTenantSlug ? 't.slug AS tenant_slug,' : 'NULL::text AS tenant_slug,';
+}
+
+function getAdminEventDetailTenantTierSql(
+  options: AdminEventDetailCompatibilityOptions
+): string {
+  return options.includeTenantTier
+    ? 't.subscription_tier AS tenant_tier,'
+    : 'NULL::text AS tenant_tier,';
+}
+
+function getAdminEventDetailAttendanceSql(
+  options: AdminEventDetailCompatibilityOptions
+): string {
+  if (options.includeAttendanceMetrics) {
+    return `
+        (
+          SELECT COUNT(*)
+          FROM attendances a
+          WHERE a.event_id = e.id
+        ) AS total_checkins,
+        (
+          SELECT COUNT(DISTINCT COALESCE(a.guest_email, a.guest_phone, a.user_fingerprint, a.id::text))
+          FROM attendances a
+          WHERE a.event_id = e.id
+        ) AS unique_attendees,
+        (
+          SELECT COALESCE(SUM(COALESCE(a.companions_count, 0) + 1), 0)
+          FROM attendances a
+          WHERE a.event_id = e.id
+        ) AS total_guests,
+        (
+          SELECT MAX(a.created_at)
+          FROM attendances a
+          WHERE a.event_id = e.id
+        ) AS last_checkin_at,
+    `;
+  }
+
+  return `
+        0::bigint AS total_checkins,
+        0::bigint AS unique_attendees,
+        0::bigint AS total_guests,
+        NULL::timestamptz AS last_checkin_at,
+  `;
+}
+
+function getAdminEventLuckyDrawSql(
+  options: AdminEventDetailCompatibilityOptions
+): string {
+  if (options.includeLuckyDraw) {
+    return `
+        COALESCE((e.settings->'features'->>'lucky_draw_enabled')::boolean, false) AS lucky_draw_enabled,
+        (
+          SELECT ldc.status
+          FROM lucky_draw_configs ldc
+          WHERE ldc.event_id = e.id
+          ORDER BY ldc.created_at DESC
+          LIMIT 1
+        ) AS lucky_draw_status,
+        (
+          SELECT COUNT(*)
+          FROM lucky_draw_entries lde
+          WHERE lde.event_id = e.id
+        ) AS lucky_draw_entries,
+        (
+          SELECT COUNT(*)
+          FROM winners w
+          WHERE w.event_id = e.id
+        ) AS lucky_draw_winners,
+        (
+          SELECT MAX(w.drawn_at)
+          FROM winners w
+          WHERE w.event_id = e.id
+        ) AS last_draw_at,
+    `;
+  }
+
+  return `
+        COALESCE((e.settings->'features'->>'lucky_draw_enabled')::boolean, false) AS lucky_draw_enabled,
+        NULL::text AS lucky_draw_status,
+        0::bigint AS lucky_draw_entries,
+        0::bigint AS lucky_draw_winners,
+        NULL::timestamptz AS last_draw_at,
+  `;
+}
+
+function getAdminEventPhotoChallengeSql(
+  options: AdminEventDetailCompatibilityOptions
+): string {
+  if (options.includePhotoChallenge) {
+    return `
+        (
+          SELECT pc.enabled
+          FROM photo_challenges pc
+          WHERE pc.event_id = e.id
+          ORDER BY pc.created_at DESC
+          LIMIT 1
+        ) AS challenge_enabled,
+        (
+          SELECT pc.goal_photos
+          FROM photo_challenges pc
+          WHERE pc.event_id = e.id
+          ORDER BY pc.created_at DESC
+          LIMIT 1
+        ) AS challenge_goal_photos,
+        (
+          SELECT COUNT(*)
+          FROM guest_photo_progress gpp
+          WHERE gpp.event_id = e.id
+        ) AS challenge_participants,
+        (
+          SELECT COUNT(*)
+          FROM guest_photo_progress gpp
+          WHERE gpp.event_id = e.id
+            AND gpp.goal_reached = true
+        ) AS challenge_goal_reached_count,
+        (
+          SELECT COUNT(*)
+          FROM prize_claims pc
+          WHERE pc.event_id = e.id
+            AND pc.revoked_at IS NULL
+        ) AS challenge_claimed_count,
+    `;
+  }
+
+  return `
+        false AS challenge_enabled,
+        NULL::integer AS challenge_goal_photos,
+        0::bigint AS challenge_participants,
+        0::bigint AS challenge_goal_reached_count,
+        0::bigint AS challenge_claimed_count,
+  `;
+}
+
+function getAdminEventPhotoScanSql(
+  options: AdminEventDetailCompatibilityOptions
+): string {
+  if (options.includePhotoScans) {
+    return `
+        (
+          SELECT COUNT(*)
+          FROM photo_scan_logs psl
+          WHERE psl.event_id = e.id
+            AND psl.decision = 'review'
+        ) AS review_scans,
+        (
+          SELECT COUNT(*)
+          FROM photo_scan_logs psl
+          WHERE psl.event_id = e.id
+            AND psl.decision = 'reject'
+        ) AS rejected_scans,
+    `;
+  }
+
+  return `
+        0::bigint AS review_scans,
+        0::bigint AS rejected_scans,
+  `;
+}
+
+function getAdminEventModerationLastActivitySql(
+  options: AdminEventDetailCompatibilityOptions
+): string {
+  if (options.includeModerationLogs) {
+    return `
+        (
+          SELECT MAX(pml.created_at)
+          FROM photo_moderation_logs pml
+          WHERE pml.event_id = e.id
+        ) AS last_moderated_at
+    `;
+  }
+
+  return 'NULL::timestamptz AS last_moderated_at';
 }
 
 async function listAdminEventsWithCompatibility(
@@ -257,7 +467,10 @@ export async function listAdminEvents(options: ListAdminEventsOptions) {
   }
 }
 
-export async function getAdminEventDetail(eventId: string): Promise<AdminEventDetailData | null> {
+async function getAdminEventDetailWithCompatibility(
+  eventId: string,
+  compatibility: AdminEventDetailCompatibilityOptions
+): Promise<AdminEventDetailData | null> {
   const db = getAdminDb();
 
   const eventResult = await db.query<{
@@ -311,8 +524,8 @@ export async function getAdminEventDetail(eventId: string): Promise<AdminEventDe
         e.id,
         e.tenant_id,
         t.company_name AS tenant_name,
-        t.slug AS tenant_slug,
-        t.subscription_tier AS tenant_tier,
+        ${getAdminEventDetailTenantSlugSql(compatibility)}
+        ${getAdminEventDetailTenantTierSql(compatibility)}
         e.name,
         e.short_code,
         e.description,
@@ -374,97 +587,11 @@ export async function getAdminEventDetail(eventId: string): Promise<AdminEventDe
           FROM photos p
           WHERE p.event_id = e.id
         ) AS total_reactions,
-        (
-          SELECT COUNT(*)
-          FROM attendances a
-          WHERE a.event_id = e.id
-        ) AS total_checkins,
-        (
-          SELECT COUNT(DISTINCT COALESCE(a.guest_email, a.guest_phone, a.user_fingerprint, a.id::text))
-          FROM attendances a
-          WHERE a.event_id = e.id
-        ) AS unique_attendees,
-        (
-          SELECT COALESCE(SUM(COALESCE(a.companions_count, 0) + 1), 0)
-          FROM attendances a
-          WHERE a.event_id = e.id
-        ) AS total_guests,
-        (
-          SELECT MAX(a.created_at)
-          FROM attendances a
-          WHERE a.event_id = e.id
-        ) AS last_checkin_at,
-        COALESCE((e.settings->'features'->>'lucky_draw_enabled')::boolean, false) AS lucky_draw_enabled,
-        (
-          SELECT ldc.status
-          FROM lucky_draw_configs ldc
-          WHERE ldc.event_id = e.id
-          ORDER BY ldc.created_at DESC
-          LIMIT 1
-        ) AS lucky_draw_status,
-        (
-          SELECT COUNT(*)
-          FROM lucky_draw_entries lde
-          WHERE lde.event_id = e.id
-        ) AS lucky_draw_entries,
-        (
-          SELECT COUNT(*)
-          FROM winners w
-          WHERE w.event_id = e.id
-        ) AS lucky_draw_winners,
-        (
-          SELECT MAX(w.drawn_at)
-          FROM winners w
-          WHERE w.event_id = e.id
-        ) AS last_draw_at,
-        (
-          SELECT pc.enabled
-          FROM photo_challenges pc
-          WHERE pc.event_id = e.id
-          ORDER BY pc.created_at DESC
-          LIMIT 1
-        ) AS challenge_enabled,
-        (
-          SELECT pc.goal_photos
-          FROM photo_challenges pc
-          WHERE pc.event_id = e.id
-          ORDER BY pc.created_at DESC
-          LIMIT 1
-        ) AS challenge_goal_photos,
-        (
-          SELECT COUNT(*)
-          FROM guest_photo_progress gpp
-          WHERE gpp.event_id = e.id
-        ) AS challenge_participants,
-        (
-          SELECT COUNT(*)
-          FROM guest_photo_progress gpp
-          WHERE gpp.event_id = e.id
-            AND gpp.goal_reached = true
-        ) AS challenge_goal_reached_count,
-        (
-          SELECT COUNT(*)
-          FROM prize_claims pc
-          WHERE pc.event_id = e.id
-            AND pc.revoked_at IS NULL
-        ) AS challenge_claimed_count,
-        (
-          SELECT COUNT(*)
-          FROM photo_scan_logs psl
-          WHERE psl.event_id = e.id
-            AND psl.decision = 'review'
-        ) AS review_scans,
-        (
-          SELECT COUNT(*)
-          FROM photo_scan_logs psl
-          WHERE psl.event_id = e.id
-            AND psl.decision = 'reject'
-        ) AS rejected_scans,
-        (
-          SELECT MAX(pml.created_at)
-          FROM photo_moderation_logs pml
-          WHERE pml.event_id = e.id
-        ) AS last_moderated_at
+        ${getAdminEventDetailAttendanceSql(compatibility)}
+        ${getAdminEventLuckyDrawSql(compatibility)}
+        ${getAdminEventPhotoChallengeSql(compatibility)}
+        ${getAdminEventPhotoScanSql(compatibility)}
+        ${getAdminEventModerationLastActivitySql(compatibility)}
       FROM events e
       LEFT JOIN tenants t ON t.id = e.tenant_id
       LEFT JOIN users organizer ON organizer.id = e.organizer_id
@@ -478,7 +605,7 @@ export async function getAdminEventDetail(eventId: string): Promise<AdminEventDe
     return null;
   }
 
-  const recentModerationResult = await db.query<{
+  let recentModerationRows: Array<{
     id: string;
     action: string;
     source: string;
@@ -487,51 +614,89 @@ export async function getAdminEventDetail(eventId: string): Promise<AdminEventDe
     created_at: Date;
     moderator_name: string | null;
     moderator_email: string | null;
-  }>(
-    `
-      SELECT
-        pml.id,
-        pml.action,
-        pml.source,
-        pml.photo_status,
-        pml.reason,
-        pml.created_at,
-        u.name AS moderator_name,
-        u.email AS moderator_email
-      FROM photo_moderation_logs pml
-      LEFT JOIN users u ON u.id = pml.moderator_id
-      WHERE pml.event_id = $1
-      ORDER BY pml.created_at DESC
-      LIMIT 6
-    `,
-    [eventId]
-  );
+  }> = [];
 
-  const recentAuditResult = await db.query<{
+  if (compatibility.includeModerationLogs) {
+    try {
+      const recentModerationResult = await db.query<{
+        id: string;
+        action: string;
+        source: string;
+        photo_status: string | null;
+        reason: string | null;
+        created_at: Date;
+        moderator_name: string | null;
+        moderator_email: string | null;
+      }>(
+        `
+          SELECT
+            pml.id,
+            pml.action,
+            pml.source,
+            pml.photo_status,
+            pml.reason,
+            pml.created_at,
+            u.name AS moderator_name,
+            u.email AS moderator_email
+          FROM photo_moderation_logs pml
+          LEFT JOIN users u ON u.id = pml.moderator_id
+          WHERE pml.event_id = $1
+          ORDER BY pml.created_at DESC
+          LIMIT 6
+        `,
+        [eventId]
+      );
+
+      recentModerationRows = recentModerationResult.rows;
+    } catch (error) {
+      if (!isMissingSchemaResourceError(error)) {
+        throw error;
+      }
+    }
+  }
+
+  let recentAuditRows: Array<{
     id: string;
     action: string;
     reason: string | null;
     created_at: Date;
     admin_name: string | null;
     admin_email: string | null;
-  }>(
-    `
-      SELECT
-        a.id,
-        a.action,
-        a.reason,
-        a.created_at,
-        u.name AS admin_name,
-        u.email AS admin_email
-      FROM admin_audit_logs a
-      LEFT JOIN users u ON u.id = a.admin_id
-      WHERE a.target_type = 'event'
-        AND a.target_id = $1
-      ORDER BY a.created_at DESC
-      LIMIT 8
-    `,
-    [eventId]
-  );
+  }> = [];
+
+  try {
+    const recentAuditResult = await db.query<{
+      id: string;
+      action: string;
+      reason: string | null;
+      created_at: Date;
+      admin_name: string | null;
+      admin_email: string | null;
+    }>(
+      `
+        SELECT
+          a.id,
+          a.action,
+          a.reason,
+          a.created_at,
+          u.name AS admin_name,
+          u.email AS admin_email
+        FROM admin_audit_logs a
+        LEFT JOIN users u ON u.id = a.admin_id
+        WHERE a.target_type = 'event'
+          AND a.target_id = $1
+        ORDER BY a.created_at DESC
+        LIMIT 8
+      `,
+      [eventId]
+    );
+
+    recentAuditRows = recentAuditResult.rows;
+  } catch (error) {
+    if (!isMissingSchemaResourceError(error)) {
+      throw error;
+    }
+  }
 
   const topContributorsResult = await db.query<{
     id: string;
@@ -635,7 +800,7 @@ export async function getAdminEventDetail(eventId: string): Promise<AdminEventDe
     photo_count: toNumber(contributor.photo_count),
   }));
 
-  const recentModeration: AdminEventModerationLogItem[] = recentModerationResult.rows.map((item) => ({
+  const recentModeration: AdminEventModerationLogItem[] = recentModerationRows.map((item) => ({
     id: item.id,
     action: item.action,
     source: item.source,
@@ -646,7 +811,7 @@ export async function getAdminEventDetail(eventId: string): Promise<AdminEventDe
     moderator_email: item.moderator_email,
   }));
 
-  const recentAudit: AdminAuditTimelineItem[] = recentAuditResult.rows.map((item) => ({
+  const recentAudit: AdminAuditTimelineItem[] = recentAuditRows.map((item) => ({
     id: item.id,
     action: item.action,
     reason: item.reason,
@@ -667,6 +832,24 @@ export async function getAdminEventDetail(eventId: string): Promise<AdminEventDe
     recentModeration,
     recentAudit,
   };
+}
+
+export async function getAdminEventDetail(eventId: string): Promise<AdminEventDetailData | null> {
+  try {
+    return await getAdminEventDetailWithCompatibility(
+      eventId,
+      FULL_ADMIN_EVENT_DETAIL_COMPATIBILITY
+    );
+  } catch (error) {
+    if (isMissingSchemaResourceError(error)) {
+      return getAdminEventDetailWithCompatibility(
+        eventId,
+        LEGACY_ADMIN_EVENT_DETAIL_COMPATIBILITY
+      );
+    }
+
+    throw error;
+  }
 }
 
 export async function getAdminEventActionState(
