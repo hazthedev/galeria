@@ -342,12 +342,7 @@ body {
 }
 
 .landing-shell .landing-panel::before {
-  content: "";
-  position: absolute;
-  inset: 0 auto auto 0;
-  width: 8rem;
-  height: 1px;
-  background: linear-gradient(90deg, rgba(177, 140, 255, 0.95), transparent);
+  display: none;
 }
 
 .landing-shell .landing-panel-soft {
@@ -359,12 +354,7 @@ body {
 }
 
 .landing-shell .landing-panel-soft::before {
-  content: "";
-  position: absolute;
-  inset: 0 auto auto 0;
-  width: 5rem;
-  height: 1px;
-  background: linear-gradient(90deg, rgba(102, 223, 212, 0.72), transparent);
+  display: none;
 }
 
 .landing-shell .landing-kicker {
