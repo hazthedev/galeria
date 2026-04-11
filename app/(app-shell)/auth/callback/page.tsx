@@ -19,16 +19,6 @@ export default function AuthCallbackPage() {
     if (handled.current) return;
     handled.current = true;
 
-    const searchParams = new URLSearchParams(window.location.search);
-    const code = searchParams.get('code');
-
-    if (code) {
-      const callbackUrl = new URL('/api/auth/callback', window.location.origin);
-      callbackUrl.search = searchParams.toString();
-      window.location.replace(callbackUrl.toString());
-      return;
-    }
-
     const hash = window.location.hash.substring(1);
     const params = new URLSearchParams(hash);
     const accessToken = params.get('access_token');
