@@ -16,6 +16,7 @@ import type { SubscriptionTier } from '@/lib/types';
 import { getTierConfig } from '@/lib/tenant';
 import { logSimpleAdminAction } from '@/lib/audit/middleware';
 import { getAdminUserDetail } from '@/lib/services/admin/users';
+import { getSupabaseAdminClient, isSupabaseAdminConfigured } from '@/lib/infrastructure/auth/supabase-server';
 
 type UserTenantLookup = {
   id: string;
@@ -194,6 +195,15 @@ export async function DELETE(
     const userToDelete = await db.findOne<{ id: string; email: string }>('users', { id: userId });
 
     await db.query('DELETE FROM users WHERE id = $1', [userId]);
+
+    // Also remove from Supabase Auth so the OAuth identity is fully cleaned up
+    if (isSupabaseAdminConfigured()) {
+      const supabase = getSupabaseAdminClient();
+      const { error: authDeleteError } = await supabase.auth.admin.deleteUser(userId);
+      if (authDeleteError) {
+        console.warn('[SUPERVISOR_USER_DELETE] Supabase auth deletion failed (app user already removed):', authDeleteError.message);
+      }
+    }
 
     await logSimpleAdminAction(request, auth.user, 'user.deleted', {
       targetId: userId,
