@@ -3,12 +3,16 @@
 import Link from "next/link";
 import {
   ArrowRight,
+  Check,
   CheckCircle2,
-  Heart,
-  Image,
+  Clock3,
+  Command,
+  FolderKanban,
+  ImageIcon,
+  QrCode,
+  ShieldCheck,
   Sparkles,
   Users,
-  Zap,
   type LucideIcon,
 } from "lucide-react";
 import { motion } from "motion/react";
@@ -21,179 +25,268 @@ import {
   statListVariants,
 } from "@/components/landing/motion-variants";
 
-type HeroStat = {
+type HeroMetric = {
   icon: LucideIcon;
-  title: string;
+  value: string;
   label: string;
-  bgClassName: string;
-  iconClassName: string;
+  tone: "signal" | "mint" | "gold";
 };
 
-const HERO_STATS: HeroStat[] = [
+const HERO_METRICS: HeroMetric[] = [
   {
-    icon: Image,
-    title: "Real-time",
-    label: "Photo Gallery",
-    bgClassName: "bg-violet-100 dark:bg-violet-900/30",
-    iconClassName: "text-violet-600 dark:text-violet-400",
+    icon: ImageIcon,
+    value: "1,842",
+    label: "Photos flowing through the gallery",
+    tone: "signal",
   },
   {
-    icon: Zap,
-    title: "Instant",
-    label: "QR Upload",
-    bgClassName: "bg-purple-100 dark:bg-purple-900/30",
-    iconClassName: "text-purple-600 dark:text-purple-400",
+    icon: QrCode,
+    value: "642",
+    label: "Guests in the live QR upload path",
+    tone: "mint",
   },
   {
-    icon: Heart,
-    title: "Photo",
-    label: "Reactions",
-    bgClassName: "bg-fuchsia-100 dark:bg-fuchsia-900/30",
-    iconClassName: "text-fuchsia-600 dark:text-fuchsia-400",
-  },
-  {
-    icon: Users,
-    title: "Multi",
-    label: "Tenant SaaS",
-    bgClassName: "bg-indigo-100 dark:bg-indigo-900/30",
-    iconClassName: "text-indigo-600 dark:text-indigo-400",
+    icon: ShieldCheck,
+    value: "27 s",
+    label: "Typical moderation-to-live handoff",
+    tone: "gold",
   },
 ];
 
 const TRUST_SIGNALS = [
   "No credit card required",
   "Free plan included",
-  "Cancel anytime",
+  "Launch your first event in minutes",
+];
+
+const OPERATOR_FEED = [
+  {
+    icon: FolderKanban,
+    title: "Aish Wedding",
+    detail: "Moderation queue clear. Challenge running.",
+  },
+  {
+    icon: Clock3,
+    title: "Ballroom check-in",
+    detail: "Attendance spike detected in the last 10 minutes.",
+  },
+  {
+    icon: Users,
+    title: "Guest engagement",
+    detail: "Draw threshold reached. Ready to announce winners.",
+  },
 ];
 
 export function HeroSection() {
   return (
-    <section className="relative pb-24 pt-32 sm:pb-36 sm:pt-44">
-      <div className="absolute inset-0 -z-10 overflow-hidden">
-        <div className="absolute left-1/2 top-0 h-[800px] w-[800px] -translate-x-1/2 -translate-y-1/3 rounded-full bg-gradient-to-br from-violet-200/35 via-purple-100/30 to-transparent blur-3xl dark:from-violet-900/25 dark:via-purple-900/15" />
-        <div className="absolute right-0 top-20 h-[400px] w-[400px] rounded-full bg-gradient-to-bl from-purple-100/40 to-transparent blur-3xl dark:from-purple-900/15" />
-        <div className="absolute bottom-0 left-0 h-[400px] w-[400px] rounded-full bg-gradient-to-tr from-violet-100/30 to-transparent blur-3xl dark:from-violet-900/15" />
-      </div>
-
+    <section className="relative overflow-hidden pb-24 pt-32 sm:pb-32 sm:pt-40">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <motion.div
-          initial="hidden"
-          animate="visible"
-          variants={staggerContainer(0.12)}
-          className="mx-auto max-w-4xl text-center"
-        >
+        <div className="grid items-start gap-12 lg:grid-cols-[1.08fr_0.92fr] lg:gap-14">
           <motion.div
-            variants={heroBadgeVariants}
-            className="inline-flex items-center gap-2 rounded-full border border-violet-200/80 bg-violet-50/80 px-4 py-1.5 text-sm font-medium text-violet-700 backdrop-blur-sm dark:border-violet-800/40 dark:bg-violet-950/50 dark:text-violet-300"
-          >
-            <Sparkles className="h-3.5 w-3.5" />
-            <span>The Event Photo Platform</span>
-          </motion.div>
-
-          <motion.h1
-            variants={fadeUpVariants}
-            className="mt-8 text-5xl font-extrabold tracking-tight text-gray-900 dark:text-white sm:text-7xl sm:leading-[1.1]"
-          >
-            Capture Moments,{" "}
-            <motion.span className="relative" variants={heroWordVariants}>
-              <motion.span className="bg-gradient-to-r from-violet-500 via-purple-500 to-fuchsia-500 bg-clip-text text-transparent">
-                Together
-              </motion.span>
-              <svg
-                aria-hidden="true"
-                className="absolute -bottom-2 left-0 w-full"
-                fill="none"
-                viewBox="0 0 300 12"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M2 8.5C50 2.5 100 2 150 5.5C200 9 250 4 298 7"
-                  stroke="url(#paint)"
-                  strokeLinecap="round"
-                  strokeWidth="3"
-                />
-                <defs>
-                  <linearGradient id="paint" x1="2" x2="298" y1="6" y2="6">
-                    <stop stopColor="#8B5CF6" />
-                    <stop offset="0.5" stopColor="#7C3AED" />
-                    <stop offset="1" stopColor="#A855F7" />
-                  </linearGradient>
-                </defs>
-              </svg>
-            </motion.span>
-          </motion.h1>
-
-          <motion.p
-            variants={fadeUpVariants}
-            className="mx-auto mt-8 max-w-2xl text-lg leading-relaxed text-stone-600 dark:text-gray-400 sm:text-xl"
-          >
-            One link. Every guest&apos;s camera. A live gallery that fills itself
-            {" "}with built-in lucky draws, photo challenges, and instant sharing.
-          </motion.p>
-
-          <motion.div
+            initial="hidden"
+            animate="visible"
             variants={staggerContainer(0.12)}
-            className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row"
+            className="relative max-w-3xl"
           >
-            <motion.div variants={fadeUpSmallVariants}>
-              <Link
-                href="/auth/register"
-                className="group relative inline-flex items-center gap-2.5 rounded-2xl bg-gradient-to-r from-violet-600 to-purple-600 px-8 py-4 text-base font-semibold text-white shadow-xl shadow-violet-500/25 transition-all hover:-translate-y-0.5 hover:shadow-2xl hover:shadow-violet-500/30"
-              >
-                <span>Create Your First Event</span>
-                <ArrowRight className="h-4.5 w-4.5 transition-transform group-hover:translate-x-1" />
-                <div className="absolute inset-0 -z-10 rounded-2xl bg-gradient-to-r from-violet-600 to-purple-600 opacity-40 blur-xl transition-opacity group-hover:opacity-60" />
-              </Link>
+            <motion.div
+              variants={heroBadgeVariants}
+              className="landing-kicker w-fit rounded-full px-4 py-2 text-[0.68rem] font-semibold"
+            >
+              <Sparkles className="h-3.5 w-3.5 text-[var(--landing-mint)]" />
+              Public gallery orchestration
             </motion.div>
-            <motion.div variants={fadeUpSmallVariants}>
-              <Link
-                href="/auth/login"
-                className="inline-flex items-center gap-2 rounded-2xl border-2 border-[#ddd1c3] bg-[#fcf8f2]/85 px-8 py-4 text-base font-semibold text-stone-700 backdrop-blur-sm transition-all hover:border-[#cfbeab] hover:bg-[#f7efe5] dark:border-gray-700 dark:bg-gray-900/80 dark:text-gray-300 dark:hover:border-gray-500 dark:hover:bg-gray-800/80 dark:hover:text-white"
-              >
-                Sign In
-              </Link>
-            </motion.div>
-          </motion.div>
 
-          <motion.div
-            variants={staggerContainer(0.08)}
-            className="mt-10 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm text-stone-500 dark:text-gray-500"
-          >
-            {TRUST_SIGNALS.map((signal) => (
-              <motion.span key={signal} variants={fadeUpSmallVariants} className="flex items-center gap-1.5">
-                <CheckCircle2 className="h-4 w-4 text-violet-500" />
-                {signal}
+            <motion.h1
+              variants={fadeUpVariants}
+              className="landing-display mt-8 text-5xl leading-none text-[#f4efe7] sm:text-7xl xl:text-[5.25rem]"
+            >
+              Turn every guest
+              <motion.span
+                variants={heroWordVariants}
+                className="block bg-[linear-gradient(135deg,#f4efe7_0%,#cabaff_45%,#88e3da_100%)] bg-clip-text text-transparent"
+              >
+                into your live event feed.
               </motion.span>
-            ))}
-          </motion.div>
-        </motion.div>
+            </motion.h1>
 
-        <div className="mx-auto mt-20 max-w-4xl">
+            <motion.p
+              variants={fadeUpVariants}
+              className="mt-8 max-w-2xl text-lg leading-8 text-[var(--landing-text-soft)] sm:text-xl"
+            >
+              Galeria gives you one guest-friendly QR flow, one branded gallery, and one
+              operating surface for uploads, moderation, challenges, and post-event delivery.
+            </motion.p>
+
+            <motion.div
+              variants={staggerContainer(0.1)}
+              className="mt-10 flex flex-col items-start gap-4 sm:flex-row"
+            >
+              <motion.div variants={fadeUpSmallVariants}>
+                <Link
+                  href="/auth/register"
+                  className="landing-button-primary group inline-flex items-center gap-2.5 rounded-full px-7 py-4 text-base font-semibold"
+                >
+                  Create your first event
+                  <ArrowRight className="h-4.5 w-4.5 transition-transform group-hover:translate-x-1" />
+                </Link>
+              </motion.div>
+              <motion.div variants={fadeUpSmallVariants}>
+                <Link
+                  href="/auth/login"
+                  className="landing-button-secondary inline-flex items-center gap-2 rounded-full px-7 py-4 text-base font-semibold"
+                >
+                  Sign in
+                </Link>
+              </motion.div>
+            </motion.div>
+
+            <motion.div
+              variants={staggerContainer(0.08)}
+              className="mt-10 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-[var(--landing-text-muted)]"
+            >
+              {TRUST_SIGNALS.map((signal) => (
+                <motion.span key={signal} variants={fadeUpSmallVariants} className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-[var(--landing-mint)]" />
+                  {signal}
+                </motion.span>
+              ))}
+            </motion.div>
+
+            <motion.div
+              variants={fadeUpSmallVariants}
+              className="landing-rule landing-glow-line mt-12 grid gap-5 pt-8 sm:grid-cols-3"
+            >
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.26em] text-[var(--landing-text-muted)]">
+                  Guest flow
+                </p>
+                <p className="mt-2 text-sm leading-6 text-[var(--landing-text-soft)]">
+                  Scan, upload, react, and enter draws without downloading anything.
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.26em] text-[var(--landing-text-muted)]">
+                  Organizer view
+                </p>
+                <p className="mt-2 text-sm leading-6 text-[var(--landing-text-soft)]">
+                  Brand controls, moderation, attendance, and support signals in one place.
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.26em] text-[var(--landing-text-muted)]">
+                  After the event
+                </p>
+                <p className="mt-2 text-sm leading-6 text-[var(--landing-text-soft)]">
+                  Export galleries, review activity, and keep every moment searchable.
+                </p>
+              </div>
+            </motion.div>
+          </motion.div>
+
           <motion.div
             initial="hidden"
             animate="visible"
             variants={fadeUpVariants}
-            className="relative rounded-3xl border border-[#e5d8ca]/80 bg-gradient-to-b from-[#f1e8de] to-[#fcf8f2] p-1 shadow-2xl shadow-[#d7c9b7]/35 dark:border-gray-800/80 dark:from-gray-900 dark:to-gray-950 dark:shadow-none"
+            className="landing-panel rounded-[2rem] p-4 sm:p-5"
           >
-            <div className="rounded-[20px] border border-[#eee3d6] bg-[#fbf7f1] p-8 dark:border-gray-800 dark:bg-gray-900/50">
+            <div className="rounded-[1.6rem] border border-white/8 bg-[rgba(4,9,20,0.58)] p-6 sm:p-7">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.34em] text-[var(--landing-text-muted)]">
+                    Tonight&apos;s control snapshot
+                  </p>
+                  <h2 className="landing-display mt-3 text-4xl text-[#f4efe7]">A gallery with teeth.</h2>
+                </div>
+                <span
+                  className="landing-chip rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em]"
+                  data-tone="mint"
+                >
+                  Live now
+                </span>
+              </div>
+
               <motion.div
                 variants={statListVariants(0.1)}
                 initial="hidden"
                 animate="visible"
-                className="grid grid-cols-2 gap-6 sm:grid-cols-4"
+                className="mt-8 grid gap-3 sm:grid-cols-3"
               >
-                {HERO_STATS.map((stat) => (
-                  <motion.div key={stat.label} variants={fadeUpSmallVariants} className="text-center">
-                    <div
-                      className={`mx-auto flex h-12 w-12 items-center justify-center rounded-2xl ${stat.bgClassName}`}
+                {HERO_METRICS.map((metric) => (
+                  <motion.div
+                    key={metric.label}
+                    variants={fadeUpSmallVariants}
+                    className="landing-panel-soft rounded-[1.35rem] p-4"
+                  >
+                    <span
+                      className="landing-chip inline-flex rounded-full px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.24em]"
+                      data-tone={metric.tone}
                     >
-                      <stat.icon className={`h-6 w-6 ${stat.iconClassName}`} />
-                    </div>
-                    <p className="mt-3 text-2xl font-bold text-gray-900 dark:text-white">{stat.title}</p>
-                    <p className="text-sm text-stone-500 dark:text-gray-400">{stat.label}</p>
+                      <metric.icon className="mr-1.5 h-3.5 w-3.5" />
+                      Signal
+                    </span>
+                    <p className="mt-5 text-3xl font-semibold text-[#f4efe7]">{metric.value}</p>
+                    <p className="mt-2 text-sm leading-6 text-[var(--landing-text-soft)]">{metric.label}</p>
                   </motion.div>
                 ))}
               </motion.div>
+
+              <div className="landing-rule mt-8 pt-6">
+                <div className="grid gap-4 xl:grid-cols-[1.08fr_0.92fr]">
+                  <div className="landing-panel-soft rounded-[1.35rem] p-5">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--landing-text-muted)]">
+                          Guest path
+                        </p>
+                        <h3 className="mt-2 text-lg font-semibold text-[#f4efe7]">
+                          Scan. Upload. Appear.
+                        </h3>
+                      </div>
+                      <Command className="h-5 w-5 text-[var(--landing-violet)]" />
+                    </div>
+                    <div className="mt-5 space-y-3">
+                      {[
+                        "QR opens the gallery instantly on mobile",
+                        "Uploads route through moderation rules you choose",
+                        "Guests see reactions, challenges, and draw prompts in real time",
+                      ].map((item) => (
+                        <div key={item} className="flex items-start gap-3">
+                          <span className="mt-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-[rgba(102,223,212,0.14)] text-[var(--landing-mint)]">
+                            <Check className="h-3.5 w-3.5" />
+                          </span>
+                          <p className="text-sm leading-6 text-[var(--landing-text-soft)]">{item}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="landing-panel-soft rounded-[1.35rem] p-5">
+                    <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--landing-text-muted)]">
+                      Operator feed
+                    </p>
+                    <div className="mt-4 space-y-3">
+                      {OPERATOR_FEED.map((item) => (
+                        <div
+                          key={item.title}
+                          className="rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3"
+                        >
+                          <div className="flex items-start gap-3">
+                            <span className="mt-0.5 inline-flex h-9 w-9 items-center justify-center rounded-2xl bg-[rgba(177,140,255,0.12)] text-[var(--landing-violet)]">
+                              <item.icon className="h-4.5 w-4.5" />
+                            </span>
+                            <div>
+                              <p className="text-sm font-semibold text-[#f4efe7]">{item.title}</p>
+                              <p className="mt-1 text-sm leading-6 text-[var(--landing-text-soft)]">
+                                {item.detail}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </motion.div>
         </div>

@@ -68,7 +68,7 @@ function toIsoString(value: Date | string | null): string | null {
 }
 
 function getAdminTenantSlugSql(options: AdminTenantCompatibilityOptions): string {
-  return options.includeSlug ? 't.slug,' : 'NULL::text AS slug,';
+  return options.includeSlug ? 't.subdomain AS slug,' : 'NULL::text AS slug,';
 }
 
 function getAdminTenantSearchClause(
@@ -76,7 +76,7 @@ function getAdminTenantSearchClause(
   paramIndex: number
 ): string {
   if (options.includeSlug) {
-    return ` AND (t.company_name ILIKE $${paramIndex} OR t.slug ILIKE $${paramIndex + 1})`;
+    return ` AND (t.company_name ILIKE $${paramIndex} OR t.subdomain ILIKE $${paramIndex + 1})`;
   }
 
   return ` AND t.company_name ILIKE $${paramIndex}`;
@@ -218,7 +218,7 @@ export async function getAdminTenantById(tenantId: string): Promise<AdminTenantR
 
 export async function getAdminTenantBySlug(slug: string): Promise<AdminTenantRecord | null> {
   const db = getAdminDb();
-  return db.findOne<AdminTenantRecord>('tenants', { slug });
+  return db.findOne<AdminTenantRecord>('tenants', { subdomain: slug });
 }
 
 async function getAdminTenantDetailWithCompatibility(
@@ -496,7 +496,7 @@ export async function updateAdminTenantStatus(
       SET status = $1,
           updated_at = NOW()
       WHERE id = $2
-      RETURNING id, company_name, slug, subscription_tier, status
+      RETURNING id, company_name, subdomain AS slug, subscription_tier, status
     `,
     [status, tenantId]
   );
@@ -518,7 +518,7 @@ export async function updateAdminTenantSubscriptionTier(
           limits = $3::jsonb,
           updated_at = NOW()
       WHERE id = $4
-      RETURNING id, company_name, slug, subscription_tier, status
+      RETURNING id, company_name, subdomain AS slug, subscription_tier, status
     `,
     [
       subscriptionTier,
@@ -572,7 +572,7 @@ export async function updateAdminTenant(
       UPDATE tenants
       SET ${assignments.join(', ')}
       WHERE id = $${paramIndex}
-      RETURNING id, company_name, slug, subscription_tier, status
+      RETURNING id, company_name, subdomain AS slug, subscription_tier, status
     `,
     values
   );
@@ -593,7 +593,7 @@ export async function createAdminTenant(input: {
       INSERT INTO tenants (
         id,
         company_name,
-        slug,
+        subdomain,
         subscription_tier,
         status,
         features_enabled,
@@ -602,7 +602,7 @@ export async function createAdminTenant(input: {
         updated_at
       )
       VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, NOW(), NOW())
-      RETURNING id, company_name, slug, subscription_tier, status
+      RETURNING id, company_name, subdomain AS slug, subscription_tier, status
     `,
     [
       crypto.randomUUID(),

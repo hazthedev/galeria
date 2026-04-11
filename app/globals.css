@@ -287,6 +287,201 @@ body {
   }
 }
 
+.landing-shell {
+  --landing-bg: #050b14;
+  --landing-bg-deep: #040914;
+  --landing-surface: rgba(10, 20, 35, 0.82);
+  --landing-surface-strong: rgba(14, 27, 45, 0.94);
+  --landing-surface-soft: rgba(9, 18, 31, 0.72);
+  --landing-border: rgba(196, 213, 241, 0.14);
+  --landing-border-strong: rgba(235, 241, 255, 0.24);
+  --landing-text: #f4efe7;
+  --landing-text-soft: #adc0df;
+  --landing-text-muted: #7489ab;
+  --landing-violet: #b18cff;
+  --landing-violet-strong: #9369ff;
+  --landing-mint: #66dfd4;
+  --landing-gold: #e8c38b;
+  --landing-danger: #ff7c88;
+  color: var(--landing-text);
+  background:
+    radial-gradient(circle at top, rgba(177, 140, 255, 0.12), transparent 30rem),
+    radial-gradient(circle at 82% 14%, rgba(102, 223, 212, 0.09), transparent 22rem),
+    linear-gradient(180deg, #08111d 0%, #050b14 48%, #040812 100%);
+  font-family: var(--font-admin-sans), "Segoe UI", sans-serif;
+}
+
+.landing-shell::selection {
+  background: rgba(177, 140, 255, 0.28);
+  color: #fff8f1;
+}
+
+.landing-shell .landing-display {
+  font-family: var(--font-admin-display), Georgia, serif;
+  letter-spacing: -0.04em;
+}
+
+.landing-shell .landing-grid {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.028) 1px, transparent 1px);
+  background-size: 80px 80px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.55), transparent 88%);
+}
+
+.landing-shell .landing-panel {
+  position: relative;
+  background:
+    linear-gradient(180deg, rgba(17, 31, 52, 0.92), rgba(8, 17, 30, 0.92));
+  border: 1px solid var(--landing-border);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 24px 56px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(22px);
+}
+
+.landing-shell .landing-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 8rem;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(177, 140, 255, 0.95), transparent);
+}
+
+.landing-shell .landing-panel-soft {
+  position: relative;
+  background: linear-gradient(180deg, rgba(12, 21, 37, 0.88), rgba(8, 15, 28, 0.82));
+  border: 1px solid rgba(196, 213, 241, 0.1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(18px);
+}
+
+.landing-shell .landing-panel-soft::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 5rem;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(102, 223, 212, 0.72), transparent);
+}
+
+.landing-shell .landing-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid rgba(188, 204, 232, 0.16);
+  background: rgba(255, 255, 255, 0.03);
+  color: #b6cae9;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+}
+
+.landing-shell .landing-chip {
+  border: 1px solid rgba(188, 204, 232, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--landing-text-soft);
+}
+
+.landing-shell .landing-chip[data-tone="signal"] {
+  border-color: rgba(177, 140, 255, 0.24);
+  background: rgba(177, 140, 255, 0.14);
+  color: #ded2ff;
+}
+
+.landing-shell .landing-chip[data-tone="mint"] {
+  border-color: rgba(102, 223, 212, 0.22);
+  background: rgba(102, 223, 212, 0.12);
+  color: #9be9e2;
+}
+
+.landing-shell .landing-chip[data-tone="gold"] {
+  border-color: rgba(232, 195, 139, 0.26);
+  background: rgba(232, 195, 139, 0.12);
+  color: #f0d5ac;
+}
+
+.landing-shell .landing-button-primary,
+.landing-shell .landing-button-secondary,
+.landing-shell .landing-button-ghost {
+  transition:
+    transform 0.24s ease,
+    border-color 0.24s ease,
+    background-color 0.24s ease,
+    color 0.24s ease,
+    box-shadow 0.24s ease;
+}
+
+.landing-shell .landing-button-primary:focus-visible,
+.landing-shell .landing-button-secondary:focus-visible,
+.landing-shell .landing-button-ghost:focus-visible,
+.landing-shell .landing-nav-link:focus-visible,
+.landing-shell .landing-utility-link:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 1px rgba(177, 140, 255, 0.4),
+    0 0 0 5px rgba(177, 140, 255, 0.12);
+}
+
+.landing-shell .landing-button-primary {
+  border: 1px solid rgba(196, 213, 241, 0.1);
+  background: linear-gradient(135deg, #9d74ff 0%, #8b5cf6 48%, #67ded3 140%);
+  color: #fff9f2;
+  box-shadow:
+    0 18px 38px rgba(117, 85, 255, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.landing-shell .landing-button-primary:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 22px 44px rgba(117, 85, 255, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+.landing-shell .landing-button-secondary {
+  border: 1px solid rgba(196, 213, 241, 0.16);
+  background: rgba(9, 18, 31, 0.82);
+  color: var(--landing-text);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.landing-shell .landing-button-secondary:hover {
+  transform: translateY(-2px);
+  border-color: rgba(188, 204, 232, 0.26);
+  background: rgba(13, 24, 41, 0.96);
+}
+
+.landing-shell .landing-button-ghost,
+.landing-shell .landing-nav-link,
+.landing-shell .landing-utility-link {
+  color: var(--landing-text-soft);
+}
+
+.landing-shell .landing-button-ghost:hover,
+.landing-shell .landing-nav-link:hover,
+.landing-shell .landing-utility-link:hover {
+  color: var(--landing-text);
+}
+
+.landing-shell .landing-rule {
+  border-top: 1px solid rgba(188, 204, 232, 0.12);
+}
+
+.landing-shell .landing-glow-line {
+  position: relative;
+}
+
+.landing-shell .landing-glow-line::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  width: 7rem;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(102, 223, 212, 0.72));
+}
+
 /* Let numeric inputs behave like plain typed fields without browser steppers */
 input[type='number'] {
   appearance: textfield;

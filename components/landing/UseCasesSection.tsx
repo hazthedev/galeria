@@ -15,7 +15,8 @@ type UseCase = {
   title: string;
   desc: string;
   gradientClassName: string;
-  bgClassName: string;
+  borderClassName: string;
+  support: string;
 };
 
 const useCaseVariants = indexedFadeUpVariants(0.1);
@@ -24,50 +25,53 @@ const USE_CASES: UseCase[] = [
   {
     icon: PartyPopper,
     title: "Birthday Parties",
-    desc: "Kids chase the lucky draw. Parents get every photo in one place.",
-    gradientClassName: "from-pink-500 to-rose-500",
-    bgClassName: "from-pink-50/85 to-[#fcf6f4] dark:from-pink-950/20 dark:to-rose-950/20",
+    desc: "Kids chase the lucky draw. Parents leave with a complete gallery instead of scattered phone uploads.",
+    gradientClassName: "from-[#ff8ca0] to-[#f16a86]",
+    borderClassName: "border-[rgba(255,124,136,0.18)]",
+    support: "Great when you want guests and families to contribute without needing instructions.",
   },
   {
     icon: Heart,
     title: "Weddings & Receptions",
-    desc: "Every guest becomes a photographer. The couple gets a gallery they didn&apos;t have to organise.",
-    gradientClassName: "from-violet-500 to-purple-500",
-    bgClassName: "from-violet-50/85 to-[#faf6fb] dark:from-violet-950/20 dark:to-purple-950/20",
+    desc: "Every guest becomes a photographer. The couple gets a branded gallery they never had to chase down.",
+    gradientClassName: "from-[#b18cff] to-[#8f6aff]",
+    borderClassName: "border-[rgba(177,140,255,0.18)]",
+    support: "Ideal for memory-rich events where the gallery should feel like part of the experience.",
   },
   {
     icon: Building2,
     title: "Corporate Events",
-    desc: "Branded galleries, QR check-ins, and exportable attendance data — ready for the recap deck.",
-    gradientClassName: "from-indigo-500 to-violet-500",
-    bgClassName: "from-indigo-50/85 to-[#f8f6fb] dark:from-indigo-950/20 dark:to-violet-950/20",
+    desc: "Branded galleries, QR check-ins, and clean post-event assets that are ready for recap decks and internal reports.",
+    gradientClassName: "from-[#66dfd4] to-[#5bb6ff]",
+    borderClassName: "border-[rgba(102,223,212,0.18)]",
+    support: "Strong fit for teams that need branding, attendance, and a clean operational recap.",
   },
 ];
 
 export function UseCasesSection() {
   return (
-    <section id="use-cases" className="relative py-24 sm:py-36">
-      <div className="absolute inset-0 -z-10 bg-[#efe7dc]/70 dark:bg-gray-900/50" />
+    <section id="use-cases" className="relative scroll-mt-28 py-24 sm:py-32">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <motion.div
           initial="hidden"
           whileInView="visible"
           viewport={landingHeaderViewport}
           variants={fadeUpVariants}
-          className="mx-auto max-w-2xl text-center"
+          className="mx-auto max-w-3xl text-center"
         >
-          <p className="text-sm font-semibold uppercase tracking-widest text-violet-600 dark:text-violet-400">
-            Use cases
+          <p className="landing-kicker mx-auto w-fit rounded-full px-4 py-2 text-[0.68rem] font-semibold">
+            Where it fits
           </p>
-          <h2 className="mt-3 text-3xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-5xl">
-            Perfect for any event
+          <h2 className="landing-display mt-6 text-4xl text-[#f4efe7] sm:text-6xl">
+            The same operating model scales from private parties to public programs.
           </h2>
-          <p className="mt-5 text-lg text-stone-600 dark:text-gray-400">
-            From birthday parties to company summits
+          <p className="mt-5 text-lg leading-8 text-[var(--landing-text-soft)]">
+            Different rooms need different energy, but the pattern holds: easy guest capture,
+            visible participation, and a clean asset trail after the doors close.
           </p>
         </motion.div>
 
-        <div className="mt-20 grid gap-8 sm:grid-cols-3">
+        <div className="mt-16 grid gap-6 lg:grid-cols-3">
           {USE_CASES.map((item, index) => (
             <motion.article
               key={item.title}
@@ -77,22 +81,25 @@ export function UseCasesSection() {
               whileHover={{ y: -6, transition: springConfigs.gentle }}
               viewport={landingViewport}
               variants={useCaseVariants}
-              className={`relative overflow-hidden rounded-3xl border border-[#e3d6c8]/70 bg-gradient-to-b ${item.bgClassName} p-10 text-center transition-all duration-300 hover:shadow-xl hover:shadow-[#d8cab8]/25 dark:border-gray-800/50`}
+              className={`landing-panel relative overflow-hidden rounded-[2rem] border ${item.borderClassName} p-8`}
             >
+              <div className="absolute right-0 top-0 h-32 w-32 bg-[radial-gradient(circle,rgba(255,255,255,0.12),transparent_65%)]" />
               <motion.div
-                whileHover={{
-                  scale: 1.12,
-                  rotate: 3,
-                  transition: springConfigs.bouncy,
-                }}
-                className={`mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br ${item.gradientClassName} text-white shadow-lg`}
+                whileHover={{ scale: 1.06, transition: springConfigs.gentle }}
+                className={`flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br ${item.gradientClassName} text-white shadow-lg`}
               >
                 <item.icon className="h-9 w-9" />
               </motion.div>
-              <h3 className="mt-6 text-xl font-semibold text-gray-900 dark:text-white">{item.title}</h3>
-              <p className="mt-3 text-[15px] leading-relaxed text-stone-600 dark:text-gray-400">
-                {item.desc}
-              </p>
+              <div className="mt-8 flex items-center justify-between gap-4">
+                <h3 className="text-2xl font-semibold text-[#f4efe7]">{item.title}</h3>
+                <span className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--landing-text-muted)]">
+                  Best fit
+                </span>
+              </div>
+              <p className="mt-4 text-[15px] leading-7 text-[var(--landing-text-soft)]">{item.desc}</p>
+              <div className="landing-rule mt-8 pt-5">
+                <p className="text-sm leading-6 text-[var(--landing-text-soft)]">{item.support}</p>
+              </div>
             </motion.article>
           ))}
         </div>

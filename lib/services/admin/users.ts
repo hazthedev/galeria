@@ -165,7 +165,7 @@ function getAdminUserSubscriptionTierSql(options: AdminUserCompatibilityOptions)
 }
 
 function getAdminUserTenantSlugSql(options: AdminUserCompatibilityOptions): string {
-  return options.includeTenantSlug ? 't.slug AS tenant_slug,' : 'NULL::text AS tenant_slug,';
+  return options.includeTenantSlug ? 't.subdomain AS tenant_slug,' : 'NULL::text AS tenant_slug,';
 }
 
 function getAdminUserTotpSql(options: AdminUserCompatibilityOptions): string {

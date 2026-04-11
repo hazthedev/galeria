@@ -136,7 +136,7 @@ export function isAdminEventUploadsEnabled(settings: Record<string, unknown> | n
 }
 
 function getAdminEventListTenantSlugSql(options: AdminEventListCompatibilityOptions): string {
-  return options.includeTenantSlug ? 't.slug AS tenant_slug,' : 'NULL::text AS tenant_slug,';
+  return options.includeTenantSlug ? 't.subdomain AS tenant_slug,' : 'NULL::text AS tenant_slug,';
 }
 
 function getAdminEventAttendanceSql(options: AdminEventListCompatibilityOptions): string {
@@ -164,7 +164,7 @@ function getAdminEventAttendanceSql(options: AdminEventListCompatibilityOptions)
 function getAdminEventDetailTenantSlugSql(
   options: AdminEventDetailCompatibilityOptions
 ): string {
-  return options.includeTenantSlug ? 't.slug AS tenant_slug,' : 'NULL::text AS tenant_slug,';
+  return options.includeTenantSlug ? 't.subdomain AS tenant_slug,' : 'NULL::text AS tenant_slug,';
 }
 
 function getAdminEventDetailTenantTierSql(

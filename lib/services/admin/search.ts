@@ -153,7 +153,7 @@ export async function searchAdminEntities(
     const tenantResult = await db.query<{
       id: string;
       companyName: string;
-      slug: string;
+      subdomain: string | null;
       status: string;
       subscriptionTier: string;
       createdAt: Date;
@@ -162,17 +162,17 @@ export async function searchAdminEntities(
         SELECT
           t.id,
           t.company_name AS "companyName",
-          t.slug,
+          t.subdomain,
           t.status,
           t.subscription_tier AS "subscriptionTier",
           t.created_at AS "createdAt"
         FROM tenants t
-        WHERE t.company_name ILIKE $2 OR t.slug ILIKE $2
+        WHERE t.company_name ILIKE $2 OR t.subdomain ILIKE $2
         ORDER BY
           CASE
-            WHEN LOWER(t.slug) = LOWER($1) THEN 0
+            WHEN LOWER(t.subdomain) = LOWER($1) THEN 0
             WHEN LOWER(t.company_name) = LOWER($1) THEN 1
-            WHEN t.slug ILIKE $3 THEN 2
+            WHEN t.subdomain ILIKE $3 THEN 2
             WHEN t.company_name ILIKE $3 THEN 3
             ELSE 4
           END,
@@ -188,7 +188,7 @@ export async function searchAdminEntities(
         id: row.id,
         type: 'tenant' as const,
         title: row.companyName,
-        subtitle: row.slug,
+        subtitle: row.subdomain,
         description: row.subscriptionTier ? `Plan: ${row.subscriptionTier}` : null,
         status: row.status,
         href: `/admin/tenants/${row.id}`,
