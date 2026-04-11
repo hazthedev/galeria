@@ -74,7 +74,7 @@ async function finalizeOAuthSession(
     rememberMe: true,
   });
 
-  const redirectTo = `${appUrl}/organizer/events`;
+  const redirectTo = `${appUrl}/organizer`;
   const response = NextResponse.json({ redirectTo });
   response.cookies.set('session', sessionId, {
     httpOnly: true,
