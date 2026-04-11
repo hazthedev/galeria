@@ -82,6 +82,7 @@ interface CombinedStatsRow {
 
 interface EventAccessRow {
   organizer_id: string;
+  tenant_id: string;
   subscription_tier: SubscriptionTier | null;
   settings: unknown;
 }
@@ -196,14 +197,15 @@ export async function GET(
       `
         SELECT
           e.organizer_id,
+          e.tenant_id,
           t.subscription_tier,
           e.settings
         FROM events e
-        LEFT JOIN tenants t ON t.id = $2
+        LEFT JOIN tenants t ON t.id = e.tenant_id
         WHERE e.id = $1
         LIMIT 1
       `,
-      [id, tenantId]
+      [id]
     );
     const access = accessResult.rows[0];
 
@@ -223,8 +225,10 @@ export async function GET(
       );
     }
 
+    const effectiveTenantId = access.tenant_id || tenantId;
+
     const entitlements = await getEffectiveTenantEntitlements(
-      tenantId,
+      effectiveTenantId,
       ((access.subscription_tier as SubscriptionTier) || 'free')
     );
     const normalizedTier = normalizeSubscriptionTier(access.subscription_tier || 'free');
