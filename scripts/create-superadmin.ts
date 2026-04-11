@@ -10,6 +10,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const connectionString = process.env.DATABASE_URL!;
+const SYSTEM_TENANT_ID = process.env.SYSTEM_TENANT_ID || '00000000-0000-0000-0000-000000000000';
 
 // Superadmin credentials from request
 const EMAIL = 'galeria@admin.com';
@@ -40,7 +41,7 @@ async function createSuperadmin() {
         if (tenantResult.rowCount === 0) {
             // Create a new master tenant if none exists
             console.log('[CREATE_SUPERADMIN] No tenant found. Creating default master tenant...');
-            tenantId = '00000000-0000-0000-0000-000000000001'; // Default ID used in reset script
+            tenantId = SYSTEM_TENANT_ID;
 
             await client.query(`
         INSERT INTO tenants (

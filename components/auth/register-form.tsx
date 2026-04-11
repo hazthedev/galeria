@@ -16,6 +16,7 @@ import clsx from 'clsx';
 // ============================================
 
 interface RegisterFormData {
+  tenantName: string;
   name: string;
   email: string;
   password: string;
@@ -62,6 +63,7 @@ interface PasswordValidationResult {
 export function RegisterForm({ onSuccess, redirectTo = '/events', className }: RegisterFormProps) {
   const router = useRouter();
   const [formData, setFormData] = useState<RegisterFormData>({
+    tenantName: '',
     name: '',
     email: '',
     password: '',
@@ -130,6 +132,13 @@ export function RegisterForm({ onSuccess, redirectTo = '/events', className }: R
   const validateForm = (): boolean => {
     const newErrors: Partial<Record<keyof RegisterFormData, string>> = {};
 
+    // Workspace validation
+    if (!formData.tenantName.trim()) {
+      newErrors.tenantName = 'Workspace name is required';
+    } else if (formData.tenantName.trim().length < 2) {
+      newErrors.tenantName = 'Workspace name must be at least 2 characters';
+    }
+
     // Name validation
     if (!formData.name.trim()) {
       newErrors.name = 'Name is required';
@@ -182,6 +191,7 @@ export function RegisterForm({ onSuccess, redirectTo = '/events', className }: R
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          tenantName: formData.tenantName.trim(),
           email: formData.email,
           password: formData.password,
           name: formData.name.trim(),
@@ -206,7 +216,7 @@ export function RegisterForm({ onSuccess, redirectTo = '/events', className }: R
         // Call onSuccess callback if provided
         onSuccess?.();
 
-        toast.success('Account created successfully!');
+        toast.success('Workspace created successfully!');
         // Redirect to specified page
         router.push(redirectTo);
         router.refresh();
@@ -293,6 +303,47 @@ export function RegisterForm({ onSuccess, redirectTo = '/events', className }: R
           {apiError}
         </div>
       )}
+
+      {/* Workspace Field */}
+      <div className="space-y-1.5">
+        <label
+          htmlFor="tenantName"
+          className="block text-sm font-medium text-stone-700 dark:text-gray-300"
+        >
+          Workspace Name
+        </label>
+        <input
+          id="tenantName"
+          type="text"
+          autoComplete="organization"
+          value={formData.tenantName}
+          onChange={e => handleInputChange('tenantName', e.target.value)}
+          className={clsx(
+            'block min-h-11 w-full rounded-lg border px-4 py-2.5 text-sm',
+            'transition-colors duration-200',
+            'placeholder:text-stone-400',
+            'focus:outline-none focus:ring-2 focus:ring-offset-0',
+            {
+              'border-[#d9cab8] bg-[#fdf9f4] text-slate-900 focus:border-violet-500 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100':
+                !errors.tenantName,
+              'border-red-300 bg-red-50 text-red-900 focus:border-red-500 focus:ring-red-500 dark:border-red-600 dark:bg-red-900/10 dark:text-red-200':
+                errors.tenantName,
+            }
+          )}
+          aria-invalid={errors.tenantName ? 'true' : 'false'}
+          aria-describedby={errors.tenantName ? 'tenantName-error' : 'tenantName-hint'}
+          placeholder="Lily Events Studio"
+          disabled={isLoading}
+        />
+        <p id="tenantName-hint" className="text-xs text-stone-500 dark:text-gray-500">
+          This creates your own workspace for events, guests, and team access.
+        </p>
+        {errors.tenantName && (
+          <p id="tenantName-error" className="text-sm text-red-600 dark:text-red-400">
+            {errors.tenantName}
+          </p>
+        )}
+      </div>
 
       {/* Name Field */}
       <div className="space-y-1.5">
@@ -486,10 +537,10 @@ export function RegisterForm({ onSuccess, redirectTo = '/events', className }: R
         {isLoading ? (
           <>
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Creating account...
+            Creating workspace...
           </>
         ) : (
-          'Create Account'
+          'Create Workspace'
         )}
       </button>
     </form>

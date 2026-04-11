@@ -29,7 +29,8 @@
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "db:backup": "npx tsx scripts/backup.ts",
-    "db:restore": "npx tsx scripts/restore.ts"
+    "db:restore": "npx tsx scripts/restore.ts",
+    "tenants:cleanup": "npx tsx scripts/cleanup-customer-tenants.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.980.0",

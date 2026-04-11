@@ -5,7 +5,6 @@ import { validatePassword, DEFAULT_PASSWORD_REQUIREMENTS } from '@/lib/auth';
 import { getRequestIp, getRequestUserAgent } from '../../../../middleware/auth';
 import type { IAuthResponseSession, IUser } from '../../../../lib/types';
 import { registerSchema } from '../../../../lib/validation/auth';
-import { DEFAULT_TENANT_ID } from '@/lib/constants/tenants';
 import {
   getSupabaseAdminClient,
   getSupabaseServerAuthClient,
@@ -13,11 +12,38 @@ import {
   isSupabaseAuthConfigured,
 } from '@/lib/infrastructure/auth/supabase-server';
 import { resolveOrProvisionAppUser } from '@/lib/domain/auth/provision-app-user';
+import { createTenant, deleteTenantById } from '@/lib/domain/tenant/tenant';
+import type { ITenant } from '@/types';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+async function cleanupRegistrationArtifacts(options: {
+  tenantId?: string | null;
+  authUserId?: string | null;
+}) {
+  if (options.authUserId) {
+    try {
+      const adminClient = getSupabaseAdminClient();
+      await adminClient.auth.admin.deleteUser(options.authUserId);
+    } catch (cleanupError) {
+      console.error('[REGISTER] Failed to clean up auth user:', cleanupError);
+    }
+  }
+
+  if (options.tenantId) {
+    try {
+      await deleteTenantById(options.tenantId);
+    } catch (cleanupError) {
+      console.error('[REGISTER] Failed to clean up tenant:', cleanupError);
+    }
+  }
+}
+
 export async function POST(request: NextRequest) {
+  let createdTenant: ITenant | null = null;
+  let createdAuthUserId: string | null = null;
+
   try {
     const parsed = registerSchema.safeParse(await request.json());
     if (!parsed.success) {
@@ -43,9 +69,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { email, password, name } = parsed.data;
+    const { email, password, name, tenantName } = parsed.data;
     const normalizedEmail = email.toLowerCase().trim();
     const trimmedName = name.trim();
+    const trimmedTenantName = tenantName.trim();
 
     if (trimmedName.length < 2) {
       return NextResponse.json(
@@ -53,6 +80,17 @@ export async function POST(request: NextRequest) {
           success: false,
           error: 'INVALID_INPUT',
           message: 'Name must be at least 2 characters long',
+        },
+        { status: 400 }
+      );
+    }
+
+    if (trimmedTenantName.length < 2) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'INVALID_INPUT',
+          message: 'Workspace name must be at least 2 characters long',
         },
         { status: 400 }
       );
@@ -87,6 +125,14 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    createdTenant = await createTenant({
+      tenant_type: 'white_label',
+      brand_name: trimmedTenantName,
+      company_name: trimmedTenantName,
+      contact_email: normalizedEmail,
+      subscription_tier: 'free',
+    });
+
     const adminClient = getSupabaseAdminClient();
     const { data: createData, error: createError } = await adminClient.auth.admin.createUser({
       email: normalizedEmail,
@@ -94,7 +140,8 @@ export async function POST(request: NextRequest) {
       email_confirm: true,
       user_metadata: {
         name: trimmedName,
-        tenant_id: DEFAULT_TENANT_ID,
+        tenant_id: createdTenant.id,
+        tenant_name: trimmedTenantName,
         role: 'organizer',
         subscription_tier: 'free',
       },
@@ -103,6 +150,7 @@ export async function POST(request: NextRequest) {
     if (createError) {
       const duplicate = /already|exists|registered/i.test(createError.message || '');
       if (duplicate) {
+        await cleanupRegistrationArtifacts({ tenantId: createdTenant.id });
         return NextResponse.json(
           {
             success: false,
@@ -119,6 +167,8 @@ export async function POST(request: NextRequest) {
     if (!createData.user) {
       throw new Error('Failed to create user in Supabase');
     }
+
+    createdAuthUserId = createData.user.id;
 
     // Verify credentials once and align with login path behavior.
     const supabase = getSupabaseServerAuthClient();
@@ -160,6 +210,11 @@ export async function POST(request: NextRequest) {
 
     return response;
   } catch (error) {
+    await cleanupRegistrationArtifacts({
+      authUserId: createdAuthUserId,
+      tenantId: createdTenant?.id,
+    });
+
     console.error('[REGISTER] Error:', error);
     return NextResponse.json(
       {

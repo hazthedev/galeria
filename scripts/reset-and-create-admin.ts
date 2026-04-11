@@ -16,7 +16,7 @@ const ADMIN_EMAIL = 'admin@galeria.com';
 const ADMIN_PASSWORD = 'admin123';
 
 // Use the same tenant ID that middleware injects for local development
-const TENANT_ID = '00000000-0000-0000-0000-000000000001';
+const TENANT_ID = process.env.SYSTEM_TENANT_ID || '00000000-0000-0000-0000-000000000000';
 
 async function resetAndCreateAdmin() {
   const pool = new Pool({ connectionString });

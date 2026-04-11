@@ -26,10 +26,10 @@ export default function RegisterPage() {
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Galeria</h1>
           </Link>
           <h2 className="mt-6 text-2xl font-semibold text-gray-900 dark:text-gray-100">
-            Create your account
+            Create your workspace
           </h2>
           <p className="mt-2 text-sm text-stone-600 dark:text-gray-400">
-            Start capturing moments in seconds
+            Start with your own event workspace and invite your team later
           </p>
         </motion.div>
 

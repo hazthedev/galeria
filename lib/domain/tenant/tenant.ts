@@ -8,7 +8,7 @@ import type { NextRequest } from 'next/server';
 import crypto from 'crypto';
 import { getTenantDb } from '@/lib/db';
 import type { ITenant, ITenantContext, TenantType, SubscriptionTier } from '@/lib/types';
-import { DEFAULT_TENANT_ID, SYSTEM_TENANT_ID } from '@/lib/constants/tenants';
+import { SYSTEM_TENANT_ID } from '@/lib/constants/tenants';
 import {
   getEffectiveEntitlementsForTier,
   normalizeSubscriptionTier,
@@ -517,6 +517,15 @@ export async function createTenant(input: ICreateTenantInput): Promise<ITenant> 
   return tenant;
 }
 
+/**
+ * Delete a tenant by id using system-level access.
+ */
+export async function deleteTenantById(tenantId: string): Promise<void> {
+  const db = getTenantDb(SYSTEM_TENANT_ID);
+  await db.delete('tenants', { id: tenantId });
+  clearTenantCache(tenantId);
+}
+
 // ============================================
 // MASTER TENANT AUTO-SEED
 // ============================================
@@ -524,7 +533,7 @@ export async function createTenant(input: ICreateTenantInput): Promise<ITenant> 
 async function seedMasterTenant(): Promise<ITenant | null> {
   try {
     const db = getTenantDb(SYSTEM_TENANT_ID);
-    const masterId = DEFAULT_TENANT_ID;
+    const masterId = SYSTEM_TENANT_ID;
     const appName = process.env.NEXT_PUBLIC_APP_NAME || 'Galeria';
     const masterDomain = process.env.NEXT_PUBLIC_MASTER_DOMAIN || 'app.galeria.com';
     const contactEmail = process.env.MASTER_TENANT_CONTACT_EMAIL || `admin@${masterDomain}`;
