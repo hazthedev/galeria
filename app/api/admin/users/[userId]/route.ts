@@ -192,7 +192,7 @@ export async function DELETE(
       );
     }
 
-    const userToDelete = await db.findOne<{ id: string; email: string }>('users', { id: userId });
+    const userToDelete = await db.findOne<{ id: string; email: string; tenant_id: string }>('users', { id: userId });
 
     await db.query('DELETE FROM users WHERE id = $1', [userId]);
 
@@ -202,6 +202,18 @@ export async function DELETE(
       const { error: authDeleteError } = await supabase.auth.admin.deleteUser(userId);
       if (authDeleteError) {
         console.warn('[SUPERVISOR_USER_DELETE] Supabase auth deletion failed (app user already removed):', authDeleteError.message);
+      }
+    }
+
+    // Clean up orphaned tenant if no users remain
+    if (userToDelete?.tenant_id && userToDelete.tenant_id !== SYSTEM_TENANT_ID) {
+      const remaining = await db.query<{ count: string }>(
+        'SELECT COUNT(*)::text AS count FROM users WHERE tenant_id = $1',
+        [userToDelete.tenant_id]
+      );
+      if (remaining.rows[0] && parseInt(remaining.rows[0].count, 10) === 0) {
+        await db.query('DELETE FROM tenants WHERE id = $1', [userToDelete.tenant_id]);
+        console.log(`[SUPERVISOR_USER_DELETE] Cleaned up orphaned tenant ${userToDelete.tenant_id}`);
       }
     }
 
