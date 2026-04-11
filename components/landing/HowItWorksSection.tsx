@@ -2,6 +2,7 @@
 
 import { Play, QrCode, Sparkles, type LucideIcon } from "lucide-react";
 import { motion } from "motion/react";
+import { LandingGlowCard } from "@/components/landing/LandingGlowCard";
 import {
   connectorLineVariants,
   fadeUpVariants,
@@ -84,7 +85,10 @@ export function HowItWorksSection() {
                 </div>
               )}
 
-              <div className="landing-panel relative flex h-full flex-col rounded-[1.8rem] p-7 text-left">
+              <LandingGlowCard
+                tone={index === 1 ? "mint" : index === 2 ? "gold" : "violet"}
+                className="landing-panel relative flex h-full flex-col rounded-[1.8rem] p-7 text-left"
+              >
                 <span className="text-[0.8125rem] font-semibold uppercase tracking-[0.3em] text-[var(--landing-text-muted)]">
                   Step {item.step}
                 </span>
@@ -101,7 +105,7 @@ export function HowItWorksSection() {
                 </div>
                 <h3 className="mt-6 text-xl font-semibold text-[#f4efe7]">{item.title}</h3>
                 <p className="mt-3 text-base leading-relaxed text-[var(--landing-text-soft)]">{item.desc}</p>
-              </div>
+              </LandingGlowCard>
             </motion.div>
           ))}
         </div>

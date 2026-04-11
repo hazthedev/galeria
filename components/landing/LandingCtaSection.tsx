@@ -32,8 +32,6 @@ export function LandingCtaSection() {
           className="relative"
         >
           <LandingGlowCard tone="violet" className="landing-panel relative overflow-hidden rounded-[2.25rem] p-8 text-center sm:p-12">
-            <div className="absolute inset-x-0 top-0 h-32 bg-[radial-gradient(circle_at_top,rgba(177,140,255,0.16),transparent_60%)]" />
-
             <h2 className="landing-display relative text-[1.75rem] text-[#f4efe7] sm:text-[2.5rem]">
               Start with one event.
               <span className="block text-[var(--landing-text-soft)]">
