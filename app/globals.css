@@ -297,7 +297,7 @@ body {
   --landing-border-strong: rgba(235, 241, 255, 0.24);
   --landing-text: #f4efe7;
   --landing-text-soft: #adc0df;
-  --landing-text-muted: #7489ab;
+  --landing-text-muted: #8da3c2;
   --landing-violet: #b18cff;
   --landing-violet-strong: #9369ff;
   --landing-mint: #66dfd4;
@@ -317,8 +317,9 @@ body {
 }
 
 .landing-shell .landing-display {
-  font-family: var(--font-admin-display), Georgia, serif;
-  letter-spacing: -0.04em;
+  font-family: var(--font-admin-sans), "Segoe UI", sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.03em;
 }
 
 .landing-shell .landing-grid {

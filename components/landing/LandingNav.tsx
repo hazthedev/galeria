@@ -22,22 +22,19 @@ export function LandingNav() {
             <span className="landing-display block truncate text-2xl leading-none text-[#f6f1ea]">
               Galeria
             </span>
-            <span className="block pt-1 text-[0.64rem] font-semibold uppercase tracking-[0.42em] text-[#7f94b6]">
-              Event Control Layer
+            <span className="block pt-1 text-[0.64rem] font-semibold uppercase tracking-[0.42em] text-[var(--landing-text-muted)]">
+              Event Gallery Platform
             </span>
           </div>
         </div>
 
         <div className="flex items-center gap-4 lg:gap-6">
-          <div className="hidden items-center gap-5 xl:flex">
+          <div className="hidden items-center gap-5 lg:flex">
             <Link href="#features" className="landing-nav-link rounded-full px-3 py-2 text-sm font-medium">
               Features
             </Link>
             <Link href="#how-it-works" className="landing-nav-link rounded-full px-3 py-2 text-sm font-medium">
               How It Works
-            </Link>
-            <Link href="#proof" className="landing-nav-link rounded-full px-3 py-2 text-sm font-medium">
-              Proof
             </Link>
             <Link href="#use-cases" className="landing-nav-link rounded-full px-3 py-2 text-sm font-medium">
               Use Cases
