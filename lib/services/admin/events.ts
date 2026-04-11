@@ -254,37 +254,40 @@ function getAdminEventLuckyDrawSql(
 function getAdminEventPhotoChallengeSql(
   options: AdminEventDetailCompatibilityOptions
 ): string {
+  const challengeEventIdMatch = getAdminEventLegacyTextEventIdMatchSql('pc');
+  const progressEventIdMatch = getAdminEventLegacyTextEventIdMatchSql('gpp');
+
   if (options.includePhotoChallenge) {
     return `
         (
           SELECT pc.enabled
           FROM photo_challenges pc
-          WHERE pc.event_id = e.id
+          WHERE ${challengeEventIdMatch}
           ORDER BY pc.created_at DESC
           LIMIT 1
         ) AS challenge_enabled,
         (
           SELECT pc.goal_photos
           FROM photo_challenges pc
-          WHERE pc.event_id = e.id
+          WHERE ${challengeEventIdMatch}
           ORDER BY pc.created_at DESC
           LIMIT 1
         ) AS challenge_goal_photos,
         (
           SELECT COUNT(*)
           FROM guest_photo_progress gpp
-          WHERE gpp.event_id = e.id
+          WHERE ${progressEventIdMatch}
         ) AS challenge_participants,
         (
           SELECT COUNT(*)
           FROM guest_photo_progress gpp
-          WHERE gpp.event_id = e.id
+          WHERE ${progressEventIdMatch}
             AND gpp.goal_reached = true
         ) AS challenge_goal_reached_count,
         (
           SELECT COUNT(*)
           FROM prize_claims pc
-          WHERE pc.event_id = e.id
+          WHERE ${challengeEventIdMatch}
             AND pc.revoked_at IS NULL
         ) AS challenge_claimed_count,
     `;
@@ -339,6 +342,13 @@ function getAdminEventModerationLastActivitySql(
   }
 
   return 'NULL::timestamptz AS last_moderated_at';
+}
+
+export function getAdminEventLegacyTextEventIdMatchSql(
+  tableAlias: string,
+  eventAlias = 'e'
+): string {
+  return `${tableAlias}.event_id::text = ${eventAlias}.id::text`;
 }
 
 async function listAdminEventsWithCompatibility(
