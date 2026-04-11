@@ -3,6 +3,7 @@
 import { Building2, Heart, PartyPopper, type LucideIcon } from "lucide-react";
 import { motion } from "motion/react";
 import { springConfigs } from "@/lib/shared/animations";
+import { LandingGlowCard } from "@/components/landing/LandingGlowCard";
 import {
   fadeUpVariants,
   indexedFadeUpVariants,
@@ -77,15 +78,20 @@ export function UseCasesSection() {
               whileHover={{ y: -4, transition: springConfigs.gentle }}
               viewport={landingViewport}
               variants={useCaseVariants}
-              className={`landing-panel rounded-[1.8rem] border ${item.borderClassName} p-7`}
+              className="h-full"
             >
-              <div
-                className={`inline-flex h-12 w-12 items-center justify-center rounded-2xl ${item.iconBg}`}
+              <LandingGlowCard
+                tone={index === 0 ? "rose" : index === 2 ? "mint" : "violet"}
+                className={`landing-panel h-full rounded-[1.8rem] border ${item.borderClassName} p-7`}
               >
-                <item.icon className={`h-6 w-6 ${item.iconColor}`} />
-              </div>
-              <h3 className="mt-5 text-xl font-semibold text-[#f4efe7]">{item.title}</h3>
-              <p className="mt-3 text-base leading-relaxed text-[var(--landing-text-soft)]">{item.desc}</p>
+                <div
+                  className={`inline-flex h-12 w-12 items-center justify-center rounded-2xl ${item.iconBg}`}
+                >
+                  <item.icon className={`h-6 w-6 ${item.iconColor}`} />
+                </div>
+                <h3 className="mt-5 text-xl font-semibold text-[#f4efe7]">{item.title}</h3>
+                <p className="mt-3 text-base leading-relaxed text-[var(--landing-text-soft)]">{item.desc}</p>
+              </LandingGlowCard>
             </motion.article>
           ))}
         </div>

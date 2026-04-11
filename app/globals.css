@@ -473,6 +473,70 @@ body {
   background: linear-gradient(90deg, transparent, rgba(102, 223, 212, 0.72));
 }
 
+.landing-shell .landing-glow-card {
+  --landing-glow-x: 50%;
+  --landing-glow-y: 50%;
+  --landing-glow-size: 12rem;
+  --landing-glow-opacity: 0;
+  --landing-glow-color: rgba(177, 140, 255, 0.24);
+  --landing-glow-highlight: rgba(177, 140, 255, 0.22);
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.landing-shell .landing-glow-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    radial-gradient(
+      circle var(--landing-glow-size) at var(--landing-glow-x) var(--landing-glow-y),
+      var(--landing-glow-highlight),
+      transparent 58%
+    );
+  opacity: var(--landing-glow-opacity);
+  transition: opacity 220ms ease;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.landing-shell .landing-glow-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.landing-shell .landing-glow-card__orb {
+  position: absolute;
+  left: var(--landing-glow-x);
+  top: var(--landing-glow-y);
+  width: var(--landing-glow-size);
+  height: var(--landing-glow-size);
+  border-radius: 9999px;
+  transform: translate(-50%, -50%);
+  background: var(--landing-glow-color);
+  filter: blur(42px);
+  opacity: calc(var(--landing-glow-opacity) * 0.9);
+  transition:
+    opacity 220ms ease,
+    width 260ms ease,
+    height 260ms ease;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.landing-shell .landing-glow-card:hover {
+  border-color: color-mix(in srgb, var(--landing-glow-highlight) 60%, rgba(235, 241, 255, 0.18));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-shell .landing-glow-card::after,
+  .landing-shell .landing-glow-card__orb {
+    transition: none;
+  }
+}
+
 /* Let numeric inputs behave like plain typed fields without browser steppers */
 input[type='number'] {
   appearance: textfield;

@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { motion } from "motion/react";
 import { springConfigs } from "@/lib/shared/animations";
+import { LandingGlowCard } from "@/components/landing/LandingGlowCard";
 import {
   fadeUpVariants,
   featuresHeaderViewport,
@@ -104,18 +105,23 @@ export function FeaturesSection() {
               whileHover={{ y: -4, transition: springConfigs.gentle }}
               viewport={landingViewport}
               variants={heroFeatureVariants}
-              className="landing-panel group rounded-[1.8rem] p-8"
+              className="h-full"
             >
-              <motion.div
-                whileHover={{ scale: 1.05, transition: springConfigs.gentle }}
-                className={`inline-flex h-14 w-14 items-center justify-center rounded-2xl ${feature.bgClassName}`}
+              <LandingGlowCard
+                tone={index === 1 ? "mint" : index === 2 ? "gold" : "violet"}
+                className="landing-panel group h-full rounded-[1.8rem] p-8"
               >
-                <feature.icon className={`h-7 w-7 ${feature.iconClassName}`} />
-              </motion.div>
-              <h3 className="mt-6 text-xl font-semibold text-[#f4efe7]">{feature.title}</h3>
-              <p className="mt-3 text-base leading-relaxed text-[var(--landing-text-soft)]">
-                {feature.desc}
-              </p>
+                <motion.div
+                  whileHover={{ scale: 1.05, transition: springConfigs.gentle }}
+                  className={`inline-flex h-14 w-14 items-center justify-center rounded-2xl ${feature.bgClassName}`}
+                >
+                  <feature.icon className={`h-7 w-7 ${feature.iconClassName}`} />
+                </motion.div>
+                <h3 className="mt-6 text-xl font-semibold text-[#f4efe7]">{feature.title}</h3>
+                <p className="mt-3 text-base leading-relaxed text-[var(--landing-text-soft)]">
+                  {feature.desc}
+                </p>
+              </LandingGlowCard>
             </motion.article>
           ))}
         </div>
@@ -130,13 +136,18 @@ export function FeaturesSection() {
               whileInView="visible"
               viewport={landingViewport}
               variants={compactFeatureVariants}
-              className="flex items-start gap-4 rounded-2xl border border-white/8 bg-white/[0.03] p-5"
+              className="h-full"
             >
-              <feature.icon className="mt-0.5 h-5 w-5 shrink-0 text-[var(--landing-violet)]" />
-              <div>
-                <h3 className="text-base font-semibold text-[#f4efe7]">{feature.title}</h3>
-                <p className="mt-1 text-base leading-relaxed text-[var(--landing-text-muted)]">{feature.desc}</p>
-              </div>
+              <LandingGlowCard
+                tone={index === 0 ? "mint" : index === 2 ? "gold" : "violet"}
+                className="flex h-full items-start gap-4 rounded-2xl border border-white/8 bg-white/[0.03] p-5"
+              >
+                <feature.icon className="mt-0.5 h-5 w-5 shrink-0 text-[var(--landing-violet)]" />
+                <div>
+                  <h3 className="text-base font-semibold text-[#f4efe7]">{feature.title}</h3>
+                  <p className="mt-1 text-base leading-relaxed text-[var(--landing-text-muted)]">{feature.desc}</p>
+                </div>
+              </LandingGlowCard>
             </motion.div>
           ))}
         </div>
@@ -155,12 +166,16 @@ export function FeaturesSection() {
             { label: "Live control", value: "Real-time" },
             { label: "Exports", value: "Ready" },
           ].map((stat) => (
-            <div key={stat.label} className="landing-panel-soft rounded-2xl p-5 text-center">
+            <LandingGlowCard
+              key={stat.label}
+              tone={stat.label === "Guest friction" ? "mint" : stat.label === "Exports" ? "gold" : "violet"}
+              className="landing-panel-soft rounded-2xl p-5 text-center"
+            >
               <p className="text-xl font-semibold text-[#f4efe7]">{stat.value}</p>
               <p className="mt-1 text-[0.8125rem] font-medium uppercase tracking-[0.2em] text-[var(--landing-text-muted)]">
                 {stat.label}
               </p>
-            </div>
+            </LandingGlowCard>
           ))}
         </motion.div>
       </div>

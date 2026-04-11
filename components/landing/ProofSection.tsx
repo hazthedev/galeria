@@ -11,6 +11,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { motion } from "motion/react";
+import { LandingGlowCard } from "@/components/landing/LandingGlowCard";
 import {
   bulletPointVariants,
   fadeUpVariants,
@@ -97,46 +98,52 @@ export function ProofSection() {
             whileInView="visible"
             viewport={landingHeaderViewport}
             variants={fadeUpVariants}
-            className="landing-panel rounded-[2rem] p-7 sm:p-8"
+            className="h-full"
           >
-            <p className="landing-kicker w-fit rounded-full px-4 py-2 text-[0.68rem] font-semibold">
-              Product proof
-            </p>
-            <h2 className="landing-display mt-6 text-4xl text-[#f4efe7] sm:text-5xl">
-              Built for events that need more than a shared folder.
-            </h2>
-            <p className="mt-6 text-lg leading-8 text-[var(--landing-text-soft)]">
-              Moderation, attendance, lucky draws, branded galleries, and exports are not
-              roadmap promises here. They are part of the operating model from the first event.
-            </p>
+            <LandingGlowCard tone="mint" className="landing-panel h-full rounded-[2rem] p-7 sm:p-8">
+              <p className="landing-kicker w-fit rounded-full px-4 py-2 text-[0.68rem] font-semibold">
+                Product proof
+              </p>
+              <h2 className="landing-display mt-6 text-4xl text-[#f4efe7] sm:text-5xl">
+                Built for events that need more than a shared folder.
+              </h2>
+              <p className="mt-6 text-lg leading-8 text-[var(--landing-text-soft)]">
+                Moderation, attendance, lucky draws, branded galleries, and exports are not
+                roadmap promises here. They are part of the operating model from the first event.
+              </p>
 
-            <div className="mt-8 grid gap-4 sm:grid-cols-2">
-              <div className="landing-panel-soft rounded-[1.35rem] p-5 sm:col-span-2">
-                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--landing-text-muted)]">
-                  Why teams switch
-                </p>
-                <p className="mt-3 text-3xl font-semibold text-[#f4efe7]">
-                  One system from guest capture to wrap-up.
-                </p>
-                <p className="mt-3 max-w-xl text-sm leading-6 text-[var(--landing-text-soft)]">
-                  Instead of stitching together upload links, check-in sheets, giveaway tools,
-                  and post-event downloads, Galeria keeps the flow in one branded surface.
-                </p>
-              </div>
-              {[
-                { label: "Setup", value: "< 10 min" },
-                { label: "Control", value: "Live" },
-                { label: "Guest friction", value: "Low" },
-                { label: "Exports", value: "Ready" },
-              ].map((item) => (
-                <div key={item.label} className="landing-panel-soft rounded-[1.35rem] p-5">
-                  <p className="text-xs font-semibold uppercase tracking-[0.26em] text-[var(--landing-text-muted)]">
-                    {item.label}
+              <div className="mt-8 grid gap-4 sm:grid-cols-2">
+                <LandingGlowCard tone="violet" className="landing-panel-soft rounded-[1.35rem] p-5 sm:col-span-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--landing-text-muted)]">
+                    Why teams switch
                   </p>
-                  <p className="mt-3 text-2xl font-semibold text-[#f4efe7]">{item.value}</p>
-                </div>
-              ))}
-            </div>
+                  <p className="mt-3 text-3xl font-semibold text-[#f4efe7]">
+                    One system from guest capture to wrap-up.
+                  </p>
+                  <p className="mt-3 max-w-xl text-sm leading-6 text-[var(--landing-text-soft)]">
+                    Instead of stitching together upload links, check-in sheets, giveaway tools,
+                    and post-event downloads, Galeria keeps the flow in one branded surface.
+                  </p>
+                </LandingGlowCard>
+                {[
+                  { label: "Setup", value: "< 10 min" },
+                  { label: "Control", value: "Live" },
+                  { label: "Guest friction", value: "Low" },
+                  { label: "Exports", value: "Ready" },
+                ].map((item) => (
+                  <LandingGlowCard
+                    key={item.label}
+                    tone={item.label === "Guest friction" ? "mint" : item.label === "Exports" ? "gold" : "violet"}
+                    className="landing-panel-soft rounded-[1.35rem] p-5"
+                  >
+                    <p className="text-xs font-semibold uppercase tracking-[0.26em] text-[var(--landing-text-muted)]">
+                      {item.label}
+                    </p>
+                    <p className="mt-3 text-2xl font-semibold text-[#f4efe7]">{item.value}</p>
+                  </LandingGlowCard>
+                ))}
+              </div>
+            </LandingGlowCard>
           </motion.div>
 
           <div className="grid gap-4">
@@ -148,36 +155,41 @@ export function ProofSection() {
                 whileInView="visible"
                 viewport={landingViewport}
                 variants={proofCardVariants}
-                className={`landing-panel rounded-[1.8rem] border ${card.accentClassName} p-7`}
+                className="h-full"
               >
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div
-                    className={`inline-flex h-12 w-12 items-center justify-center rounded-2xl ${card.iconClassName}`}
-                  >
-                    <card.icon className="h-6 w-6" />
-                  </div>
-                  <span className="landing-chip rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em]">
-                    {card.eyebrow}
-                  </span>
-                </div>
-                <h3 className="mt-5 text-2xl font-semibold text-[#f4efe7]">{card.title}</h3>
-                <p className="mt-3 text-[15px] leading-7 text-[var(--landing-text-soft)]">
-                  {card.description}
-                </p>
-                <motion.div variants={staggerContainer(0.08)} className="mt-6 grid gap-3 sm:grid-cols-3">
-                  {card.points.map((point) => (
-                    <motion.div
-                      key={point}
-                      variants={bulletPointVariants}
-                      className="rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3"
+                <LandingGlowCard
+                  tone={index === 0 ? "mint" : index === 2 ? "gold" : "violet"}
+                  className={`landing-panel h-full rounded-[1.8rem] border ${card.accentClassName} p-7`}
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div
+                      className={`inline-flex h-12 w-12 items-center justify-center rounded-2xl ${card.iconClassName}`}
                     >
-                      <BadgeCheck className="h-4.5 w-4.5 text-[var(--landing-violet)]" />
-                      <span className="mt-3 block text-sm leading-6 text-[var(--landing-text-soft)]">
-                        {point}
-                      </span>
-                    </motion.div>
-                  ))}
-                </motion.div>
+                      <card.icon className="h-6 w-6" />
+                    </div>
+                    <span className="landing-chip rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em]">
+                      {card.eyebrow}
+                    </span>
+                  </div>
+                  <h3 className="mt-5 text-2xl font-semibold text-[#f4efe7]">{card.title}</h3>
+                  <p className="mt-3 text-[15px] leading-7 text-[var(--landing-text-soft)]">
+                    {card.description}
+                  </p>
+                  <motion.div variants={staggerContainer(0.08)} className="mt-6 grid gap-3 sm:grid-cols-3">
+                    {card.points.map((point) => (
+                      <motion.div
+                        key={point}
+                        variants={bulletPointVariants}
+                        className="rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3"
+                      >
+                        <BadgeCheck className="h-4.5 w-4.5 text-[var(--landing-violet)]" />
+                        <span className="mt-3 block text-sm leading-6 text-[var(--landing-text-soft)]">
+                          {point}
+                        </span>
+                      </motion.div>
+                    ))}
+                  </motion.div>
+                </LandingGlowCard>
               </motion.article>
             ))}
           </div>
