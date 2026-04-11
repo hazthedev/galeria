@@ -1,30 +1,20 @@
 import type { Metadata } from "next";
-import { Albert_Sans, Cormorant_Garamond, Geist_Mono, Geist } from "next/font/google";
+import { Geist_Mono, Nunito } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 
 const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 const metadataBase = new URL(appUrl.endsWith("/") ? appUrl : `${appUrl}/`);
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const appSans = Nunito({
+  variable: "--font-app-sans",
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
 });
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
-});
-
-const adminSans = Albert_Sans({
-  variable: "--font-admin-sans",
-  subsets: ["latin"],
-});
-
-const adminDisplay = Cormorant_Garamond({
-  variable: "--font-admin-display",
-  subsets: ["latin"],
-  weight: ["500", "600", "700"],
 });
 
 const themeInitScript = `
@@ -95,7 +85,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${adminSans.variable} ${adminDisplay.variable} antialiased`}
+        className={`${appSans.variable} ${geistMono.variable} antialiased`}
       >
         <Script id="theme-init" strategy="beforeInteractive">
           {themeInitScript}
