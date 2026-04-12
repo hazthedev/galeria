@@ -142,9 +142,14 @@ export async function PATCH(
     }
 
     const isOwner = existingEvent.organizer_id === userId;
+    // isTenantMember: any authenticated user belonging to the same workspace (tenant).
+    // This enables multi-user workspaces without breaking future co-admin support.
+    // The db is already scoped to the tenantId resolved from the authenticated session,
+    // so existingEvent is guaranteed to belong to the caller's workspace.
+    const isTenantMember = existingEvent.tenant_id === tenantId;
     const isSuperAdmin = userRole === 'super_admin';
 
-    if (!isOwner && !isSuperAdmin) {
+    if (!isOwner && !isTenantMember && !isSuperAdmin) {
       return NextResponse.json(
         { error: 'Insufficient permissions', code: 'FORBIDDEN' },
         { status: 403 }
@@ -282,9 +287,14 @@ export async function DELETE(
     }
 
     const isOwner = existingEvent.organizer_id === userId;
+    // isTenantMember: any authenticated user belonging to the same workspace (tenant).
+    // This enables multi-user workspaces without breaking future co-admin support.
+    // The db is already scoped to the tenantId resolved from the authenticated session,
+    // so existingEvent is guaranteed to belong to the caller's workspace.
+    const isTenantMember = existingEvent.tenant_id === tenantId;
     const isSuperAdmin = userRole === 'super_admin';
 
-    if (!isOwner && !isSuperAdmin) {
+    if (!isOwner && !isTenantMember && !isSuperAdmin) {
       return NextResponse.json(
         { error: 'Insufficient permissions', code: 'FORBIDDEN' },
         { status: 403 }
