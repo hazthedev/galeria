@@ -218,8 +218,7 @@ export function RegisterForm({ onSuccess, redirectTo = '/events', className }: R
 
         toast.success('Workspace created successfully!');
         // Redirect to specified page
-        router.push(redirectTo);
-        router.refresh();
+        window.location.href = redirectTo;
       } else {
         const msg = successData.error || 'Registration failed. Please try again.';
         setApiError(msg);

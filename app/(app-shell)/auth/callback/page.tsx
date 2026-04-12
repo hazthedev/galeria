@@ -37,9 +37,9 @@ export default function AuthCallbackPage() {
       .then(async (res) => {
         const data = await res.json();
         if (res.ok && data.redirectTo) {
-          router.replace(data.redirectTo);
+          window.location.replace(data.redirectTo);
         } else {
-          router.replace(`/auth/login?error=${data.error || 'auth_failed'}`);
+          window.location.replace(`/auth/login?error=${data.error || 'auth_failed'}`);
         }
       })
       .catch(() => {
