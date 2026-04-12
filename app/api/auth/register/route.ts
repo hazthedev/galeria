@@ -14,6 +14,7 @@ import {
 import { resolveOrProvisionAppUser } from '@/lib/domain/auth/provision-app-user';
 import { createTenant, deleteTenantById } from '@/lib/domain/tenant/tenant';
 import type { ITenant } from '@/types';
+import { sendWelcomeEmail } from '@/lib/infrastructure/email/send';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -207,6 +208,9 @@ export async function POST(request: NextRequest) {
     response.headers.set('X-RateLimit-Limit', rateLimitResult.limit.toString());
     response.headers.set('X-RateLimit-Remaining', rateLimitResult.remaining.toString());
     response.headers.set('X-RateLimit-Reset', Math.floor(rateLimitResult.resetAt.getTime() / 1000).toString());
+
+    // Fire-and-forget — never block the registration response
+    sendWelcomeEmail({ to: normalizedEmail, name: trimmedName }).catch(() => { });
 
     return response;
   } catch (error) {

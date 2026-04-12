@@ -7,6 +7,7 @@ import {
   isSupabaseAuthConfigured,
 } from '@/lib/infrastructure/auth/supabase-server';
 import { getRequestIp, getRequestUserAgent } from '@/middleware/auth';
+import { sendWelcomeEmail } from '@/lib/infrastructure/email/send';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -64,6 +65,9 @@ async function finalizeOAuthSession(
       subscription_tier: 'free',
       name: displayName,
     };
+
+    // Fire-and-forget welcome email for first-time OAuth sign-ups
+    sendWelcomeEmail({ to: authUser.email!, name: displayName }).catch(() => { });
   }
 
   const user = await resolveOrProvisionAppUser(authUser);
