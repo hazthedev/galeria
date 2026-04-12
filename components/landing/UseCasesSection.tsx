@@ -82,7 +82,7 @@ export function UseCasesSection() {
             >
               <LandingGlowCard
                 tone={index === 0 ? "rose" : index === 2 ? "mint" : "violet"}
-                className={`landing-panel h-full rounded-[1.8rem] border ${item.borderClassName} p-7`}
+                className={`landing-panel h-full rounded-[1.8rem] border ${item.borderClassName} p-7 max-md:p-6`}
               >
                 <div
                   className={`inline-flex h-12 w-12 items-center justify-center rounded-2xl ${item.iconBg}`}
@@ -90,7 +90,7 @@ export function UseCasesSection() {
                   <item.icon className={`h-6 w-6 ${item.iconColor}`} />
                 </div>
                 <h3 className="mt-5 text-xl font-semibold text-[#f4efe7]">{item.title}</h3>
-                <p className="mt-3 text-base leading-relaxed text-[var(--landing-text-soft)]">{item.desc}</p>
+                <p className="mt-3 text-base leading-relaxed text-[var(--landing-text-soft)] max-md:text-gray-300">{item.desc}</p>
               </LandingGlowCard>
             </motion.article>
           ))}

@@ -63,7 +63,7 @@ export function HowItWorksSection() {
           </h2>
         </motion.div>
 
-        <div className="mt-14 grid gap-6 lg:grid-cols-3">
+        <div className="mt-14 grid gap-6 lg:grid-cols-3 max-md:flex max-md:flex-nowrap max-md:overflow-x-auto max-md:snap-x max-md:snap-mandatory max-md:pb-6 max-md:-mx-4 max-md:px-4 hide-scrollbar">
           {STEPS.map((item, index) => (
             <motion.div
               key={item.step}
@@ -72,7 +72,7 @@ export function HowItWorksSection() {
               whileInView="visible"
               viewport={landingViewport}
               variants={stepVariants}
-              className="relative"
+              className="relative max-md:min-w-[85vw] max-md:snap-center"
             >
               {index < STEPS.length - 1 && (
                 <div className="absolute left-[calc(50%+60px)] top-[4.5rem] hidden h-px w-[calc(100%-120px)] lg:block">

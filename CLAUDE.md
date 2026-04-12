@@ -2,6 +2,23 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Response Rules
+
+- Think before acting. Read existing files before writing code.
+- Be concise. Code first, explanation only if non-obvious.
+- No sycophantic openers ("Sure!", "Great question!") or closing fluff ("Hope this helps!").
+- No restating the question. No unsolicited suggestions beyond scope.
+- Prefer targeted edits over rewriting whole files.
+- Do not re-read files already read unless they may have changed.
+- Keep solutions simple. No over-engineering, no speculative features.
+- Three similar lines beat a premature abstraction.
+- No docstrings, comments, or type annotations on unchanged code.
+- No error handling for impossible scenarios.
+- Verify your work before declaring done.
+- State bugs directly. Show the fix. Stop.
+- If cause is unclear, say so. Do not guess.
+- User instructions always override this file.
+
 ## Project Overview
 
 Galeria is a multi-tenant event photo gallery platform built with Next.js 16, PostgreSQL, and Redis. Key features include:

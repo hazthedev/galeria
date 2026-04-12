@@ -16,14 +16,14 @@ export function LandingFooter() {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-5 text-sm text-[var(--landing-text-muted)]">
-            <Link href="/auth/login" className="landing-utility-link">
+          <div className="flex flex-wrap items-center gap-5 text-sm text-[var(--landing-text-muted)] max-md:gap-y-4 max-md:flex-col max-md:items-start">
+            <Link href="/auth/login" className="landing-utility-link max-md:py-2">
               Login
             </Link>
-            <Link href="/auth/admin/login" className="landing-utility-link">
+            <Link href="/auth/admin/login" className="landing-utility-link max-md:py-2">
               Admin
             </Link>
-            <span>&copy; {new Date().getFullYear()} Galeria</span>
+            <span className="max-md:py-2">&copy; {new Date().getFullYear()} Galeria</span>
           </div>
         </div>
       </div>

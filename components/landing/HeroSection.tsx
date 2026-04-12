@@ -26,7 +26,7 @@ const TRUST_SIGNALS = [
 export function HeroSection() {
   return (
     <section className="relative overflow-hidden pb-20 pt-32 sm:pb-28 sm:pt-40">
-      <div className="mx-auto max-w-4xl px-4 text-center sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-4xl px-5 text-center sm:px-6 lg:px-8 max-md:max-w-[95vw]">
         <motion.div
           initial="hidden"
           animate="visible"
@@ -42,7 +42,7 @@ export function HeroSection() {
 
           <motion.h1
             variants={fadeUpVariants}
-            className="landing-display mx-auto mt-8 max-w-3xl text-[2.5rem] leading-[1.08] text-[#f4efe7] sm:text-[3.5rem]"
+            className="landing-display mx-auto mt-8 max-w-3xl text-[2rem] leading-[1.15] text-[#f4efe7] sm:text-[3.5rem] sm:leading-[1.08]"
           >
             Turn every guest into your
             <motion.span
@@ -67,14 +67,14 @@ export function HeroSection() {
           >
             <Link
               href="/auth/register"
-              className="landing-button-primary group inline-flex items-center gap-2.5 rounded-full px-8 py-4 text-base font-semibold"
+              className="landing-button-primary group inline-flex items-center justify-center gap-2.5 rounded-full px-8 py-4 text-base font-semibold max-md:min-h-[56px] max-md:w-full"
             >
               Create your first event
               <ArrowRight className="h-4.5 w-4.5 transition-transform group-hover:translate-x-1" />
             </Link>
             <Link
               href="/auth/login"
-              className="text-base font-medium text-[var(--landing-text-muted)] transition-colors hover:text-[var(--landing-text)]"
+              className="text-base font-medium text-[var(--landing-text-muted)] transition-colors hover:text-[var(--landing-text)] max-md:min-h-[44px] max-md:inline-flex max-md:items-center"
             >
               Sign in
             </Link>
@@ -82,7 +82,7 @@ export function HeroSection() {
 
           <motion.div
             variants={staggerContainer(0.08)}
-            className="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-3"
+            className="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-4 max-md:flex-col max-md:gap-y-3"
           >
             {TRUST_SIGNALS.map((signal) => (
               <motion.span

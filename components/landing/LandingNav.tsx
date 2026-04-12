@@ -15,7 +15,7 @@ export function LandingNav() {
       className="fixed top-0 z-50 w-full border-b border-white/8 bg-[#07101ddd]/90"
       style={{ backdropFilter: "blur(24px)" }}
     >
-      <div className="mx-auto flex h-20 max-w-7xl items-center justify-between gap-6 px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex h-20 max-w-7xl items-center justify-between gap-6 px-4 sm:px-6 lg:px-8 max-md:px-5">
         <div className="flex min-w-0 items-center gap-3">
           <BrandMark size={40} gradientId="gm-bg-nav" variant="midnight" />
           <div className="min-w-0">

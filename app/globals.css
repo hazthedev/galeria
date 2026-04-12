@@ -278,6 +278,7 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+
   .admin-reveal,
   .admin-reveal-delay-1,
   .admin-reveal-delay-2,
@@ -491,18 +492,16 @@ body {
   inset: 0;
   border-radius: inherit;
   background:
-    radial-gradient(
-      circle var(--landing-glow-size) at var(--landing-glow-x) var(--landing-glow-y),
+    radial-gradient(circle var(--landing-glow-size) at var(--landing-glow-x) var(--landing-glow-y),
       var(--landing-glow-highlight),
-      transparent 58%
-    );
+      transparent 58%);
   opacity: var(--landing-glow-opacity);
   transition: opacity 220ms ease;
   pointer-events: none;
   z-index: 0;
 }
 
-.landing-shell .landing-glow-card > * {
+.landing-shell .landing-glow-card>* {
   position: relative;
   z-index: 1;
 }
@@ -531,6 +530,7 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+
   .landing-shell .landing-glow-card::after,
   .landing-shell .landing-glow-card__orb {
     transition: none;
@@ -578,10 +578,12 @@ input[type='number']::-webkit-outer-spin-button {
     transform: scaleX(0.3);
     opacity: 0.7;
   }
+
   50% {
     transform: scaleX(1);
     opacity: 1;
   }
+
   100% {
     transform: scaleX(0.3);
     opacity: 0.7;
@@ -598,6 +600,18 @@ html {
   html {
     scroll-behavior: auto;
   }
+}
+
+/* Hide scrollbar for carousels */
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 
 /* Card with layered shadow */

@@ -89,7 +89,7 @@ export function FeaturesSection() {
           <h2 className="landing-display mt-6 text-[1.75rem] text-[#f4efe7] sm:text-[2.5rem]">
             Everything you need to run a live event gallery.
           </h2>
-          <p className="mt-4 text-base leading-relaxed text-[var(--landing-text-soft)]">
+          <p className="mt-4 text-base leading-relaxed text-[var(--landing-text-soft)] max-md:text-gray-300">
             Every feature ships on the free plan. No gated demos, no enterprise-only walls.
           </p>
         </motion.div>
@@ -109,7 +109,7 @@ export function FeaturesSection() {
             >
               <LandingGlowCard
                 tone={index === 1 ? "mint" : index === 2 ? "gold" : "violet"}
-                className="landing-panel group h-full rounded-[1.8rem] p-8"
+                className="landing-panel group h-full rounded-[1.8rem] p-8 max-md:p-6"
               >
                 <motion.div
                   whileHover={{ scale: 1.05, transition: springConfigs.gentle }}
@@ -118,7 +118,7 @@ export function FeaturesSection() {
                   <feature.icon className={`h-7 w-7 ${feature.iconClassName}`} />
                 </motion.div>
                 <h3 className="mt-6 text-xl font-semibold text-[#f4efe7]">{feature.title}</h3>
-                <p className="mt-3 text-base leading-relaxed text-[var(--landing-text-soft)]">
+                <p className="mt-3 text-base leading-relaxed text-[var(--landing-text-soft)] max-md:text-gray-300">
                   {feature.desc}
                 </p>
               </LandingGlowCard>
@@ -145,7 +145,7 @@ export function FeaturesSection() {
                 <feature.icon className="mt-0.5 h-5 w-5 shrink-0 text-[var(--landing-violet)]" />
                 <div>
                   <h3 className="text-base font-semibold text-[#f4efe7]">{feature.title}</h3>
-                  <p className="mt-1 text-base leading-relaxed text-[var(--landing-text-muted)]">{feature.desc}</p>
+                  <p className="mt-1 text-base leading-relaxed text-[var(--landing-text-muted)] max-md:text-gray-300">{feature.desc}</p>
                 </div>
               </LandingGlowCard>
             </motion.div>
@@ -169,10 +169,10 @@ export function FeaturesSection() {
             <LandingGlowCard
               key={stat.label}
               tone={stat.label === "Guest friction" ? "mint" : stat.label === "Exports" ? "gold" : "violet"}
-              className="landing-panel-soft rounded-2xl p-5 text-center"
+              className="landing-panel-soft rounded-2xl p-5 text-center max-md:border-white/10 max-md:bg-white/5 max-md:p-4"
             >
               <p className="text-xl font-semibold text-[#f4efe7]">{stat.value}</p>
-              <p className="mt-1 text-[0.8125rem] font-medium uppercase tracking-[0.2em] text-[var(--landing-text-muted)]">
+              <p className="mt-1 text-[0.8125rem] font-medium uppercase tracking-[0.2em] text-[var(--landing-text-muted)] max-md:text-gray-300">
                 {stat.label}
               </p>
             </LandingGlowCard>
