@@ -78,6 +78,14 @@ import 'server-only';
 Statuses: `pending` → `approved` / `rejected`.
 Controlled by the `moderation_required` event feature flag. Logged to `photo_moderation_logs`.
 
+### Event Permissions
+
+Event `PATCH` / `DELETE` is allowed for **any user belonging to the event's `tenant_id`**, not just the original creator. This supports co-admin / multi-user workspaces.
+
+### Lucky Draw Idempotency
+
+Draw execution is wrapped in a **Redis distributed mutex** (`lib/infrastructure/lock/mutex.ts`, `SET NX EX`). Concurrent draw requests return `409 Conflict`. TTL is 30 s — monitor logs for `LockConflictError` if draws take longer.
+
 ### Layer Structure
 
 ```
