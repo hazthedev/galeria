@@ -474,7 +474,7 @@ export default function EventAdminPage() {
                                   </span>
                                 </div>
                                 <p className="mt-2 text-xs text-gray-600 dark:text-gray-300">
-                                  {log.moderatorName || log.moderatorEmail || (log.source === 'ai' ? 'AI moderation' : 'Moderator')}
+                                  {log.moderatorName || log.moderatorEmail || 'Moderator'}
                                 </p>
                                 {log.reason && (
                                   <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">

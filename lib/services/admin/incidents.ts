@@ -160,27 +160,14 @@ function getRealtimeStatus(): AdminIncidentServiceStatus {
 
 function getModerationQueueStatus(): AdminIncidentServiceStatus {
   const queueEnabled = process.env.MODERATION_QUEUE_ENABLED === 'true';
-  const aiEnabled = process.env.MODERATION_AI_ENABLED === 'true';
-
-  if (!queueEnabled && aiEnabled) {
-    return buildServiceStatus(
-      'moderation_queue',
-      'Moderation Queue',
-      'warning',
-      'AI moderation is enabled, but the moderation queue is disabled.',
-      'Uploads still support manual moderation, but queued AI scans are off.',
-      null,
-      '/admin/moderation'
-    );
-  }
 
   if (!queueEnabled) {
     return buildServiceStatus(
       'moderation_queue',
       'Moderation Queue',
       'warning',
-      'Automated moderation queue is disabled.',
-      'Manual moderation remains available.',
+      'Manual moderation queue is disabled.',
+      'Organizers can still moderate photos manually from the event admin panel.',
       null,
       '/admin/moderation'
     );
@@ -191,7 +178,7 @@ function getModerationQueueStatus(): AdminIncidentServiceStatus {
     'Moderation Queue',
     'healthy',
     'Moderation queue is enabled.',
-    aiEnabled ? 'AI moderation is enabled.' : 'Queue is enabled for manual/worker workflows.',
+    'Queue is enabled for manual moderation workflows.',
     null,
     '/admin/moderation'
   );
