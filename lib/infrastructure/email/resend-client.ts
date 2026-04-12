@@ -21,4 +21,4 @@ export function getResendClient(): Resend {
 }
 
 export const EMAIL_FROM =
-    process.env.EMAIL_FROM ?? 'Galeria <noreply@galeria.app>';
+    process.env.EMAIL_FROM ?? 'Galeria <onboarding@resend.dev>';
