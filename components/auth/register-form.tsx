@@ -132,10 +132,8 @@ export function RegisterForm({ onSuccess, redirectTo = '/events', className }: R
   const validateForm = (): boolean => {
     const newErrors: Partial<Record<keyof RegisterFormData, string>> = {};
 
-    // Workspace validation
-    if (!formData.tenantName.trim()) {
-      newErrors.tenantName = 'Workspace name is required';
-    } else if (formData.tenantName.trim().length < 2) {
+    // Workspace validation — optional, auto-generated if blank
+    if (formData.tenantName.trim().length > 0 && formData.tenantName.trim().length < 2) {
       newErrors.tenantName = 'Workspace name must be at least 2 characters';
     }
 
@@ -309,7 +307,7 @@ export function RegisterForm({ onSuccess, redirectTo = '/events', className }: R
           htmlFor="tenantName"
           className="block text-sm font-medium text-stone-700 dark:text-gray-300"
         >
-          Workspace Name
+          Workspace Name <span className="text-stone-400 dark:text-gray-500 font-normal">(optional)</span>
         </label>
         <input
           id="tenantName"
@@ -335,7 +333,7 @@ export function RegisterForm({ onSuccess, redirectTo = '/events', className }: R
           disabled={isLoading}
         />
         <p id="tenantName-hint" className="text-xs text-stone-500 dark:text-gray-500">
-          This creates your own workspace for events, guests, and team access.
+          Leave blank and we'll use <span className="italic">Your Name's Workspace</span> automatically.
         </p>
         {errors.tenantName && (
           <p id="tenantName-error" className="text-sm text-red-600 dark:text-red-400">

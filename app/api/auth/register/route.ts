@@ -73,29 +73,8 @@ export async function POST(request: NextRequest) {
     const { email, password, name, tenantName } = parsed.data;
     const normalizedEmail = email.toLowerCase().trim();
     const trimmedName = name.trim();
-    const trimmedTenantName = tenantName.trim();
-
-    if (trimmedName.length < 2) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'INVALID_INPUT',
-          message: 'Name must be at least 2 characters long',
-        },
-        { status: 400 }
-      );
-    }
-
-    if (trimmedTenantName.length < 2) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'INVALID_INPUT',
-          message: 'Workspace name must be at least 2 characters long',
-        },
-        { status: 400 }
-      );
-    }
+    // If the user left the workspace name blank, generate a friendly default.
+    const trimmedTenantName = tenantName?.trim() || `${trimmedName}'s Workspace`;
 
     const passwordValidation = validatePassword(password, DEFAULT_PASSWORD_REQUIREMENTS);
     if (!passwordValidation.valid) {
