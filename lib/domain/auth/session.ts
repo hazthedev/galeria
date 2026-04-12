@@ -57,6 +57,7 @@ export interface ISessionData {
   role: UserRole;
   email: string;
   name: string;
+  subscriptionTier?: string;
   createdAt: number; // Unix timestamp in milliseconds
   lastActivity: number; // Unix timestamp in milliseconds
   expiresAt: number; // Unix timestamp in milliseconds
@@ -140,6 +141,7 @@ export async function createSession(
     role: user.role,
     email: user.email,
     name: user.name,
+    subscriptionTier: user.subscription_tier || undefined,
     createdAt: now,
     lastActivity: now,
     expiresAt: now + (ttl * 1000),
@@ -242,6 +244,7 @@ export async function validateSession(
       email: session.email,
       name: session.name,
       role: session.role,
+      subscription_tier: session.subscriptionTier as IUser['subscription_tier'] | undefined,
       email_verified: true,
       created_at: new Date(session.createdAt),
       updated_at: new Date(session.lastActivity),
@@ -555,7 +558,7 @@ export function getClientIp(
   headers: Headers | Record<string, string | string[] | undefined>
 ): string {
   // Check various headers for IP address
-  const forwardedFor = headers instanceof Headers 
+  const forwardedFor = headers instanceof Headers
     ? headers.get('x-forwarded-for')
     : headers['x-forwarded-for'];
   const realIp = headers instanceof Headers

@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { validateSession, extractSessionId } from '@/lib/domain/auth/session';
+import { getTenantDb } from '@/lib/db';
 import type { IMeResponse } from '../../../../lib/types';
 import type { IUser } from '../../../../lib/types';
 
@@ -65,11 +66,25 @@ export async function GET(request: NextRequest) {
 
     const user = result.user;
 
+    // Always fetch a fresh subscription_tier from the DB so admin-side upgrades
+    // are reflected immediately without requiring a re-login.
+    let freshTier = user.subscription_tier;
+    try {
+      const db = getTenantDb(user.tenant_id);
+      const row = await db.findOne<{ subscription_tier?: string }>('users', { id: user.id });
+      if (row?.subscription_tier) {
+        freshTier = row.subscription_tier as IUser['subscription_tier'];
+      }
+    } catch {
+      // Non-fatal — fall back to session-cached tier
+    }
+
     // Return user and tenant info
     return NextResponse.json<IMeResponse>(
       {
         user: {
           ...user,
+          subscription_tier: freshTier,
           password_hash: undefined, // Never send password hash
         } as IUser,
         session: result.session,
