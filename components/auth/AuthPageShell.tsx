@@ -6,7 +6,6 @@
 
 import type { ReactNode } from 'react';
 import { motion } from 'motion/react';
-import { ThemeToggleButton } from '@/components/shared/ThemeToggleButton';
 
 interface AuthPageShellProps {
   children: ReactNode;
@@ -36,14 +35,7 @@ export function AuthPageShell({ children }: AuthPageShellProps) {
         />
       </div>
 
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.4, delay: 0.3 }}
-        className="absolute right-4 top-4 z-10 sm:right-6 sm:top-6"
-      >
-        <ThemeToggleButton className="border-[#dfd2c3]/80 bg-[#fcf8f2]/90 text-stone-600 shadow-sm hover:border-[#d4c4b3] hover:text-slate-900 dark:border-gray-800 dark:bg-gray-900/90 dark:text-gray-300 dark:hover:border-gray-700 dark:hover:text-white" />
-      </motion.div>
+
 
       <div className="relative flex min-h-screen items-center justify-center px-4 py-12">
         {children}
