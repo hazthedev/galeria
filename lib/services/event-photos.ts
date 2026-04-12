@@ -620,11 +620,17 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
     const uploadUserRole = auth?.role || 'guest';
 
     const isAdminUploadHeader = headers.get('x-admin-upload') === 'true';
+    // x-admin-upload is only trusted when the request ALSO carries a verified authenticated session.
+    // Unauthenticated/guest callers cannot use this header to bypass rate limits or reCAPTCHA.
+    const isVerifiedAdminUpload =
+      isAdminUploadHeader &&
+      !!uploadUserId &&
+      ['organizer', 'super_admin'].includes(uploadUserRole);
     const effectiveSubscriptionTier: SubscriptionTier = uploadUserId
       ? subscriptionTier
       : (tenant?.subscription_tier || effectiveTenantTier || subscriptionTier);
     profiler.setMeta({ effectiveTier: effectiveSubscriptionTier });
-    if (!isAdminUploadHeader) {
+    if (!isVerifiedAdminUpload) {
 
     // Check rate limits (IP, fingerprint, event, burst protection)
     const uploadRateLimitOverrides = event.settings?.security?.upload_rate_limits;
@@ -690,63 +696,44 @@ export async function handleEventPhotoUpload(request: NextRequest, eventId: stri
     }
 
     if (!isAuthenticated && requiresRecaptcha) {
-      const isAdminUpload = headers.get('x-admin-upload') === 'true';
-      const contributorName =
-        getStringValue(jsonBody?.['contributor_name']) ??
-        getStringValue(jsonBody?.['contributorName']) ??
-        getStringValue(formData?.get('contributor_name')) ??
-        getStringValue(formData?.get('contributorName'));
-      const isAnonymousRaw =
-        jsonBody?.['is_anonymous'] ??
-        jsonBody?.['isAnonymous'] ??
-        formData?.get('is_anonymous') ??
-        formData?.get('isAnonymous');
-      const isAnonymous =
-        isAnonymousRaw === true || isAnonymousRaw === 'true';
-      const hasName =
-        typeof contributorName === 'string' && contributorName.trim().length > 0;
-      const isNamedGuest = !isAnonymous && hasName;
+      // All unauthenticated requests must pass reCAPTCHA — whether anonymous or named guests.
+      // Providing a contributor_name does NOT grant a bypass; that field is fully user-controlled.
+      // The only legitimate bypass is a request from a verified organizer/admin session.
+      if (!isVerifiedAdminUpload) {
+        let recaptchaToken: string | undefined;
 
-      if (isAdminUpload) {
-      } else if (isNamedGuest) {
-      } else {
-      // Check for reCAPTCHA token in request body
-      let recaptchaToken: string | undefined;
+        if (jsonBody) {
+          recaptchaToken = getStringValue(jsonBody?.['recaptchaToken']);
+        } else if (formData) {
+          recaptchaToken = formData.get('recaptchaToken') as string | undefined;
+        }
 
-      // Extract token from either JSON or form data
-      if (jsonBody) {
-        recaptchaToken = getStringValue(jsonBody?.['recaptchaToken']);
-      } else if (formData) {
-        recaptchaToken = formData.get('recaptchaToken') as string | undefined;
-      }
+        if (!recaptchaToken) {
+          return finalizeUploadResponse(NextResponse.json(
+            {
+              error: 'CAPTCHA token is required for guest uploads',
+              code: 'MISSING_CAPTCHA',
+              requiresCaptcha: true,
+            },
+            { status: 400 }
+          ), 'missing-captcha');
+        }
 
-      if (!recaptchaToken) {
-        return finalizeUploadResponse(NextResponse.json(
-          {
-            error: 'CAPTCHA token is required for anonymous uploads',
-            code: 'MISSING_CAPTCHA',
-            requiresCaptcha: true,
-          },
-          { status: 400 }
-        ), 'missing-captcha');
-      }
+        const recaptchaResult = await profiler.time(
+          'recaptcha',
+          () => validateRecaptchaForUpload(recaptchaToken)
+        );
 
-      // Verify the token
-      const recaptchaResult = await profiler.time(
-        'recaptcha',
-        () => validateRecaptchaForUpload(recaptchaToken)
-      );
-
-      if (!recaptchaResult.valid) {
-        return finalizeUploadResponse(NextResponse.json(
-          {
-            error: recaptchaResult.error || 'CAPTCHA verification failed',
-            code: recaptchaResult.code || 'CAPTCHA_FAILED',
-            score: recaptchaResult.score,
-          },
-          { status: 400 }
-        ), 'captcha-failed');
-      }
+        if (!recaptchaResult.valid) {
+          return finalizeUploadResponse(NextResponse.json(
+            {
+              error: recaptchaResult.error || 'CAPTCHA verification failed',
+              code: recaptchaResult.code || 'CAPTCHA_FAILED',
+              score: recaptchaResult.score,
+            },
+            { status: 400 }
+          ), 'captcha-failed');
+        }
       }
     }
 
