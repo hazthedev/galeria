@@ -50,7 +50,7 @@ export function LandingNav() {
             </Link>
             <Link
               href="/auth/register"
-              className="landing-button-primary inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold"
+              className="landing-button-primary inline-flex shrink-0 items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold whitespace-nowrap"
             >
               Start free
               <ArrowRight className="h-3.5 w-3.5" />
