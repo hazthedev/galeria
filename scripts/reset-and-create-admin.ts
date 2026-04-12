@@ -68,7 +68,7 @@ async function resetAndCreateAdmin() {
       'Galeria',
       'Galeria',
       ADMIN_EMAIL,
-      'support@galeria.com',
+      'galeria.support@gmail.com',
       null,
       'galeria',
       false,

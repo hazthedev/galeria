@@ -156,7 +156,7 @@ export default function OrganizerBillingPage() {
               </div>
 
               <div className="mt-4 text-3xl font-bold text-gray-900 dark:text-white">
-                {config.priceMonthly === -1 ? 'Custom' : config.priceMonthly === 0 ? 'Free' : `$${(config.priceMonthly / 100).toFixed(0)}`}
+                {config.priceMonthly === -1 ? 'Custom' : config.priceMonthly === 0 ? 'Free' : `RM${(config.priceMonthly / 100).toFixed(0)}`}
                 {config.priceMonthly > 0 && <span className="text-sm font-medium text-gray-500">/month</span>}
               </div>
 
@@ -200,7 +200,7 @@ export default function OrganizerBillingPage() {
                   </button>
                 ) : isEnterprise ? (
                   <a
-                    href="mailto:support@galeria.com?subject=Enterprise%20Plan%20Inquiry"
+                    href="mailto:galeria.support@gmail.com?subject=Enterprise%20Plan%20Inquiry"
                     className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
                   >
                     <ShieldCheck className="h-4 w-4" />
@@ -208,7 +208,7 @@ export default function OrganizerBillingPage() {
                   </a>
                 ) : (
                   <a
-                    href={`mailto:support@galeria.com?subject=Upgrade%20to%20${encodeURIComponent(config.displayName)}`}
+                    href={`mailto:galeria.support@gmail.com?subject=Upgrade%20to%20${encodeURIComponent(config.displayName)}&body=${encodeURIComponent(`Hey Galeria, Im ${user?.name || 'there'} , I want to upgrade my plan to ${config.displayName}\n\nThank you`)}`}
                     className={clsx(
                       'inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium text-white',
                       isTop ? 'bg-gradient-to-r from-violet-600 to-pink-600 hover:opacity-90' : 'bg-violet-600 hover:bg-violet-700'
@@ -231,7 +231,7 @@ export default function OrganizerBillingPage() {
         </p>
         <div className="mt-4 flex flex-wrap gap-3">
           <a
-            href="mailto:support@galeria.com?subject=Plan%20Recommendation"
+            href="mailto:galeria.support@gmail.com?subject=Plan%20Recommendation"
             className="rounded-lg bg-violet-600 px-4 py-2 text-white hover:bg-violet-700"
           >
             Contact support

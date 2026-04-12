@@ -55,7 +55,7 @@ async function createSuperadmin() {
                 'Galeria',
                 'Galeria',
                 EMAIL,
-                'support@galeria.com',
+                'galeria.support@gmail.com',
                 null,
                 'galeria-admin',
                 false,

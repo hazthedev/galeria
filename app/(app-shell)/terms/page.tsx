@@ -14,10 +14,10 @@ export default function TermsPage() {
         <p className="mt-3 text-sm leading-relaxed text-gray-600 dark:text-gray-400">
           Our Terms of Service are being finalized. For questions, contact us at{' '}
           <a
-            href="mailto:support@galeria.com"
+            href="mailto:galeria.support@gmail.com"
             className="font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300"
           >
-            support@galeria.com
+            galeria.support@gmail.com
           </a>
           .
         </p>
