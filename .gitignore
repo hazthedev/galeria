@@ -61,12 +61,20 @@ nul
 # AI & IDE tools (personal development files)
 .memorycore/
 .claude/
-TODO.md
-nextjs-codebase-analysis-prompt.md
+.swc/
+.archive/
 
-# business planning (sensitive strategy docs)
-business/
+# markdown files
+*.md
 
-# local-only docs
-docs/*.md
-docs/**/*.md
+# reports
+*report*
+*-report*
+*_report*
+reports/
+
+# docs
+docs/
+
+# github workflows
+.github/
