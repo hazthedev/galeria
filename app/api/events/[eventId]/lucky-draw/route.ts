@@ -13,6 +13,7 @@ import { requireEventModeratorAccess } from '@/lib/domain/auth/auth';
 import { publishEventBroadcast } from '@/lib/realtime/server';
 import { resolveOptionalAuth, resolveRequiredTenantId } from '@/lib/api-request-context';
 import { isTenantFeatureEnabled } from '@/lib/tenant';
+import { withLock, LockConflictError } from '@/lib/infrastructure/lock/mutex';
 
 export const runtime = 'nodejs';
 
@@ -27,7 +28,7 @@ function createLuckyDrawFeatureUnavailableResponse() {
 }
 
 // ============================================
-// POST /api/events/:eventId/lucky-draw/draw - Execute draw
+// POST /api/events/:eventId/lucky-draw - Execute draw
 // ============================================
 
 export async function POST(
@@ -44,7 +45,7 @@ export async function POST(
       return createLuckyDrawFeatureUnavailableResponse();
     }
 
-    const { db } = await requireEventModeratorAccess(headers, eventId);
+    await requireEventModeratorAccess(headers, eventId);
 
     // Get active draw configuration
     const config = await getActiveConfig(tenantId, eventId);
@@ -55,9 +56,29 @@ export async function POST(
       );
     }
 
-    // Execute draw and broadcast draw_started so guests see "starting..."
-    const result = await executeDraw(tenantId, config.id, 'admin');
-    await clearLuckyDrawConfigReadCache(tenantId, eventId);
+    // Wrap the draw execution in a per-event distributed lock.
+    // This prevents duplicate draws from concurrent requests (e.g. double-click on slow connection).
+    // TTL of 30s: if the handler crashes, the lock auto-expires so the event is not permanently blocked.
+    const lockKey = `lucky-draw:lock:${eventId}`;
+    let result;
+    try {
+      result = await withLock(lockKey, async () => {
+        const drawResult = await executeDraw(tenantId, config.id, 'admin');
+        await clearLuckyDrawConfigReadCache(tenantId, eventId);
+        return drawResult;
+      }, 30);
+    } catch (lockError) {
+      if (lockError instanceof LockConflictError) {
+        return NextResponse.json(
+          {
+            error: 'A draw is already in progress for this event. Please wait a moment and try again.',
+            code: 'DRAW_IN_PROGRESS',
+          },
+          { status: 409 }
+        );
+      }
+      throw lockError;
+    }
 
     await publishEventBroadcast(eventId, 'draw_started', {
       event_id: eventId,
