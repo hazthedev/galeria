@@ -103,7 +103,7 @@ export function BrandMark({
       <circle cx="256" cy="256" r="162" fill={`url(#${glowId})`} />
 
       {logoType === "current" && (
-        <>
+        <g>
           <path
             d="M372 194A120 120 0 1 0 372 318"
             stroke={`url(#${accentId})`}
@@ -118,14 +118,14 @@ export function BrandMark({
               fill={`url(#${sparkleId})`}
             />
           )}
-        </>
+        </g>
       )}
 
       {logoType === "sharp-g" && (
-        <>
+        <g>
           <path d="M370 216 V156 H156 V356 H356 V256 H236" fill="none" stroke={`url(#${accentId})`} strokeWidth="48" strokeLinecap="square" strokeLinejoin="miter" />
           <rect x="264" y="232" width="48" height="48" fill={palette.coreFill} />
-        </>
+        </g>
       )}
 
       {logoType === "frames" && (
