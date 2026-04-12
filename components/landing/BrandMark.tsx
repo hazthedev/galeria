@@ -104,11 +104,13 @@ export function BrandMark({
         strokeWidth="52"
       />
       <path d="M258 256H366" stroke={`url(#${accentId})`} strokeLinecap="round" strokeWidth="52" />
-      <circle cx="256" cy="256" r="28" fill={palette.coreFill} />
-      <path
-        d="M348 128L360 154L386 166L360 178L348 204L336 178L310 166L336 154L348 128Z"
-        fill={`url(#${sparkleId})`}
-      />
+      <circle cx="256" cy="256" r={size < 40 ? "40" : "28"} fill={palette.coreFill} />
+      {size >= 40 && (
+        <path
+          d="M348 128L360 154L386 166L360 178L348 204L336 178L310 166L336 154L348 128Z"
+          fill={`url(#${sparkleId})`}
+        />
+      )}
     </svg>
   );
 }
