@@ -28,6 +28,7 @@ export function getSupabaseServerAuthClient(): SupabaseClient {
       autoRefreshToken: false,
       persistSession: false,
       detectSessionInUrl: false,
+      flowType: 'implicit',
     },
   });
 }
